@@ -1,0 +1,14 @@
+{
+  "name": "item-generator",
+  "version": "0.0.1",
+  "description": "Item Generator web application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  }
+}
+

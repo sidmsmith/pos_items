@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Item Generator v0.0.5</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-TdLkn9X3yYbplwVpO6ghPEP3syyLBb4Z8RXOqfN4KVm3vIPpcPpC5XJK0A0VYHkH3VddOZXS6SmfDk5F7bP2Nw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --input-bg: #2d2d2d;
+      --border: #333;
+      --text: #e0e0e0;
+      --red-text: #ff6b6b;
+      --blue-select: #339af0;
+      --success: #28a745;
+      --primary: #0d6efd;
+      --orange: #e67700;
+      --purple: #9c27b0;
+    }
+
+    body { 
+      background: var(--bg-dark); 
+      color: var(--text); 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      min-height: 100vh;
+      margin: 0;
+      padding-bottom: 2rem;
+    }
+
+    .main-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      padding: 1.5rem;
+      margin: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (min-width: 769px) {
+      .main-card { max-width: 1200px; margin: 2rem auto; }
+    }
+
+    .form-control, .form-select, textarea {
+      background: var(--input-bg);
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 8px;
+    }
+    .form-control:focus, .form-select:focus, textarea:focus {
+      background: #333;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+      color: #fff;
+    }
+
+    .btn-primary { background: var(--primary); border: none; }
+    .btn-success { background: var(--success); border: none; }
+    .btn-secondary { background: #6c757d; border: none; }
+    .btn-orange { background: var(--orange); border: none; color: white; }
+    .btn-blue { background: #1e90ff; border: none; }
+    .btn-purple { background: var(--purple); border: none; }
+    .btn-primary:hover { background: #0b5ed7; }
+    .btn-success:hover { background: #218838; }
+    .btn-orange:hover { background: #c65f00; }
+    .btn-blue:hover { background: #1c7ed6; }
+    .btn-purple:hover { background: #7b1fa2; }
+
+    .section-frame {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background: var(--card-bg);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 0.75rem;
+    }
+
+    .form-label { color: #bbbbbb; font-weight: 600; font-size: 0.9em; }
+    small { color: #999; font-size: 0.85em; }
+    h2 { color: var(--primary); text-align: center; margin-bottom: 1.5rem; }
+
+    .progress { height: 12px; background: var(--input-bg); border-radius: 6px; }
+    .progress-bar { background: var(--success); }
+
+    .status-label {
+      font-size: 0.85em;
+      color: #999;
+      margin-top: 0.25rem;
+    }
+
+    /* Console Output */
+    .console-output {
+      background: #000;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8em;
+      padding: 0.75rem;
+      height: 300px;
+      overflow-y: auto;
+      margin-top: 1rem;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .console-output .error { color: #ff6b6b; }
+    .console-output .success { color: #51cf66; }
+    .console-output .info { color: #339af0; }
+    .console-output .warning { color: #ffd43b; }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .input-row label {
+      min-width: 150px;
+      margin-bottom: 0;
+    }
+
+    .input-row input, .input-row select {
+      flex: 1;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .products-display {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 0.5rem;
+    }
+
+    .product-item {
+      padding: 0.25rem 0;
+      color: var(--text);
+    }
+
+    /* Modal/Popup Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 700px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+
+    .modal-header {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    .script-display {
+      background: #000;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      color: #0f0;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-bottom: 1rem;
+    }
+
+    .script-display.truncated::after {
+      content: '\n\n... (script continues - use Copy Script to get full version)';
+      color: #999;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .modal-buttons .btn {
+      min-width: 140px;
+    }
+
+    /* Gallery Styles */
+    .gallery-modal {
+      max-width: 1320px;
+      width: 95%;
+    }
+
+    .gallery-header {
+      border-bottom: 1px solid #222638;
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .gallery-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .gallery-subtitle {
+      color: #adb5ff;
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+
+    .gallery-instruction {
+      color: #ff6b6b;
+      font-size: 0.9rem;
+      min-height: 1.2rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .gallery-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .gallery-toolbar-left,
+    .gallery-toolbar-right {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .gallery-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-height: 60vh;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+
+    .variant-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .gallery-group {
+      border: 1px solid #1f2233;
+      border-radius: 12px;
+      padding: 0.75rem 1rem 1rem;
+      background: #111321;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .gallery-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .gallery-group-header h5 {
+      margin: 0;
+      font-size: 1rem;
+      color: #fff;
+    }
+
+    .gallery-item-id {
+      color: #9aa4d3;
+      font-size: 0.8rem;
+      display: inline-block;
+      margin-top: 0.15rem;
+    }
+
+    .gallery-card {
+      background: #080b14;
+      border: 1px solid #242b44;
+      border-radius: 12px;
+      padding: 0.75rem;
+      width: 240px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .gallery-card-image {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      height: 180px;
+    }
+
+    .gallery-card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .gallery-card-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .gallery-card-title {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .gallery-card-source {
+      color: #9aa4d3;
+      font-size: 0.75rem;
+      text-align: right;
+    }
+
+    .gallery-preview-btn {
+      border: 1px solid #3f4b6b;
+      border-radius: 999px;
+      padding: 0.2rem 0.8rem;
+      font-size: 0.75rem;
+      background: transparent;
+      color: #fff;
+      align-self: flex-start;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .gallery-preview-btn:hover {
+      background: #3f4b6b;
+    }
+
+    .gallery-card.selected {
+      border-color: #2f9e44;
+      box-shadow: 0 0 0 2px rgba(47, 158, 68, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .variant-slider {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .slider-viewport {
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .slider-track {
+      display: flex;
+      gap: 1rem;
+      transition: transform 0.3s ease;
+    }
+
+    .slider-nav-btn {
+      background: transparent;
+      border: 1px solid #3f4b6b;
+      color: #fff;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1rem;
+    }
+
+    .variant-slider.no-nav .slider-nav-btn {
+      visibility: hidden;
+    }
+
+    .gallery-warning {
+      background: rgba(230, 119, 0, 0.15);
+      border: 1px solid var(--orange);
+      border-radius: 8px;
+      padding: 0.75rem;
+      color: #ffc078;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .hidden-warning {
+      display: none;
+    }
+
+    .gallery-empty {
+      font-size: 0.85rem;
+      color: #bbb;
+      border: 1px dashed #444;
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+    }
+
+    .gallery-footer-status {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: #bbb;
+      min-height: 1.2em;
+    }
+
+    .carousel-modal {
+      max-width: 900px;
+      width: 95%;
+    }
+
+    .carousel-body {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .carousel-image {
+      flex: 1;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      height: 420px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .carousel-image img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .carousel-nav-btn {
+      background: transparent;
+      border: 1px solid #3f4b6b;
+      color: #fff;
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.1rem;
+    }
+
+    .carousel-caption {
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    .carousel-caption a {
+      color: #66d9ff;
+      text-decoration: underline;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- PowerShell Script Modal -->
+  <div class="modal-overlay" id="scriptModal">
+    <div class="modal-content">
+      <div class="modal-header">PowerShell Script to Move Files</div>
+      <div class="script-display" id="scriptDisplay"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-success" onclick="downloadScript()">Download Script</button>
+        <button class="btn btn-primary" onclick="copyScript(event)">Copy Script</button>
+        <button class="btn btn-secondary" onclick="closeScriptModal()">Close</button>
+      </div>
+    </div>
+  </div>
+  <!-- Gallery Modal -->
+  <div class="modal-overlay" id="galleryModal">
+    <div class="modal-content gallery-modal">
+      <div class="modal-header gallery-header">
+        <div>
+          <div class="gallery-title">Review Images</div>
+          <div class="gallery-subtitle" id="gallerySelectionSummary">0 of 0 items selected</div>
+        </div>
+      </div>
+      <div class="gallery-instruction" id="galleryInstructionMessage"></div>
+      <div class="gallery-toolbar">
+        <div class="gallery-toolbar-left">
+          <button id="gallerySelectFirstBtn" class="btn btn-outline-light btn-sm">Select First Image</button>
+          <button id="galleryRefreshBtn" class="btn btn-outline-light btn-sm" title="Refresh gallery"><i class="fas fa-sync-alt"></i></button>
+        </div>
+      <div class="gallery-toolbar-right">
+        <button id="galleryCloseBtn" class="btn btn-outline-secondary btn-sm">Cancel</button>
+        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Save Selection</button>
+        </div>
+      </div>
+      <div id="galleryWarnings"></div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+      <div class="gallery-footer-status" id="galleryFooterStatus"></div>
+    </div>
+  </div>
+  <!-- Variant Carousel Modal -->
+  <div class="modal-overlay" id="carouselModal">
+    <div class="modal-content carousel-modal">
+      <div class="modal-header d-flex justify-content-between align-items-center">
+        <span id="carouselTitle"></span>
+        <button class="btn btn-outline-secondary btn-sm" id="carouselCloseBtn">Close</button>
+      </div>
+      <div class="carousel-body">
+        <button class="carousel-nav-btn" id="carouselPrevBtn" type="button">&#8249;</button>
+        <div class="carousel-image">
+          <img id="carouselImage" src="" alt="Variant preview">
+        </div>
+        <button class="carousel-nav-btn" id="carouselNextBtn" type="button">&#8250;</button>
+      </div>
+      <div class="carousel-caption">
+        <div id="carouselVariantLabel"></div>
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <a id="carouselOpenOriginal" href="#" target="_blank" rel="noopener noreferrer">Open original</a>
+          <button class="btn btn-success btn-sm" id="carouselUseBtn" type="button">Use This Image</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="main-card">
+    <h2>Item Generator v0.0.5</h2>
+
+    <!-- ============================================================================= -->
+    <!-- SECTION 1: GENERATE ITEMS -->
+    <!-- ============================================================================= -->
+    <div class="section-frame">
+      <div class="section-title">Generate Items</div>
+      
+      <div class="input-row">
+        <label class="form-label">Company:</label>
+        <input type="text" id="company" class="form-control" placeholder="Nike" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Website (Optional):</label>
+        <input type="text" id="website" class="form-control" placeholder="nike.com" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Item Count:</label>
+        <input type="number" id="count" class="form-control" placeholder="30" min="1" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Extra Prompt:</label>
+        <input type="text" id="extra_prompt" class="form-control" placeholder="Optional additional instructions" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Existing Item List:</label>
+        <input type="file" id="items_file" class="form-control" accept=".txt" style="display:none;" />
+        <input type="text" id="existing_list" class="form-control" placeholder="Load or enter a .txt item list path" style="flex:1;" />
+        <button class="btn btn-secondary btn-sm" id="existingListLoadBtn" type="button">Load</button>
+      </div>
+
+      <div class="input-row mt-3">
+        <label class="form-label">Reference Items File:</label>
+        <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" />
+        <small>Upload CSV/Excel file with item numbers (one per row, first column)</small>
+      </div>
+      <div class="status-label" id="itemNumbersStatus"></div>
+
+      <div class="input-row">
+        <label class="form-label">Images Per Item:</label>
+        <input type="number" id="images_per_item" class="form-control" placeholder="3" min="1" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Preferred Sites:</label>
+        <input type="text" id="sites" class="form-control" placeholder="nike.com, amazon.com" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Image Filters:</label>
+        <input type="text" id="image_filters" class="form-control" placeholder="large, photo, png" />
+        <small>Options: large, photo, png, red, etc.</small>
+      </div>
+
+      <div class="btn-row">
+        <button id="genBtn" class="btn btn-success" style="width: 200px;">Generate Items</button>
+      </div>
+
+      <div class="progress mt-2" id="genProgress" style="display: none;">
+        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+      </div>
+      <div class="status-label" id="genStatus"></div>
+
+    </div>
+
+    <div class="section-frame" id="itemListPanel">
+      <div class="section-title d-flex justify-content-between align-items-center">
+        <span>Current Item List</span>
+        <button id="itemListToggleBtn" class="btn btn-outline-light btn-sm">Hide</button>
+      </div>
+      <div id="itemListBody">
+        <textarea id="itemListTextarea" class="form-control" rows="8" style="background:#0d1117;color:#fff;border:1px solid #333;"></textarea>
+      <div class="btn-row mt-2" style="gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+        <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Apply Changes</button>
+        <button id="itemListSaveBtn" class="btn btn-outline-light btn-sm">Save List</button>
+        <button id="itemListClearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
+        <button id="dlBtn" class="btn btn-success btn-sm">Download Items</button>
+      </div>
+      <div class="status-label" id="itemListStatus"></div>
+      <div class="progress mt-2" id="dlProgress" style="display: none;">
+        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+      </div>
+      <div class="status-label" id="dlStatus"></div>
+    </div>
+  </div>
+
+    <!-- ============================================================================= -->
+    <!-- SECTION 2: WORKFLOW -->
+    <!-- ============================================================================= -->
+    <div class="section-frame">
+      <div class="section-title">Workflow</div>
+
+      <div class="input-row">
+        <label class="form-label">Cloudinary Prefix:</label>
+        <input type="text" id="prefix" class="form-control" placeholder="https://res.cloudinary.com/..." />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Image Directory:</label>
+        <input type="file" id="save_dir_file" class="form-control" webkitdirectory directory style="display: none;" />
+        <input type="text" id="save_dir" class="form-control" placeholder="Select directory for cleanup/upload reference" style="flex: 1;" />
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('save_dir_file').click();" type="button">Choose Directory</button>
+        <small style="color: #999; font-size: 0.85em;">Used for cleanup/upload functions (select where you saved downloaded images)</small>
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Output CSV File:</label>
+        <input type="file" id="csv_out_file" class="form-control" accept=".csv,.xls,.xlsx" style="display: none;" />
+        <input type="text" id="csv_out" class="form-control" placeholder="imagedownload.csv" readonly style="flex: 1;" />
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('csv_out_file').click();" type="button">Choose File</button>
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Cloudinary Folder:</label>
+        <input type="text" id="upload_folder" class="form-control" placeholder="sidney" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Upload Preset:</label>
+        <input type="text" id="upload_profile" class="form-control" placeholder="Optional preset name" />
+      </div>
+
+      <div class="btn-row">
+        <button id="cleanupBtn" class="btn btn-orange" style="width: 160px;">Clean Up CSV</button>
+        <button id="upBtn" class="btn btn-blue" style="width: 160px;">Upload to Cloudinary</button>
+        <button id="wmBtn" class="btn btn-purple" style="width: 160px;">Update WM</button>
+      </div>
+
+    </div>
+
+    <!-- ============================================================================= -->
+    <!-- CONSOLE WINDOW (For Troubleshooting) -->
+    <!-- ============================================================================= -->
+    <div class="section-frame">
+      <div class="section-title">Console (Troubleshooting)</div>
+      <div class="console-output" id="console"></div>
+    </div>
+  </div>
+
+  <script>
+    const APP_VERSION = 'v0.0.5';
+    const DEFAULTS = {
+      company: "Nike",
+      website: "nike.com",
+      count: 30,
+      sites: "nike.com, amazon.com",
+      images_per_item: 3,
+      prefix: "https://res.cloudinary.com/com-manh-cp/image/upload/v1752528139/sidney/",
+      upload_folder: "sidney",
+      upload_profile: "",
+      extra_prompt: "",
+      image_filters: "",
+      existing_list: "items.txt",
+      csv_out: "imagedownload.csv",
+      save_dir: "/tmp/images"
+    };
+
+    let generatedProducts = [];
+    let generatedOutputText = '';
+    let referenceItems = [];
+    let currentItemList = [];
+    let itemListCollapsed = false;
+    let galleryItems = [];
+    let gallerySelections = {};
+    let galleryMissingItems = [];
+    let lastGalleryPayload = null;
+    let galleryLoading = false;
+    let csvData = null;
+    let fullScriptContent = '';
+    let carouselGroup = null;
+    let carouselIndex = 0;
+
+    function loadConfig() {
+      const config = {};
+      for (const key in DEFAULTS) {
+        const stored = localStorage.getItem(`item_gen_${key}`);
+        config[key] = stored !== null ? stored : DEFAULTS[key];
+      }
+      return config;
+    }
+
+    function saveConfig() {
+      const config = {
+        company: document.getElementById('company').value,
+        website: document.getElementById('website').value,
+        count: document.getElementById('count').value,
+        sites: document.getElementById('sites').value,
+        images_per_item: document.getElementById('images_per_item').value,
+        prefix: document.getElementById('prefix').value,
+        upload_folder: document.getElementById('upload_folder').value,
+        upload_profile: document.getElementById('upload_profile').value,
+        extra_prompt: document.getElementById('extra_prompt').value,
+        image_filters: document.getElementById('image_filters').value,
+        existing_list: document.getElementById('existing_list').value,
+        csv_out: document.getElementById('csv_out').value,
+        save_dir: document.getElementById('save_dir').value
+      };
+
+      for (const key in config) {
+        if (config[key]) {
+          localStorage.setItem(`item_gen_${key}`, config[key]);
+        }
+      }
+    }
+
+    function getDesktopPath() {
+      if (navigator.platform.toLowerCase().includes('win')) {
+        return 'C:\\Users\\User\\Desktop\\';
+      } else if (navigator.platform.toLowerCase().includes('mac')) {
+        return '~/Desktop/';
+      }
+      return '~/Desktop/';
+    }
+
+    function normalizePathDefaults(config) {
+      const hasStoredConfig = Object.keys(localStorage).some(key => key.startsWith('item_gen_'));
+      if (hasStoredConfig) return config;
+        const desktopPath = getDesktopPath();
+        if (config.existing_list && !config.existing_list.includes('/') && !config.existing_list.includes('\\')) {
+          config.existing_list = desktopPath + config.existing_list;
+        }
+        if (config.csv_out && !config.csv_out.includes('/') && !config.csv_out.includes('\\')) {
+          config.csv_out = desktopPath + config.csv_out;
+        }
+        if (!config.save_dir || config.save_dir === DEFAULTS.save_dir) {
+          config.save_dir = '';
+        }
+      return config;
+      }
+
+    function initUI() {
+      let config = loadConfig();
+      config = normalizePathDefaults(config);
+
+      for (const key in config) {
+        const el = document.getElementById(key);
+        if (el) el.value = config[key];
+      }
+
+      document.getElementById('save_dir_file').addEventListener('change', (e) => {
+        if (!e.target.files.length) return;
+          const firstFile = e.target.files[0];
+          let dirPath = '';
+          if (firstFile.webkitRelativePath) {
+            const parts = firstFile.webkitRelativePath.split('/');
+          parts.pop();
+            dirPath = parts.join('/');
+          } else if (firstFile.path) {
+            const parts = firstFile.path.split(/[/\\]/);
+            parts.pop();
+            dirPath = parts.join('/');
+          }
+        if (dirPath) document.getElementById('save_dir').value = dirPath;
+      });
+
+      document.getElementById('csv_out_file').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          document.getElementById('csv_out').value = e.target.files[0].name;
+        }
+      });
+
+      document.getElementById('item_numbers_csv').addEventListener('change', async (e) => {
+        if (!e.target.files.length) {
+          referenceItems = [];
+          setItemNumbersStatus('');
+          return;
+        }
+        referenceItems = await parseReferenceItemsFile(e.target.files[0]);
+        setItemNumbersStatus(
+          referenceItems.length
+            ? `${referenceItems.length} reference items loaded`
+            : 'No item IDs detected in the first column.'
+        );
+      });
+
+      const existingListBtn = document.getElementById('existingListLoadBtn');
+      if (existingListBtn) {
+        existingListBtn.addEventListener('click', () => {
+          document.getElementById('items_file').click();
+        });
+      }
+
+      document.getElementById('items_file').addEventListener('change', async (e) => {
+        if (!e.target.files.length) {
+          document.getElementById('existing_list').value = '';
+          return;
+        }
+        const file = e.target.files[0];
+        document.getElementById('existing_list').value = file.name || e.target.value;
+        await loadItemsFromTextFile(file);
+        e.target.value = '';
+      });
+
+      document.getElementById('itemListApplyBtn').addEventListener('click', () => {
+        const textarea = document.getElementById('itemListTextarea');
+        const items = textarea.value.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        setItemList(items, `Applied ${items.length} items from editor`);
+      });
+
+      document.getElementById('itemListSaveBtn').addEventListener('click', () => {
+        const textarea = document.getElementById('itemListTextarea');
+        const content = textarea.value.trim().length ? textarea.value : currentItemList.join('\n');
+        const outputPath = document.getElementById('existing_list').value || 'items.txt';
+        const fileName = outputPath.split(/[/\\]/).pop() || 'items.txt';
+        downloadTextFile(content, fileName.endsWith('.txt') ? fileName : `${fileName}.txt`);
+        logToConsole('Item list saved to file', 'success');
+      });
+
+      document.getElementById('itemListClearBtn').addEventListener('click', () => {
+        setItemList([], 'Item list cleared');
+      });
+
+      document.getElementById('itemListToggleBtn').addEventListener('click', toggleItemListPanel);
+
+      setItemList([], 'No items loaded yet.');
+    }
+
+    async function parseReferenceItemsFile(file) {
+      const extension = file.name.split('.').pop().toLowerCase();
+      let items = [];
+      if (extension === 'csv' || extension === 'txt') {
+        const text = await file.text();
+        text.split(/\r?\n/).forEach(line => {
+          const value = line.split(',')[0].trim();
+          if (value) items.push(value);
+        });
+      } else {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        rows.forEach(row => {
+          const value = row && row[0] ? String(row[0]).trim() : '';
+          if (value) items.push(value);
+        });
+      }
+      return items;
+    }
+
+    function normalizeItemList(items) {
+      const seen = new Set();
+      const normalized = [];
+      items.forEach(item => {
+        const trimmed = item.trim();
+        if (!trimmed) return;
+        const key = trimmed.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          normalized.push(trimmed);
+        }
+      });
+      return normalized;
+    }
+
+    function updateItemListTextarea(message) {
+      const textarea = document.getElementById('itemListTextarea');
+      textarea.value = currentItemList.join('\n');
+      const status = document.getElementById('itemListStatus');
+      status.textContent = message || (currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.');
+    }
+
+    function setItemList(items, statusMessage) {
+      currentItemList = normalizeItemList(items || []);
+      updateItemListTextarea(statusMessage);
+    }
+
+    async function loadItemsFromTextFile(file) {
+      if (!file) return;
+      const text = await file.text();
+      const items = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      setItemList(items, `${items.length} items loaded from ${file.name}`);
+    }
+
+    function toggleItemListPanel() {
+      const body = document.getElementById('itemListBody');
+      const btn = document.getElementById('itemListToggleBtn');
+      itemListCollapsed = !itemListCollapsed;
+      if (itemListCollapsed) {
+        body.style.display = 'none';
+        btn.textContent = 'Show';
+      } else {
+        body.style.display = '';
+        btn.textContent = 'Hide';
+      }
+    }
+
+    function logToConsole(message, type = 'info') {
+      const consoleEl = document.getElementById('console');
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+      consoleEl.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function base64ToBlob(base64Data, mimeType) {
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mimeType });
+    }
+
+    function downloadBase64File(base64Data, fileName, mimeType) {
+      const blob = base64ToBlob(base64Data, mimeType);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadTextFile(content, fileName) {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function setItemNumbersStatus(text) {
+      document.getElementById('itemNumbersStatus').textContent = text || '';
+    }
+
+    async function apiCall(endpoint, data) {
+      try {
+        logToConsole(`Calling ${endpoint}...`, 'info');
+        const response = await fetch(`/api/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+          logToConsole(`${endpoint} succeeded`, 'success');
+        } else {
+          logToConsole(`${endpoint} failed: ${result.error}`, 'error');
+        }
+        return result;
+      } catch (error) {
+        logToConsole(`${endpoint} error: ${error.message}`, 'error');
+        return { success: false, error: error.message };
+      }
+    }
+
+    async function handleGenerateClick() {
+      saveConfig();
+      const company = document.getElementById('company').value.trim();
+      if (!company) {
+        alert('Company is required');
+        return;
+      }
+      const website = document.getElementById('website').value.trim();
+      const count = parseInt(document.getElementById('count').value) || DEFAULTS.count;
+      const extra_prompt = document.getElementById('extra_prompt').value.trim();
+
+      const genBtn = document.getElementById('genBtn');
+      const genProgress = document.getElementById('genProgress');
+      const genStatus = document.getElementById('genStatus');
+
+      genBtn.disabled = true;
+      genProgress.style.display = 'block';
+      genStatus.textContent = 'Generating...';
+
+      const result = await apiCall('generate_items', { company, website, count, extra_prompt });
+
+      genBtn.disabled = false;
+      genProgress.style.display = 'none';
+
+      if (!result.success) {
+        genStatus.textContent = `Error: ${result.error}`;
+        return;
+      }
+
+      generatedProducts = result.products;
+      setItemList(result.products, `${result.products.length} generated items ready for gallery.`);
+
+      genStatus.textContent = `Generated ${result.count} products successfully!`;
+    }
+
+    function getSearchSource() {
+      if (currentItemList.length) return currentItemList.slice();
+      if (generatedProducts.length) return generatedProducts.slice();
+      return referenceItems.slice();
+    }
+
+    async function handleDownloadClick() {
+      if (!referenceItems.length) {
+        alert('Please upload a Reference Items File before downloading images.');
+        return;
+      }
+
+      const baseNames = getSearchSource();
+      if (!baseNames.length) {
+        alert('Please generate or load items before downloading images.');
+        return;
+      }
+
+      saveConfig();
+      const sites = document.getElementById('sites').value.trim() || DEFAULTS.sites;
+      const images_per_item = parseInt(document.getElementById('images_per_item').value) || DEFAULTS.images_per_item;
+      const prefix = document.getElementById('prefix').value.trim();
+      const filter_str = document.getElementById('image_filters').value.trim();
+
+      const productsForSearch = baseNames.slice();
+
+      lastGalleryPayload = {
+        products: productsForSearch,
+        sites,
+        images_per_item,
+        prefix,
+        item_numbers: referenceItems,
+        image_filters: filter_str
+      };
+
+      const dlBtn = document.getElementById('dlBtn');
+      const dlProgress = document.getElementById('dlProgress');
+      const dlStatus = document.getElementById('dlStatus');
+
+      dlBtn.disabled = true;
+      dlProgress.style.display = 'block';
+      dlStatus.textContent = 'Preparing gallery...';
+
+      const result = await apiCall('gallery_generate', lastGalleryPayload);
+
+      dlBtn.disabled = false;
+      dlProgress.style.display = 'none';
+
+      if (!result.success) {
+        dlStatus.textContent = `Error: ${result.error || 'Unable to generate gallery'}`;
+        return;
+      }
+
+      galleryItems = result.items || [];
+      gallerySelections = {};
+      galleryMissingItems = result.missingItems || [];
+      dlStatus.textContent = 'Gallery ready. Review and select one image per item.';
+      openGalleryModal();
+    }
+
+    function openGalleryModal() {
+      document.getElementById('galleryModal').classList.add('show');
+      renderGallery();
+      setGalleryStatus('Select one image per item, then click Save Selection.');
+    }
+
+    function closeGalleryModal() {
+      document.getElementById('galleryModal').classList.remove('show');
+      setGalleryStatus('');
+    }
+
+    function renderGallery() {
+      const grid = document.getElementById('galleryGrid');
+      grid.innerHTML = '';
+
+      galleryItems.forEach(item => {
+        const group = document.createElement('div');
+        group.className = 'gallery-group';
+
+        const header = document.createElement('div');
+        header.className = 'gallery-group-header';
+        const uniqueSources = new Set(item.variants.map(v => v.source).filter(Boolean));
+        const groupSourceHtml = uniqueSources.size === 1 ? `<small class="text-muted">Source: ${Array.from(uniqueSources)[0]}</small>` : '';
+        const displayTitle = item.productName || item.itemId;
+        header.innerHTML = `
+          <div>
+            <h5>${displayTitle}</h5>
+          </div>
+          <div>${groupSourceHtml}</div>
+        `;
+        group.appendChild(header);
+
+        if (item.variants.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'gallery-empty';
+          empty.textContent = 'No images returned for this item.';
+          group.appendChild(empty);
+          grid.appendChild(group);
+          return;
+        }
+
+        const sliderWrapper = document.createElement('div');
+        sliderWrapper.className = 'variant-slider';
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'slider-nav-btn slider-nav-prev';
+        prevBtn.innerHTML = '&#8249;';
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'slider-nav-btn slider-nav-next';
+        nextBtn.innerHTML = '&#8250;';
+        const viewport = document.createElement('div');
+        viewport.className = 'slider-viewport';
+        const track = document.createElement('div');
+        track.className = 'slider-track';
+
+        item.variants.forEach((variant, idx) => {
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+          const isSelected = gallerySelections[item.itemId] === variant.fileName;
+          if (isSelected) card.classList.add('selected');
+          card.innerHTML = `
+            <div class="gallery-card-image">
+              <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
+            </div>
+            <div class="gallery-card-body">
+              <div class="gallery-card-title">Variant ${idx + 1}</div>
+              <div class="gallery-card-source">Source: ${variant.source || 'Unknown'}</div>
+            </div>
+            <button class="gallery-preview-btn" type="button">Preview</button>
+          `;
+          card.addEventListener('click', () => toggleGallerySelection(item.itemId, variant.fileName));
+          const previewBtn = card.querySelector('.gallery-preview-btn');
+          previewBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openVariantCarousel(item, idx);
+          });
+          track.appendChild(card);
+        });
+
+        viewport.appendChild(track);
+        sliderWrapper.appendChild(prevBtn);
+        sliderWrapper.appendChild(viewport);
+        sliderWrapper.appendChild(nextBtn);
+        const sliderState = { index: 0, visible: 4, cardWidth: 240 };
+
+        const updateSlider = () => {
+          const card = track.querySelector('.gallery-card');
+          if (card) {
+            sliderState.cardWidth = card.getBoundingClientRect().width;
+          }
+          const gap = 16;
+          const viewportWidth = viewport.getBoundingClientRect().width;
+          sliderState.visible = Math.max(1, Math.min(4, Math.floor(viewportWidth / (sliderState.cardWidth + gap))));
+          const maxIndex = Math.max(0, item.variants.length - sliderState.visible);
+          sliderState.index = Math.min(sliderState.index, maxIndex);
+          const offset = -(sliderState.cardWidth + gap) * sliderState.index;
+          track.style.transform = `translateX(${offset}px)`;
+          prevBtn.disabled = sliderState.index === 0;
+          nextBtn.disabled = sliderState.index >= maxIndex;
+          if (item.variants.length <= sliderState.visible) {
+            sliderWrapper.classList.add('no-nav');
+          } else {
+            sliderWrapper.classList.remove('no-nav');
+          }
+        };
+
+        prevBtn.addEventListener('click', () => {
+          sliderState.index = Math.max(0, sliderState.index - sliderState.visible);
+          updateSlider();
+        });
+        nextBtn.addEventListener('click', () => {
+          sliderState.index = sliderState.index + sliderState.visible;
+          updateSlider();
+        });
+        window.addEventListener('resize', updateSlider);
+        updateSlider();
+
+        group.appendChild(sliderWrapper);
+        grid.appendChild(group);
+      });
+
+      updateGalleryWarnings();
+      updateGalleryToolbar();
+      updateGallerySummary();
+    }
+
+    function updateGalleryToolbar() {
+      const saveBtn = document.getElementById('gallerySaveBtn');
+      const selectableGroups = galleryItems.filter(item => item.variants.length > 0);
+      const missingSelections = selectableGroups.filter(item => !gallerySelections[item.itemId]);
+      saveBtn.disabled = selectableGroups.length === 0 || missingSelections.length > 0 || galleryLoading;
+      document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
+      document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
+    }
+
+    function updateGallerySummary() {
+      const summaryEl = document.getElementById('gallerySelectionSummary');
+      if (!summaryEl) return;
+      const total = galleryItems.length;
+      const selected = Object.keys(gallerySelections).length;
+      summaryEl.textContent = `${selected} of ${total} items selected`;
+    }
+
+    function getItemDisplayLabel(itemId) {
+      const item = galleryItems.find(entry => entry.itemId === itemId);
+      if (item) {
+        return item.productName || item.itemId;
+      }
+      return itemId;
+    }
+
+    function updateGalleryWarnings() {
+      const warningsContainer = document.getElementById('galleryWarnings');
+      const instructionEl = document.getElementById('galleryInstructionMessage');
+      const groupsWithoutImages = galleryItems
+        .filter(item => item.variants.length === 0)
+        .map(item => getItemDisplayLabel(item.itemId));
+      const groupsMissingSelections = galleryItems
+        .filter(item => item.variants.length > 0 && !gallerySelections[item.itemId])
+        .map(item => getItemDisplayLabel(item.itemId));
+
+      if (instructionEl) {
+        if (groupsMissingSelections.length > 0) {
+          instructionEl.textContent = `Select one image per item (${groupsMissingSelections.length} remaining).`;
+        } else if (galleryItems.length) {
+          instructionEl.textContent = 'Select one image per item, then click Save Selection.';
+      } else {
+          instructionEl.textContent = '';
+        }
+      }
+
+      const summarizeList = (arr, limit = 12) => {
+        if (arr.length <= limit) return arr.join(', ');
+        const remaining = arr.length - limit;
+        return `${arr.slice(0, limit).join(', ')}, … (+${remaining})`;
+      };
+
+      let warningsHtml = '';
+      if (groupsWithoutImages.length > 0) {
+        warningsHtml += `<div class="gallery-warning hidden-warning">Warning: No images returned for ${summarizeList(groupsWithoutImages)}</div>`;
+      }
+      if (groupsMissingSelections.length > 0) {
+        warningsHtml += `<div class="gallery-warning hidden-warning">Missing selections for: ${summarizeList(groupsMissingSelections)}</div>`;
+      }
+      if (galleryMissingItems.length > 0) {
+        const detailList = galleryMissingItems.map(m => {
+          const label = getItemDisplayLabel(m.itemId);
+          return `${label}${m.reason ? ` (${m.reason})` : ''}`;
+        });
+        warningsHtml += `<div class="gallery-warning hidden-warning">Gallery API could not find images for: ${summarizeList(detailList)}</div>`;
+      }
+      warningsContainer.innerHTML = warningsHtml;
+      const saveBtn = document.getElementById('gallerySaveBtn');
+      if (saveBtn) {
+        const tooltipText = warningsHtml ? warningsContainer.textContent.trim() : '';
+        saveBtn.title = tooltipText || '';
+      }
+    }
+
+    function toggleGallerySelection(itemId, fileName) {
+      if (gallerySelections[itemId] === fileName) {
+        delete gallerySelections[itemId];
+      } else {
+        gallerySelections[itemId] = fileName;
+      }
+      renderGallery();
+    }
+
+    function selectFirstVariants() {
+      galleryItems.forEach(item => {
+        if (item.variants.length > 0) {
+          gallerySelections[item.itemId] = item.variants[0].fileName;
+        }
+      });
+      renderGallery();
+    }
+
+    function openVariantCarousel(group, startIndex) {
+      carouselGroup = group;
+      carouselIndex = startIndex;
+      updateCarouselView();
+      document.getElementById('carouselModal').classList.add('show');
+    }
+
+    function closeVariantCarousel() {
+      document.getElementById('carouselModal').classList.remove('show');
+      carouselGroup = null;
+      carouselIndex = 0;
+    }
+
+    function updateCarouselView() {
+      if (!carouselGroup) return;
+      const variant = carouselGroup.variants[carouselIndex];
+      if (!variant) return;
+      document.getElementById('carouselTitle').textContent = carouselGroup.productName || carouselGroup.itemId;
+      const imgEl = document.getElementById('carouselImage');
+      imgEl.src = variant.originalUrl || variant.previewUrl;
+      imgEl.alt = variant.fileName;
+      document.getElementById('carouselVariantLabel').textContent = `Variant ${carouselIndex + 1} • Source: ${variant.source || 'Unknown'}`;
+      const originalLink = document.getElementById('carouselOpenOriginal');
+      originalLink.href = variant.originalUrl;
+    }
+
+    function shiftCarousel(delta) {
+      if (!carouselGroup) return;
+      const total = carouselGroup.variants.length;
+      if (total === 0) return;
+      carouselIndex = (carouselIndex + delta + total) % total;
+      updateCarouselView();
+    }
+
+    function useCarouselImage() {
+      if (!carouselGroup) return;
+      const variant = carouselGroup.variants[carouselIndex];
+      if (!variant) return;
+      gallerySelections[carouselGroup.itemId] = variant.fileName;
+      renderGallery();
+      closeVariantCarousel();
+    }
+
+    function setGalleryStatus(message) {
+      document.getElementById('galleryFooterStatus').textContent = message || '';
+    }
+
+    async function refreshGallery() {
+      if (!lastGalleryPayload) return;
+      galleryLoading = true;
+      updateGalleryToolbar();
+      setGalleryStatus('Refreshing gallery...');
+      const result = await apiCall('gallery_generate', lastGalleryPayload);
+      galleryLoading = false;
+      if (result.success) {
+        galleryItems = result.items || [];
+        gallerySelections = {};
+        galleryMissingItems = result.missingItems || [];
+        renderGallery();
+        setGalleryStatus('Gallery refreshed');
+      } else {
+        setGalleryStatus(`Error refreshing gallery: ${result.error || 'Unknown error'}`);
+        updateGalleryToolbar();
+      }
+    }
+
+    function getGalleryRequiredItems() {
+      return galleryItems.filter(item => item.variants.length > 0).map(item => item.itemId);
+    }
+
+    function parseCsvToArray(csvText) {
+      const rows = csvText.split(/\r?\n/).filter(Boolean);
+      return rows.slice(1).map(row => row.split(','));
+    }
+
+    async function finalizeGallerySelections() {
+      const requiredItems = getGalleryRequiredItems();
+      const missing = requiredItems.filter(item => !gallerySelections[item]);
+      if (missing.length > 0) {
+        const missingLabels = missing.map(getItemDisplayLabel);
+        setGalleryStatus(`Select one image for: ${missingLabels.join(', ')}`);
+        updateGalleryWarnings();
+        return;
+      }
+
+      const prefix = document.getElementById('prefix').value.trim();
+      galleryLoading = true;
+      updateGalleryToolbar();
+      setGalleryStatus('Finalizing selection...');
+
+      const selectionsPayload = [];
+      galleryItems.forEach(item => {
+        const selectedFile = gallerySelections[item.itemId];
+        if (!selectedFile) return;
+        const variant = item.variants.find(v => v.fileName === selectedFile);
+        if (variant) {
+          selectionsPayload.push({
+            itemId: item.itemId,
+            referenceId: item.referenceId,
+            productName: item.productName,
+            fileName: variant.fileName,
+            originalUrl: variant.originalUrl,
+            shortDescription: variant.shortDescription,
+            description: variant.description,
+            source: variant.source
+          });
+        }
+      });
+
+      const payload = {
+        selections: selectionsPayload,
+        prefix,
+        reference_items: referenceItems,
+        required_items: requiredItems
+      };
+
+      const result = await apiCall('gallery_finalize', payload);
+      galleryLoading = false;
+      updateGalleryToolbar();
+
+      if (!result.success) {
+        setGalleryStatus(`Error finalizing: ${result.error || 'Unknown error'}`);
+        return;
+      }
+
+      if (result.csv_content) {
+        downloadBase64File(result.csv_content, result.csv_filename || 'imagedownload.csv', 'text/csv');
+        const csvText = atob(result.csv_content);
+        csvData = parseCsvToArray(csvText);
+      }
+      if (result.zip_content) {
+        downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${Date.now()}.zip`, 'application/zip');
+      }
+
+      document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
+      setGalleryStatus('Downloads ready. Check your browser downloads folder.');
+      showScriptModal(result.csv_filename, result.zip_filename);
+      galleryItems = [];
+      gallerySelections = {};
+      galleryMissingItems = [];
+      closeGalleryModal();
+    }
+
+    function handleCleanupClick() {
+      alert('Clean Up CSV functionality will be implemented');
+    }
+
+    function handleUploadClick() {
+      alert('Upload to Cloudinary functionality will be implemented');
+    }
+
+    async function handleWmUpdate() {
+      const org = prompt('Enter ORG for Manhattan WMS:');
+      if (!org) return;
+      const authResult = await apiCall('auth', { org });
+      if (!authResult.success) {
+        alert(`Authentication failed: ${authResult.error}`);
+        return;
+      }
+      if (!csvData) {
+        alert('Please download images first to create CSV data');
+        return;
+      }
+      const wmBtn = document.getElementById('wmBtn');
+      const dlStatus = document.getElementById('dlStatus');
+
+      wmBtn.disabled = true;
+      dlStatus.textContent = 'Uploading to WMS...';
+
+      const result = await apiCall('update_wm', {
+        org,
+        token: authResult.token,
+        csv_data: csvData
+      });
+
+      wmBtn.disabled = false;
+
+      if (result.success) {
+        alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
+        dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
+      } else {
+        alert(`WM Update failed: ${result.error}`);
+        dlStatus.textContent = `Error: ${result.error}`;
+      }
+    }
+
+    function registerEventHandlers() {
+      const genBtn = document.getElementById('genBtn');
+      if (genBtn) genBtn.addEventListener('click', handleGenerateClick);
+
+      const dlBtn = document.getElementById('dlBtn');
+      if (dlBtn) dlBtn.addEventListener('click', handleDownloadClick);
+
+      const cleanupBtn = document.getElementById('cleanupBtn');
+      if (cleanupBtn) cleanupBtn.addEventListener('click', handleCleanupClick);
+
+      const uploadBtn = document.getElementById('upBtn');
+      if (uploadBtn) uploadBtn.addEventListener('click', handleUploadClick);
+
+      const wmBtn = document.getElementById('wmBtn');
+      if (wmBtn) wmBtn.addEventListener('click', handleWmUpdate);
+
+      const galleryCloseBtn = document.getElementById('galleryCloseBtn');
+      if (galleryCloseBtn) galleryCloseBtn.addEventListener('click', closeGalleryModal);
+
+      const selectFirstBtn = document.getElementById('gallerySelectFirstBtn');
+      if (selectFirstBtn) selectFirstBtn.addEventListener('click', selectFirstVariants);
+
+      const refreshBtn = document.getElementById('galleryRefreshBtn');
+      if (refreshBtn) refreshBtn.addEventListener('click', refreshGallery);
+
+      const saveBtn = document.getElementById('gallerySaveBtn');
+      if (saveBtn) saveBtn.addEventListener('click', finalizeGallerySelections);
+
+      const galleryModalEl = document.getElementById('galleryModal');
+      if (galleryModalEl) {
+        galleryModalEl.addEventListener('click', (e) => {
+          if (e.target === galleryModalEl) {
+            closeGalleryModal();
+          }
+        });
+      }
+
+      const carouselModal = document.getElementById('carouselModal');
+      const carouselCloseBtn = document.getElementById('carouselCloseBtn');
+      const carouselPrevBtn = document.getElementById('carouselPrevBtn');
+      const carouselNextBtn = document.getElementById('carouselNextBtn');
+      const carouselUseBtn = document.getElementById('carouselUseBtn');
+      if (carouselCloseBtn) carouselCloseBtn.addEventListener('click', closeVariantCarousel);
+      if (carouselPrevBtn) carouselPrevBtn.addEventListener('click', () => shiftCarousel(-1));
+      if (carouselNextBtn) carouselNextBtn.addEventListener('click', () => shiftCarousel(1));
+      if (carouselUseBtn) carouselUseBtn.addEventListener('click', useCarouselImage);
+      if (carouselModal) {
+        carouselModal.addEventListener('click', (e) => {
+          if (e.target === carouselModal) {
+            closeVariantCarousel();
+          }
+        });
+      }
+
+      const scriptModal = document.getElementById('scriptModal');
+      if (scriptModal) {
+        scriptModal.addEventListener('click', (e) => {
+          if (e.target === scriptModal) {
+            closeScriptModal();
+          }
+        });
+      }
+
+      document.querySelectorAll('input, textarea').forEach(input => {
+      input.addEventListener('change', saveConfig);
+    });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initUI();
+      registerEventHandlers();
+      apiCall('app_opened', {});
+      logToConsole(`Item Generator ${APP_VERSION} initialized`, 'success');
+    });
+
+    function generatePowerShellScript(csvFileName, zipFileName) {
+      const imageDir = document.getElementById('save_dir').value.trim();
+      if (!imageDir) {
+        return '# Please specify Image Directory first\n# Then re-run Download Items to generate the script';
+      }
+      const escapedPath = imageDir.replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/"/g, '\\"');
+      const downloadsPath = '$env:USERPROFILE + "\\\\Downloads"';
+      const safeCsv = csvFileName || 'imagedownload.csv';
+      const safeZip = zipFileName || 'downloaded_items_latest.zip';
+      const script = '# PowerShell Script to Move Downloaded Files\n' +
+        '# Generated by Item Generator\n\n' +
+        '# Source and destination paths\n' +
+        '$sourceDir = ' + downloadsPath + '\n' +
+        '$destDir = "' + escapedPath + '"\n\n' +
+        '$csvFileName = "' + safeCsv + '"\n' +
+        '$zipFileName = "' + safeZip + '"\n\n' +
+        '# Create destination directory if it doesn\'t exist\n' +
+        'if (-not (Test-Path $destDir)) {\n' +
+        '    New-Item -ItemType Directory -Path $destDir -Force | Out-Null\n' +
+        '    Write-Host "Created directory: $destDir" -ForegroundColor Green\n' +
+        '}\n\n' +
+        '# Move CSV file\n' +
+        '$csvFile = Join-Path $sourceDir $csvFileName\n' +
+        'if (Test-Path $csvFile) {\n' +
+        '    try {\n' +
+        '        Move-Item -Path $csvFile -Destination $destDir -Force -ErrorAction Stop\n' +
+        '        Write-Host "Moved CSV: $csvFileName" -ForegroundColor Cyan\n' +
+        '    } catch {\n' +
+        '        Write-Host "Error moving CSV: $_" -ForegroundColor Red\n' +
+        '    }\n' +
+        '} else {\n' +
+        '    Write-Host "CSV file not found: $csvFileName" -ForegroundColor Yellow\n' +
+        '}\n\n' +
+        '# Move ZIP file and extract contents\n' +
+        '$zipFile = Join-Path $sourceDir $zipFileName\n' +
+        'if (Test-Path $zipFile) {\n' +
+        '    try {\n' +
+        '        $destZip = Join-Path $destDir $zipFileName\n' +
+        '        Move-Item -Path $zipFile -Destination $destDir -Force -ErrorAction Stop\n' +
+        '        Write-Host "Moved ZIP: $zipFileName" -ForegroundColor Cyan\n' +
+        '        try {\n' +
+        '            Expand-Archive -Path $destZip -DestinationPath $destDir -Force\n' +
+        '            Write-Host "Extracted ZIP into: $destDir" -ForegroundColor Green\n' +
+        '        } catch {\n' +
+        '            Write-Host "Error extracting ZIP: $_" -ForegroundColor Red\n' +
+        '        }\n' +
+        '    } catch {\n' +
+        '        Write-Host "Error moving ZIP: $_" -ForegroundColor Red\n' +
+        '    }\n' +
+        '} else {\n' +
+        '    Write-Host "ZIP file not found: $zipFileName" -ForegroundColor Yellow\n' +
+        '}\n\n' +
+        'Write-Host "`nMove operation complete!" -ForegroundColor Green\n' +
+        'Write-Host "Files moved/extracted to: $destDir" -ForegroundColor Green\n' +
+        'Read-Host "Press Enter to exit"';
+      return script;
+    }
+
+    function showScriptModal(csvFileName, zipFileName) {
+      fullScriptContent = generatePowerShellScript(csvFileName, zipFileName);
+      const lines = fullScriptContent.split('\n');
+      const maxLines = 50;
+      const truncated = lines.length > maxLines ? lines.slice(0, maxLines).join('\n') : fullScriptContent;
+      const display = document.getElementById('scriptDisplay');
+      display.textContent = truncated;
+      if (lines.length > maxLines) {
+        display.classList.add('truncated');
+      } else {
+        display.classList.remove('truncated');
+      }
+      document.getElementById('scriptModal').classList.add('show');
+    }
+
+    function closeScriptModal() {
+      document.getElementById('scriptModal').classList.remove('show');
+    }
+
+    function downloadScript() {
+      const blob = new Blob([fullScriptContent], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'move_files.ps1';
+      a.click();
+      URL.revokeObjectURL(url);
+      logToConsole('PowerShell script downloaded', 'success');
+    }
+
+    function copyScript(evt) {
+      navigator.clipboard.writeText(fullScriptContent).then(() => {
+        logToConsole('PowerShell script copied to clipboard', 'success');
+        const btn = evt ? evt.target : document.querySelector('#scriptModal .btn-primary');
+        if (btn) {
+          const originalText = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.classList.add('btn-success');
+          btn.classList.remove('btn-primary');
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+          }, 2000);
+        }
+      }).catch(err => {
+        logToConsole('Failed to copy script: ' + err.message, 'error');
+        alert('Failed to copy script. Please select and copy manually.');
+      });
+    }
+
+  </script>
+</body>
+</html>
+
