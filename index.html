@@ -597,7 +597,11 @@
         </div>
       <div class="gallery-toolbar-right">
         <button id="galleryCloseBtn" class="btn btn-outline-secondary btn-sm">Cancel</button>
-        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Save Selection</button>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-right: 0.5rem;">
+          <input type="checkbox" id="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer;">
+          <label for="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+        </div>
+        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Download Selected Items</button>
         </div>
       </div>
       <div id="galleryWarnings"></div>
@@ -1968,7 +1972,7 @@
     function openGalleryModal() {
       document.getElementById('galleryModal').classList.add('show');
       renderGallery();
-      setGalleryStatus('Select one image per item, then click Save Selection.');
+      setGalleryStatus('Select one image per item, then click Download Selected Items.');
     }
 
     function closeGalleryModal() {
@@ -2129,7 +2133,7 @@
         if (groupsMissingSelections.length > 0) {
           instructionEl.textContent = `Select one image per item (${groupsMissingSelections.length} remaining).`;
         } else if (galleryItems.length) {
-          instructionEl.textContent = 'Select one image per item, then click Save Selection.';
+          instructionEl.textContent = 'Select one image per item, then click Download Selected Items.';
       } else {
           instructionEl.textContent = '';
         }
@@ -2314,9 +2318,12 @@
       if (result.zip_content) {
         downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${Date.now()}.zip`, 'application/zip');
         
-        // Check if upload after download is enabled
+        // Check if upload after download is enabled (check both checkboxes)
         const uploadAfterDownload = document.getElementById('uploadAfterDownload');
-        if (uploadAfterDownload && uploadAfterDownload.checked) {
+        const uploadAfterDownloadGallery = document.getElementById('uploadAfterDownloadGallery');
+        const shouldUpload = (uploadAfterDownload && uploadAfterDownload.checked) || 
+                            (uploadAfterDownloadGallery && uploadAfterDownloadGallery.checked);
+        if (shouldUpload) {
           // Trigger upload from zip
           logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
           setGalleryStatus('Extracting zip and uploading to Cloudinary...');
