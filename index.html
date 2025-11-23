@@ -762,10 +762,10 @@
     <!-- SECTION 2: WORKFLOW -->
     <!-- ============================================================================= -->
     <div class="section-frame">
-      <div class="section-title">Workflow</div>
+      <div class="section-title">Additional Parameters</div>
 
       <div class="input-row">
-        <label class="form-label">Output CSV File:</label>
+        <label class="form-label">Update Item CSV File:</label>
         <div style="flex:1; position: relative;">
           <input type="file" id="csv_out_file" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
           <input type="text" id="csv_out" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="flex:1; padding-right: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; background-color: rgba(255, 0, 0, 0.1); border-color: rgba(255, 0, 0, 0.3);" readonly />
@@ -777,6 +777,16 @@
       <div class="input-row">
         <label class="form-label">Cloudinary Prefix:</label>
         <input type="text" id="prefix" class="form-control" placeholder="https://res.cloudinary.com/..." />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Cloudinary Folder:</label>
+        <input type="text" id="upload_folder" class="form-control" placeholder="sidney" />
+      </div>
+
+      <div class="input-row">
+        <label class="form-label">Upload Preset:</label>
+        <input type="text" id="upload_profile" class="form-control" placeholder="Optional preset name" />
       </div>
 
       <div class="input-row">
@@ -810,18 +820,8 @@
         </div>
       </div>
 
-      <div class="input-row">
-        <label class="form-label">Cloudinary Folder:</label>
-        <input type="text" id="upload_folder" class="form-control" placeholder="sidney" />
-      </div>
-
-      <div class="input-row">
-        <label class="form-label">Upload Preset:</label>
-        <input type="text" id="upload_profile" class="form-control" placeholder="Optional preset name" />
-      </div>
-
       <div class="btn-row">
-        <button id="cleanupBtn" class="btn btn-orange" style="width: 160px;">Clean Up CSV</button>
+        <button id="cleanupBtn" class="btn btn-orange" style="width: 160px; display: none;">Clean Up CSV</button>
         <button id="upBtn" type="button" class="btn btn-blue" style="width: 160px;">Upload to Cloudinary</button>
         <button id="wmBtn" class="btn btn-purple" style="width: 160px;">Update WM</button>
       </div>
@@ -848,7 +848,7 @@
     <!-- CONSOLE WINDOW (For Troubleshooting) -->
     <!-- ============================================================================= -->
     <div class="section-frame">
-      <div class="section-title">Console (Troubleshooting)</div>
+      <div class="section-title">Console</div>
       <div class="console-output" id="console"></div>
     </div>
   </div>
@@ -2042,9 +2042,18 @@
       document.getElementById('itemListSaveBtn').addEventListener('click', () => {
         const textarea = document.getElementById('itemListTextarea');
         const content = textarea.value.trim().length ? textarea.value : currentItemList.join('\n');
-        const outputPath = document.getElementById('existing_list').value || 'items.txt';
-        const fileName = outputPath.split(/[/\\]/).pop() || 'items.txt';
-        downloadTextFile(content, fileName.endsWith('.txt') ? fileName : `${fileName}.txt`);
+        
+        // Generate unique filename with YYMMDD-HHMM format
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const timestamp = `${year}${month}${day}-${hours}${minutes}`;
+        const fileName = `Items_${timestamp}.txt`;
+        
+        downloadTextFile(content, fileName);
         logToConsole('Item list saved to file', 'success');
       });
 
