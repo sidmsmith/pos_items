@@ -867,6 +867,8 @@
           if (!includeSubfolders && file.webkitRelativePath) {
             const relativePath = file.webkitRelativePath;
             const pathSegments = relativePath.split('/');
+            // Root files: webkitRelativePath = "filename.jpg" (1 segment)
+            // Subfolder files: webkitRelativePath = "subfolder/filename.jpg" (2+ segments)
             const isInSubfolder = pathSegments.length > 1;
             
             if (index < 5) {
@@ -874,21 +876,22 @@
                 relativePath: relativePath,
                 pathSegments: pathSegments,
                 segmentCount: pathSegments.length,
-                isInSubfolder: isInSubfolder
+                isInSubfolder: isInSubfolder,
+                filename: pathSegments[pathSegments.length - 1]
               });
             }
             
             if (isInSubfolder) {
               subfolderFiles++;
               if (index < 5) {
-                console.log(`🔍 [FILTER] File ${index + 1} rejected: in subfolder (includeSubfolders=false)`);
+                console.log(`🔍 [FILTER] File ${index + 1} rejected: in subfolder (includeSubfolders=false) - path has ${pathSegments.length} segment(s):`, pathSegments);
               }
               return false; // File is in a subfolder
             } else {
               rootFiles++;
               filteredRootFiles++;
               if (index < 5) {
-                console.log(`🔍 [FILTER] File ${index + 1} accepted: root file`);
+                console.log(`🔍 [FILTER] File ${index + 1} accepted: root file - path has 1 segment: "${relativePath}"`);
               }
             }
           } else if (includeSubfolders) {
@@ -1045,13 +1048,30 @@
             type: firstFile.type
           });
           
+          // Log a few more files to understand the path structure
+          console.log('📁 [DIRECTORY] Sample file paths (first 5):');
+          for (let i = 0; i < Math.min(5, filesAfterDelay.length); i++) {
+            const file = filesAfterDelay[i];
+            const pathParts = file.webkitRelativePath ? file.webkitRelativePath.split('/') : [];
+            console.log(`  File ${i + 1}: "${file.webkitRelativePath}" → ${pathParts.length} segment(s):`, pathParts);
+          }
+          
           let dirPath = '';
           if (firstFile.webkitRelativePath) {
             // Extract directory path from webkitRelativePath
             // For root files: webkitRelativePath = "filename.jpg", dirPath = ""
             // For subfolder files: webkitRelativePath = "subfolder/filename.jpg", dirPath = "subfolder"
+            // NOTE: When selecting a folder, webkitRelativePath might include the folder name itself
             const parts = firstFile.webkitRelativePath.split('/');
             console.log('📁 [DIRECTORY] Path parts:', parts);
+            console.log('📁 [DIRECTORY] Path analysis:', {
+              fullPath: firstFile.webkitRelativePath,
+              parts: parts,
+              partCount: parts.length,
+              filename: parts[parts.length - 1],
+              isRootFile: parts.length === 1
+            });
+            
             if (parts.length > 1) {
               parts.pop(); // Remove filename
               dirPath = parts.join('/');
