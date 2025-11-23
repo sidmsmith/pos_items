@@ -1037,6 +1037,22 @@
         if (el) el.value = config[key];
       }
       
+      // Restore Reference Items filename hint if stored
+      const storedRefFilename = localStorage.getItem('item_gen_reference_items_filename');
+      if (storedRefFilename) {
+        const refFileInput = document.getElementById('item_numbers_csv');
+        if (refFileInput && !document.getElementById('reference_items_hint')) {
+          const hint = document.createElement('small');
+          hint.id = 'reference_items_hint';
+          hint.style.color = '#999';
+          hint.style.fontSize = '0.85em';
+          hint.style.marginLeft = '0.5rem';
+          hint.style.display = 'block';
+          hint.textContent = `Last used: ${storedRefFilename}`;
+          refFileInput.parentElement.appendChild(hint);
+        }
+      }
+      
       // Function to update image preview
       function updateImagePreview() {
         console.log('📋 [PREVIEW] updateImagePreview() called');
@@ -1695,9 +1711,28 @@
         if (!e.target.files.length) {
           referenceItems = [];
           setItemNumbersStatus('');
+          // Clear stored filename
+          localStorage.removeItem('item_gen_reference_items_filename');
+          const hint = document.getElementById('reference_items_hint');
+          if (hint) hint.remove();
           return;
         }
-        referenceItems = await parseReferenceItemsFile(e.target.files[0]);
+        const file = e.target.files[0];
+        // Store filename for persistence
+        localStorage.setItem('item_gen_reference_items_filename', file.name);
+        // Update or create hint
+        let hint = document.getElementById('reference_items_hint');
+        if (!hint) {
+          hint = document.createElement('small');
+          hint.id = 'reference_items_hint';
+          hint.style.color = '#999';
+          hint.style.fontSize = '0.85em';
+          hint.style.marginLeft = '0.5rem';
+          hint.style.display = 'block';
+          e.target.parentElement.appendChild(hint);
+        }
+        hint.textContent = `Last used: ${file.name}`;
+        referenceItems = await parseReferenceItemsFile(file);
         setItemNumbersStatus(
           referenceItems.length
             ? `${referenceItems.length} reference items loaded`
