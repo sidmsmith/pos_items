@@ -1064,6 +1064,21 @@
       let config = loadConfig();
       config = normalizePathDefaults(config);
 
+      // Helper function to update red shading on file input textboxes
+      // This function manages the red shading based on whether the textbox is empty
+      function updateFileInputShading(element, isEmpty) {
+        if (!element) return;
+        if (isEmpty || !element.value || element.value.trim() === '') {
+          // Apply red shading when empty
+          element.style.setProperty('background-color', 'rgba(255, 0, 0, 0.1)', 'important');
+          element.style.setProperty('border-color', 'rgba(255, 0, 0, 0.3)', 'important');
+        } else {
+          // Remove red shading when has value
+          element.style.setProperty('background-color', '', 'important');
+          element.style.setProperty('border-color', '', 'important');
+        }
+      }
+
       // Populate ALL fields from config first
       for (const key in config) {
         const el = document.getElementById(key);
@@ -1080,9 +1095,18 @@
       const referenceItemsDisplay = document.getElementById('reference_items_display');
       
       // Only clear these 3 specific fields - nothing else
-      if (existingListInput) existingListInput.value = '';
-      if (csvOutInput) csvOutInput.value = '';
-      if (referenceItemsDisplay) referenceItemsDisplay.value = '';
+      if (existingListInput) {
+        existingListInput.value = '';
+        updateFileInputShading(existingListInput, true);
+      }
+      if (csvOutInput) {
+        csvOutInput.value = '';
+        updateFileInputShading(csvOutInput, true);
+      }
+      if (referenceItemsDisplay) {
+        referenceItemsDisplay.value = '';
+        updateFileInputShading(referenceItemsDisplay, true);
+      }
       
       // Function to update image preview
       function updateImagePreview() {
@@ -1742,7 +1766,9 @@
 
       document.getElementById('csv_out_file').addEventListener('change', async (e) => {
         if (!e.target.files.length) {
-          document.getElementById('csv_out').value = '';
+          const csvOutInput = document.getElementById('csv_out');
+          csvOutInput.value = '';
+          updateFileInputShading(csvOutInput, true);
           setCsvOutStatus('');
           loadedCsvData = null; // Clear loaded CSV data
           localStorage.removeItem('item_gen_csv_out_filename');
@@ -1756,9 +1782,14 @@
         if (!validation.valid) {
           // Show error message
           setCsvOutStatus('');
-          alert(`Invalid CSV file format: ${validation.error}`);
-          document.getElementById('csv_out').value = '';
+          const csvOutInput = document.getElementById('csv_out');
+          csvOutInput.value = '';
+          // Restore red shading to indicate file needs to be loaded
+          updateFileInputShading(csvOutInput, true);
+          // Clear loaded CSV data to force user to reload
+          loadedCsvData = null;
           e.target.value = '';
+          alert(`Invalid CSV file format: ${validation.error}`);
           return;
         }
 
@@ -1777,8 +1808,7 @@
         csvOutInput.value = displayPath;
         csvOutInput.title = fileName; // Tooltip shows filename on hover
         // Remove red shading when file is loaded
-        csvOutInput.style.backgroundColor = '';
-        csvOutInput.style.borderColor = '';
+        updateFileInputShading(csvOutInput, false);
         setCsvOutStatus(`${validation.rowCount} rows loaded`);
         
         // Parse CSV data from file
@@ -1801,6 +1831,9 @@
               return [];
             }).filter(row => row.length > 0 && row.some(cell => cell.length > 0));
           }
+          // Clear csvData when a new CSV is successfully loaded manually
+          // This ensures manually loaded CSV takes priority over downloaded CSV
+          csvData = null;
         } catch (error) {
           console.error('Error parsing CSV file:', error);
           loadedCsvData = null;
@@ -1826,39 +1859,88 @@
         if (!e.target.files.length) {
           referenceItems = [];
           setItemNumbersStatus('');
-          if (referenceItemsDisplayEl) referenceItemsDisplayEl.value = '';
+          if (referenceItemsDisplayEl) {
+            referenceItemsDisplayEl.value = '';
+            updateFileInputShading(referenceItemsDisplayEl, true);
+          }
           // Clear stored filename
           localStorage.removeItem('item_gen_reference_items_filename');
           return;
         }
         const file = e.target.files[0];
-        // Store filename for persistence
         const fileName = file.name;
         
-        localStorage.setItem('item_gen_reference_items_filename', fileName);
-        // Update display textbox - show only filename (full path not available for security)
-        if (referenceItemsDisplayEl) {
-          // Try to get folder path - browsers don't expose full path, but we can show folder\filename format
-          let displayPath = fileName;
-          if (file.webkitRelativePath) {
-            // If file has relative path, use it
-            const pathParts = file.webkitRelativePath.split('/');
-            if (pathParts.length > 1) {
-              displayPath = pathParts.slice(0, -1).join('\\') + '\\' + pathParts[pathParts.length - 1];
-            }
+        // Validate file format before loading
+        const validation = await validateReferenceItemsFile(file);
+        
+        if (!validation.valid) {
+          // Show error message
+          setItemNumbersStatus('');
+          
+          if (referenceItemsDisplayEl) {
+            referenceItemsDisplayEl.value = '';
+            referenceItemsDisplayEl.removeAttribute('title');
+            // Restore red shading to indicate file needs to be loaded
+            updateFileInputShading(referenceItemsDisplayEl, true);
           }
-          referenceItemsDisplayEl.value = displayPath;
-          referenceItemsDisplayEl.title = fileName; // Tooltip shows filename on hover
-          // Remove red shading when file is loaded
-          referenceItemsDisplayEl.style.backgroundColor = '';
-          referenceItemsDisplayEl.style.borderColor = '';
+          
+          // Clear reference items data to force user to reload
+          referenceItems = [];
+          localStorage.removeItem('item_gen_reference_items_filename');
+          e.target.value = '';
+          alert(`Invalid file format: ${validation.error}`);
+          return;
         }
-        referenceItems = await parseReferenceItemsFile(file);
-        setItemNumbersStatus(
-          referenceItems.length
-            ? `${referenceItems.length} reference items loaded`
-            : 'No item IDs detected in the first column.'
-        );
+        
+        // File is valid, parse and store CSV data
+        try {
+          referenceItems = await parseReferenceItemsFile(file);
+          
+          // Update display textbox - show only filename (full path not available for security)
+          if (referenceItemsDisplayEl) {
+            // Try to get folder path - browsers don't expose full path, but we can show folder\filename format
+            let displayPath = fileName;
+            if (file.webkitRelativePath) {
+              // If file has relative path, use it
+              const pathParts = file.webkitRelativePath.split('/');
+              if (pathParts.length > 1) {
+                displayPath = pathParts.slice(0, -1).join('\\') + '\\' + pathParts[pathParts.length - 1];
+              }
+            }
+            referenceItemsDisplayEl.value = displayPath;
+            referenceItemsDisplayEl.title = fileName; // Tooltip shows filename on hover
+            // Remove red shading when file is loaded
+            updateFileInputShading(referenceItemsDisplayEl, false);
+          }
+          
+          // Store filename only after successful parse
+          localStorage.setItem('item_gen_reference_items_filename', fileName);
+          
+          // Use validation count if available, otherwise use parsed items count
+          const itemCount = validation.itemCount || referenceItems.length;
+          setItemNumbersStatus(
+            itemCount > 0
+              ? `${itemCount} reference items loaded`
+              : 'No item IDs detected in the first column.'
+          );
+        } catch (error) {
+          // File parsing failed - show error and restore red shading
+          console.error('Error parsing reference items file:', error);
+          setItemNumbersStatus('');
+          
+          if (referenceItemsDisplayEl) {
+            referenceItemsDisplayEl.value = '';
+            referenceItemsDisplayEl.removeAttribute('title');
+            // Restore red shading to indicate file needs to be loaded
+            updateFileInputShading(referenceItemsDisplayEl, true);
+          }
+          
+          // Clear reference items data to force user to reload
+          referenceItems = [];
+          localStorage.removeItem('item_gen_reference_items_filename');
+          e.target.value = '';
+          alert(`Error loading file: ${error.message || 'Failed to parse file. Please ensure the file is a valid CSV or Excel file.'}`);
+        }
       });
 
       const existingListBtn = document.getElementById('existingListLoadBtn');
@@ -1870,8 +1952,10 @@
 
       document.getElementById('items_file').addEventListener('change', async (e) => {
         if (!e.target.files.length) {
-          document.getElementById('existing_list').value = '';
-          document.getElementById('existing_list').removeAttribute('title');
+          const existingListInput = document.getElementById('existing_list');
+          existingListInput.value = '';
+          existingListInput.removeAttribute('title');
+          updateFileInputShading(existingListInput, true);
           setExistingListStatus('');
           localStorage.removeItem('item_gen_existing_list_filename');
           return;
@@ -1884,11 +1968,17 @@
         if (!validation.valid) {
           // Show error message
           setExistingListStatus('');
-          alert(`Invalid file format: ${validation.error}\n\nPlease ensure the file is a .txt file with one item per line (plain text format).`);
-          document.getElementById('existing_list').value = '';
-          document.getElementById('existing_list').removeAttribute('title');
+          const existingListInput = document.getElementById('existing_list');
+          existingListInput.value = '';
+          existingListInput.removeAttribute('title');
+          // Restore red shading to indicate file needs to be loaded
+          updateFileInputShading(existingListInput, true);
+          // Clear current item list data to force user to reload
+          currentItemList = [];
+          setItemList([], 'No items loaded', false);
           localStorage.removeItem('item_gen_existing_list_filename');
           e.target.value = '';
+          alert(`Invalid file format: ${validation.error}\n\nPlease ensure the file is a .txt file with one item per line (plain text format).`);
           return;
         }
 
@@ -1913,8 +2003,7 @@
         existingListInput.value = displayPath;
         existingListInput.title = fileName; // Tooltip shows filename on hover
         // Remove red shading when file is loaded
-        existingListInput.style.backgroundColor = '';
-        existingListInput.style.borderColor = '';
+        updateFileInputShading(existingListInput, false);
         // Auto-apply when loading from file - no warnings, display in white
         setItemList(validation.items, `${validation.count} items loaded from ${file.name}`, true);
         setExistingListStatus(`${validation.count} items loaded`);
@@ -2252,6 +2341,104 @@
         const dataRowCount = dataRows.length;
 
         return { valid: true, rowCount: dataRowCount };
+      } catch (error) {
+        return { valid: false, error: `Error reading file: ${error.message}` };
+      }
+    }
+
+    async function validateReferenceItemsFile(file) {
+      if (!file) {
+        return { valid: false, error: 'No file selected' };
+      }
+
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (!['csv', 'txt', 'xls', 'xlsx'].includes(extension)) {
+        return { valid: false, error: 'File must be a CSV, TXT, or Excel file (.csv, .txt, .xls, .xlsx)' };
+      }
+
+      try {
+        let rows = [];
+        
+        if (extension === 'csv' || extension === 'txt') {
+          const text = await file.text();
+          rows = text.split(/\r?\n/).map(line => {
+            // Parse CSV line (handle quoted values)
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i];
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            result.push(current.trim());
+            return result;
+          }).filter(row => row.some(cell => cell.length > 0)); // Filter empty rows
+        } else {
+          // Excel file
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[sheetName];
+          rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          rows = rows.map(row => Array.isArray(row) ? row.map(cell => String(cell || '').trim()) : []);
+          rows = rows.filter(row => row.some(cell => cell.length > 0)); // Filter empty rows
+        }
+
+        if (rows.length === 0) {
+          return { valid: false, error: 'File is empty or contains no data rows' };
+        }
+
+        // Validate that first column has item IDs and column B is empty
+        const invalidRows = [];
+        const rowsWithDataInColumnB = [];
+        
+        rows.forEach((row, index) => {
+          const rowNum = index + 1; // 1-based row numbering
+          const firstColumn = row[0] ? String(row[0]).trim() : '';
+          const secondColumn = row[1] ? String(row[1]).trim() : '';
+          
+          // Check if first column is empty (invalid - no item ID)
+          if (firstColumn.length === 0) {
+            invalidRows.push(rowNum);
+          }
+          
+          // Check if column B has data (should be empty for reference items file)
+          if (secondColumn.length > 0) {
+            rowsWithDataInColumnB.push(rowNum);
+          }
+        });
+
+        if (invalidRows.length > 0) {
+          const rowList = invalidRows.length <= 5 
+            ? invalidRows.join(', ')
+            : `${invalidRows.slice(0, 5).join(', ')} and ${invalidRows.length - 5} more`;
+          return { 
+            valid: false, 
+            error: `Invalid file: ${invalidRows.length} row(s) have empty values in the first column (Item ID). Rows with issues: ${rowList}. All rows must have an item ID in the first column.` 
+          };
+        }
+
+        if (rowsWithDataInColumnB.length > 0) {
+          const rowList = rowsWithDataInColumnB.length <= 5 
+            ? rowsWithDataInColumnB.join(', ')
+            : `${rowsWithDataInColumnB.slice(0, 5).join(', ')} and ${rowsWithDataInColumnB.length - 5} more`;
+          return { 
+            valid: false, 
+            error: `Invalid file format: Column B (second column) should be empty for Reference Items File. Found data in column B on ${rowsWithDataInColumnB.length} row(s): ${rowList}. This may indicate the wrong spreadsheet was uploaded (e.g., Output CSV file instead of Reference Items File).` 
+          };
+        }
+
+        // Count valid item IDs
+        const itemCount = rows.length;
+
+        return { valid: true, itemCount: itemCount };
       } catch (error) {
         return { valid: false, error: `Error reading file: ${error.message}` };
       }
@@ -2861,10 +3048,10 @@
       // Check if update WM after download is enabled
       const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
       if (updateWmAfterDownload && updateWmAfterDownload.checked && csvData) {
-        // Trigger WM update
+        // Trigger WM update - force use of csvData (the just-downloaded CSV)
         logToConsole('Update WM after download enabled. Updating WM...', 'info');
         setGalleryStatus('Updating WM...');
-        await handleWmUpdate();
+        await handleWmUpdate(true); // Pass true to force use of csvData
       }
 
       document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
@@ -3405,9 +3592,18 @@
       }
     }
 
-    async function handleWmUpdate() {
-      // Validate CSV data is available
-      const csvDataToUse = csvData || loadedCsvData;
+    async function handleWmUpdate(forceUseCsvData = false) {
+      // Determine which CSV data to use
+      // If forceUseCsvData is true (called from download process), always use csvData
+      // Otherwise, prioritize loadedCsvData (manually loaded file) over csvData (downloaded CSV)
+      let csvDataToUse;
+      if (forceUseCsvData) {
+        csvDataToUse = csvData;
+      } else {
+        // Manual call: prioritize manually loaded CSV over downloaded CSV
+        csvDataToUse = loadedCsvData || csvData;
+      }
+      
       if (!csvDataToUse || csvDataToUse.length === 0) {
         alert('Please load a CSV file or download items first to create CSV data.');
         return;
