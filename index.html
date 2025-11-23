@@ -3609,13 +3609,8 @@
         return;
       }
 
-      // Check if CSV file is loaded (validate it exists)
+      // Get CSV input element for reference (used later for status updates)
       const csvOutInput = document.getElementById('csv_out');
-      const csvOutFileInput = document.getElementById('csv_out_file');
-      if (!csvData && !loadedCsvData) {
-        alert('Please load a CSV file using the "Load" button next to "Output CSV File" or download items first.');
-        return;
-      }
 
       // Get ORG - check URL parameter first, then always prompt (unless from URL)
       let org = null;
