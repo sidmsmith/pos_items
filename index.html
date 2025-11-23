@@ -2064,24 +2064,34 @@
         const result = await response.json();
         
         if (result.success) {
-          logToConsole(`✓ Upload complete: ${result.successful} successful, ${result.failed_count} failed`, 'success');
+          // Calculate total time from individual durations
+          const totalTime = result.uploaded.reduce((sum, item) => sum + (item.duration || 0), 0) +
+                           result.failed.reduce((sum, item) => sum + (item.duration || 0), 0);
           
-          // Display results
+          logToConsole(`✓ Upload complete: ${result.successful} successful, ${result.failed_count} failed (Total: ${totalTime.toFixed(2)}s)`, 'success');
+          
+          // Display results with timing information
           if (result.uploaded && result.uploaded.length > 0) {
             logToConsole(`Successfully uploaded ${result.uploaded.length} images:`, 'success');
             result.uploaded.forEach(item => {
-              logToConsole(`  ✓ ${item.filename} → ${item.cloudinary_url}`, 'success');
+              const progress = item.index ? `[${item.index}/${item.total}]` : '';
+              const duration = item.duration ? ` (${item.duration}s)` : '';
+              const filename = item.filename_only || item.filename;
+              logToConsole(`  ✓ ${progress} ${filename}${duration} → ${item.cloudinary_url}`, 'success');
             });
           }
           
           if (result.failed && result.failed.length > 0) {
             logToConsole(`Failed to upload ${result.failed.length} images:`, 'error');
             result.failed.forEach(item => {
-              logToConsole(`  ✗ ${item.filename}: ${item.error}`, 'error');
+              const progress = item.index ? `[${item.index}/${item.total}]` : '';
+              const duration = item.duration ? ` (${item.duration}s)` : '';
+              const filename = item.filename_only || item.filename;
+              logToConsole(`  ✗ ${progress} ${filename}${duration}: ${item.error}`, 'error');
             });
           }
           
-          alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed_count}\n\nCheck console for details.`);
+          alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed_count}\nTotal time: ${totalTime.toFixed(2)}s\n\nCheck console for details.`);
         } else {
           logToConsole(`Upload failed: ${result.error}`, 'error');
           alert(`Upload failed: ${result.error}`);

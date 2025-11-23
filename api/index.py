@@ -801,10 +801,12 @@ def upload_cloudinary():
         
         uploaded_results = []
         failed_uploads = []
+        upload_start_time = datetime.now()
         
         log_to_console(f"Starting upload of {len(image_files)} images to Cloudinary...")
         
         for idx, img_file in enumerate(image_files):
+            file_start_time = datetime.now()
             try:
                 filename = img_file.filename
                 # Extract just the filename (basename) to ignore any directory structure
@@ -836,35 +838,58 @@ def upload_cloudinary():
                     **upload_options
                 )
                 
+                file_end_time = datetime.now()
+                duration = (file_end_time - file_start_time).total_seconds()
+                
                 cloudinary_url = result.get('secure_url') or result.get('url', '')
                 
                 uploaded_results.append({
                     "filename": filename,
+                    "filename_only": filename_only,
                     "cloudinary_url": cloudinary_url,
                     "public_id": result.get('public_id', ''),
-                    "success": True
+                    "success": True,
+                    "duration": round(duration, 2),
+                    "index": idx + 1,
+                    "total": len(image_files)
                 })
                 
-                log_to_console(f"✓ Successfully uploaded: {filename}")
+                log_to_console(f"✓ Successfully uploaded {idx + 1}/{len(image_files)}: {filename_only} ({duration:.2f}s)")
                 
             except cloudinary.exceptions.Error as e:
+                file_end_time = datetime.now()
+                duration = (file_end_time - file_start_time).total_seconds()
                 error_msg = str(e)
-                log_to_console(f"✗ Failed to upload {filename}: {error_msg}", "[ERROR]")
+                filename_only = os.path.basename(filename) if filename else "unknown"
+                log_to_console(f"✗ Failed to upload {idx + 1}/{len(image_files)}: {filename_only} ({duration:.2f}s) - {error_msg}", "[ERROR]")
                 failed_uploads.append({
                     "filename": filename,
+                    "filename_only": filename_only,
                     "error": error_msg,
-                    "success": False
+                    "success": False,
+                    "duration": round(duration, 2),
+                    "index": idx + 1,
+                    "total": len(image_files)
                 })
             except Exception as e:
+                file_end_time = datetime.now()
+                duration = (file_end_time - file_start_time).total_seconds()
                 error_msg = str(e)
-                log_to_console(f"✗ Error uploading {filename}: {error_msg}", "[ERROR]")
+                filename_only = os.path.basename(filename) if filename else "unknown"
+                log_to_console(f"✗ Error uploading {idx + 1}/{len(image_files)}: {filename_only} ({duration:.2f}s) - {error_msg}", "[ERROR]")
                 failed_uploads.append({
                     "filename": filename,
+                    "filename_only": filename_only,
                     "error": error_msg,
-                    "success": False
+                    "success": False,
+                    "duration": round(duration, 2),
+                    "index": idx + 1,
+                    "total": len(image_files)
                 })
         
-        log_to_console(f"Upload complete: {len(uploaded_results)} successful, {len(failed_uploads)} failed")
+        upload_end_time = datetime.now()
+        total_duration = (upload_end_time - upload_start_time).total_seconds()
+        log_to_console(f"Upload complete: {len(uploaded_results)} successful, {len(failed_uploads)} failed (Total time: {total_duration:.2f}s)")
         
         return jsonify({
             "success": True,
