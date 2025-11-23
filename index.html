@@ -671,7 +671,10 @@
         <input type="file" id="save_dir_file" class="form-control" webkitdirectory directory style="display: none;" />
         <input type="text" id="save_dir" class="form-control" placeholder="Select directory for cleanup/upload reference" style="flex: 1;" />
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('save_dir_file').click();" type="button">Choose Directory</button>
-        <small style="color: #999; font-size: 0.85em;">Used for cleanup/upload functions (select where you saved downloaded images)</small>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 0.5rem;">
+          <input type="checkbox" id="include_subfolders" checked style="margin: 0;" />
+          <label for="include_subfolders" style="margin: 0; font-size: 0.9em; color: var(--text);">Include subfolders</label>
+        </div>
       </div>
 
       <div class="input-row">
@@ -1513,9 +1516,26 @@
       
       // Filter for image files only
       const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+      const includeSubfolders = document.getElementById('include_subfolders').checked;
+      
       const imageFiles = Array.from(files).filter(file => {
+        // Check file extension
         const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-        return imageExtensions.includes(ext);
+        if (!imageExtensions.includes(ext)) {
+          return false;
+        }
+        
+        // If subfolders not included, exclude files that are in subfolders
+        // webkitRelativePath will contain '/' if file is in a subfolder
+        if (!includeSubfolders && file.webkitRelativePath) {
+          const relativePath = file.webkitRelativePath;
+          // File is in subfolder if webkitRelativePath contains '/' (path separator)
+          if (relativePath.includes('/')) {
+            return false;
+          }
+        }
+        
+        return true;
       });
       
       if (imageFiles.length === 0) {
