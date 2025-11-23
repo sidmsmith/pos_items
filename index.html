@@ -103,6 +103,9 @@
       border: 2px solid transparent;
       transition: all 0.3s ease;
       cursor: pointer;
+      width: 100%;
+      min-width: 0;
+      overflow: hidden;
     }
     
     .gallery-item.selected {
@@ -1219,12 +1222,47 @@
           // Add to preview list
           previewList.appendChild(itemDiv);
           
+          // Debug: Log each item being added
+          console.log('📦 [GALLERY] Added gallery item:', {
+            index: index,
+            filename: filename,
+            itemId: itemId,
+            inDOM: document.body.contains(itemDiv),
+            parent: itemDiv.parentElement?.id,
+            itemWidth: itemDiv.offsetWidth,
+            itemHeight: itemDiv.offsetHeight
+          });
+          
           // Store object URL for cleanup later
           if (!window.imageObjectURLs) {
             window.imageObjectURLs = [];
           }
           window.imageObjectURLs.push({ url: objectURL, fileKey: fileKey });
         });
+        
+        // Debug: Log final gallery state after a brief delay to allow rendering
+        setTimeout(() => {
+          console.log('🎨 [GALLERY] Gallery populated:', {
+            totalItems: imageFiles.length,
+            domItems: previewList.children.length,
+            gridStyle: window.getComputedStyle(previewList).display,
+            gridColumns: window.getComputedStyle(previewList).gridTemplateColumns,
+            containerWidth: previewList.offsetWidth,
+            firstItemWidth: previewList.children[0]?.offsetWidth,
+            firstItemPosition: previewList.children[0] ? window.getComputedStyle(previewList.children[0]).position : 'N/A'
+          });
+          
+          // Log positions of first few items to check for overlap
+          Array.from(previewList.children).slice(0, 3).forEach((item, idx) => {
+            const rect = item.getBoundingClientRect();
+            console.log(`📍 [GALLERY] Item ${idx} position:`, {
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height
+            });
+          });
+        }, 200);
         
         // Cleanup old object URLs when preview is updated
         if (window.imageObjectURLs) {
