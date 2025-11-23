@@ -724,11 +724,11 @@
         <textarea id="itemListTextarea" class="form-control" rows="8" style="background:#0d1117;color:#fff;border:1px solid #333;"></textarea>
         <div id="unappliedChangesBadge" style="display: none; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: rgba(255, 165, 0, 0.2); border: 1px solid #ffa500; border-radius: 4px; color: #ffa500; font-size: 0.85em;">
           <i class="fas fa-exclamation-triangle" style="margin-right: 0.25rem;"></i>
-          <span id="unappliedChangesCount">0</span> unapplied change(s) - Click "Apply Changes" or they will be auto-applied on Download
+          <span id="unappliedChangesCount">0</span> unvalidated change(s) - Click "Validate Items" or they will be auto-validated on Download
         </div>
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Apply Changes</button>
+        <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Validate Items</button>
         <button id="itemListSaveBtn" class="btn btn-outline-light btn-sm">Save List</button>
         <button id="itemListClearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
         </div>
@@ -1871,7 +1871,7 @@
       }
 
       document.getElementById('itemListApplyBtn').addEventListener('click', () => {
-        const result = applyChangesFromTextarea();
+        const result = validateItemsFromTextarea();
         if (!result.success) {
           alert(`Invalid item list format: ${result.error}`);
         }
@@ -1995,7 +1995,7 @@
       }
     }
 
-    function applyChangesFromTextarea() {
+    function validateItemsFromTextarea() {
       const textarea = document.getElementById('itemListTextarea');
       const textValue = textarea.value.trim();
       
@@ -2014,7 +2014,7 @@
       }
       
       // Apply if valid
-      setItemList(items, `Applied ${items.length} items from editor`);
+      setItemList(items, `Validated ${items.length} items from editor`);
       return { success: true };
     }
 
@@ -2353,13 +2353,13 @@
       const hasUnappliedChanges = textareaValue !== currentValue;
       
       if (hasUnappliedChanges) {
-        // Auto-apply changes from textarea
-        const applyResult = applyChangesFromTextarea();
-        if (!applyResult.success) {
-          alert(`Cannot proceed with download: ${applyResult.error}\n\nPlease fix the item list format and try again.`);
+        // Auto-validate changes from textarea
+        const validateResult = validateItemsFromTextarea();
+        if (!validateResult.success) {
+          alert(`Cannot proceed with download: ${validateResult.error}\n\nPlease fix the item list format and try again.`);
           return;
         }
-        // Changes have been applied, continue with download
+        // Changes have been validated, continue with download
       }
 
       // First check if Current Item List is empty
