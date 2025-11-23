@@ -2295,9 +2295,12 @@
     }
 
     async function apiCall(endpoint, data) {
+      // Use human-readable names for common endpoints
+      const endpointDisplayName = endpoint === 'update_wm' ? 'Update WM' : 
+                                  endpoint === 'app_opened' ? 'App Opened' :
+                                  endpoint === 'auth' ? 'Auth' : endpoint;
+      
       try {
-        // Use human-readable names for common endpoints
-        const endpointDisplayName = endpoint === 'update_wm' ? 'Update WM' : endpoint;
         logToConsole(`Calling ${endpointDisplayName}...`, 'info');
         const response = await fetch(`/api/${endpoint}`, {
           method: 'POST',
@@ -2306,7 +2309,10 @@
         });
         const result = await response.json();
         if (result.success) {
-          logToConsole(`${endpointDisplayName} succeeded`, 'success');
+          // Don't log generic success for update_wm - handleWmUpdate will log detailed summary
+          if (endpoint !== 'update_wm') {
+            logToConsole(`${endpointDisplayName} succeeded`, 'success');
+          }
         } else {
           logToConsole(`${endpointDisplayName} failed: ${result.error}`, 'error');
         }
