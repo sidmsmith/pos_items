@@ -676,6 +676,16 @@
           <label for="include_subfolders" style="margin: 0; font-size: 0.9em; color: var(--text);">Include subfolders</label>
         </div>
       </div>
+      
+      <!-- Image Preview Section -->
+      <div id="imagePreviewContainer" style="display: none; margin-top: 0.5rem; margin-left: 1rem;">
+        <div style="font-size: 0.9em; color: var(--text); margin-bottom: 0.5rem;">
+          <strong>Selected Images:</strong> <span id="imageCount">0</span> file(s)
+        </div>
+        <div id="imagePreviewList" style="max-height: 200px; overflow-y: auto; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem; font-size: 0.85em; font-family: monospace;">
+          <!-- Image list will be populated here -->
+        </div>
+      </div>
 
       <div class="input-row">
         <label class="form-label">Output CSV File:</label>
@@ -811,21 +821,83 @@
         if (el) el.value = config[key];
       }
 
-      document.getElementById('save_dir_file').addEventListener('change', (e) => {
-        if (!e.target.files.length) return;
-          const firstFile = e.target.files[0];
-          let dirPath = '';
-          if (firstFile.webkitRelativePath) {
-            const parts = firstFile.webkitRelativePath.split('/');
-          parts.pop();
-            dirPath = parts.join('/');
-          } else if (firstFile.path) {
-            const parts = firstFile.path.split(/[/\\]/);
-            parts.pop();
-            dirPath = parts.join('/');
+      // Function to update image preview
+      function updateImagePreview() {
+        const dirInput = document.getElementById('save_dir_file');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        const previewList = document.getElementById('imagePreviewList');
+        const imageCount = document.getElementById('imageCount');
+        
+        if (!dirInput.files || dirInput.files.length === 0) {
+          previewContainer.style.display = 'none';
+          return;
+        }
+        
+        // Filter for image files
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        const includeSubfolders = document.getElementById('include_subfolders').checked;
+        
+        const imageFiles = Array.from(dirInput.files).filter(file => {
+          const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+          if (!imageExtensions.includes(ext)) {
+            return false;
           }
+          
+          if (!includeSubfolders && file.webkitRelativePath) {
+            const relativePath = file.webkitRelativePath;
+            if (relativePath.includes('/')) {
+              return false;
+            }
+          }
+          
+          return true;
+        });
+        
+        if (imageFiles.length === 0) {
+          previewContainer.style.display = 'none';
+          return;
+        }
+        
+        // Show preview
+        previewContainer.style.display = 'block';
+        imageCount.textContent = imageFiles.length;
+        
+        // Build preview list
+        let html = '';
+        imageFiles.forEach((file, index) => {
+          const relativePath = file.webkitRelativePath || file.name;
+          const fileSize = (file.size / 1024).toFixed(1); // KB
+          const icon = '🖼️';
+          html += `<div style="padding: 0.25rem 0; border-bottom: 1px solid var(--border); color: var(--text);">
+            <span style="color: var(--success);">${icon}</span> ${relativePath} <span style="color: #999; font-size: 0.9em;">(${fileSize} KB)</span>
+          </div>`;
+        });
+        
+        previewList.innerHTML = html;
+      }
+      
+      document.getElementById('save_dir_file').addEventListener('change', (e) => {
+        if (!e.target.files.length) {
+          updateImagePreview();
+          return;
+        }
+        const firstFile = e.target.files[0];
+        let dirPath = '';
+        if (firstFile.webkitRelativePath) {
+          const parts = firstFile.webkitRelativePath.split('/');
+          parts.pop();
+          dirPath = parts.join('/');
+        } else if (firstFile.path) {
+          const parts = firstFile.path.split(/[/\\]/);
+          parts.pop();
+          dirPath = parts.join('/');
+        }
         if (dirPath) document.getElementById('save_dir').value = dirPath;
+        updateImagePreview();
       });
+      
+      // Update preview when subfolders checkbox changes
+      document.getElementById('include_subfolders').addEventListener('change', updateImagePreview);
 
       document.getElementById('csv_out_file').addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
