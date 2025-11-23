@@ -593,20 +593,22 @@
       <div class="gallery-toolbar">
         <div class="gallery-toolbar-left">
           <button id="gallerySelectFirstBtn" class="btn btn-outline-light btn-sm">Select First Image</button>
-          <button id="galleryRefreshBtn" class="btn btn-outline-light btn-sm" title="Refresh gallery"><i class="fas fa-sync-alt"></i></button>
+          <button id="galleryRefreshBtn" class="btn btn-outline-light btn-sm" title="Refresh gallery" style="padding: 0.25rem 0.5rem;"><i class="fas fa-sync-alt"></i></button>
         </div>
       <div class="gallery-toolbar-right">
-        <button id="galleryCloseBtn" class="btn btn-outline-secondary btn-sm">Cancel</button>
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-right: 0.5rem;">
-          <input type="checkbox" id="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer;">
-          <label for="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
-        </div>
-        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Download Selected Items</button>
+        <button id="galleryCloseBtn" class="btn btn-danger btn-sm">Cancel</button>
         </div>
       </div>
       <div id="galleryWarnings"></div>
       <div class="gallery-grid" id="galleryGrid"></div>
       <div class="gallery-footer-status" id="galleryFooterStatus"></div>
+      <div class="gallery-footer-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer;">
+          <label for="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+        </div>
+        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Download Selected Items</button>
+      </div>
     </div>
   </div>
   <!-- Variant Carousel Modal -->
