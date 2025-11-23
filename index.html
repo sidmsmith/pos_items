@@ -671,7 +671,7 @@
         <label class="form-label">Existing Item List:</label>
         <div style="flex:1; position: relative;">
           <input type="file" id="items_file" class="form-control" accept=".txt" style="display:none;" />
-          <input type="text" id="existing_list" class="form-control" placeholder="Load or enter a .txt item list path" style="flex:1; padding-right: 200px;" />
+          <input type="text" id="existing_list" class="form-control" placeholder="Load or enter a .txt item list path" style="flex:1; padding-right: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" />
           <span id="existingListStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
         </div>
         <button class="btn btn-secondary btn-sm" id="existingListLoadBtn" type="button">Load</button>
@@ -681,7 +681,7 @@
         <label class="form-label">Reference Items File:</label>
         <div style="flex:1; position: relative;">
           <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
-          <input type="text" id="reference_items_display" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="padding-right: 200px;" readonly />
+          <input type="text" id="reference_items_display" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="padding-right: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" readonly />
           <span id="itemNumbersStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
         </div>
         <button class="btn btn-secondary btn-sm" id="referenceItemsLoadBtn" type="button" title="CSV/Excel file with item numbers (one per row, first column)">Load</button>
@@ -1049,6 +1049,17 @@
         const refDisplay = document.getElementById('reference_items_display');
         if (refDisplay) {
           refDisplay.value = storedRefFilename;
+          refDisplay.title = storedRefFilename; // Tooltip shows filename
+        }
+      }
+      
+      // Restore Existing Item List filename if stored
+      const storedExistingFilename = localStorage.getItem('item_gen_existing_list_filename');
+      if (storedExistingFilename) {
+        const existingListInput = document.getElementById('existing_list');
+        if (existingListInput) {
+          existingListInput.value = storedExistingFilename;
+          existingListInput.title = storedExistingFilename; // Tooltip shows filename
         }
       }
       
@@ -1728,10 +1739,13 @@
         }
         const file = e.target.files[0];
         // Store filename for persistence
-        localStorage.setItem('item_gen_reference_items_filename', file.name);
-        // Update display textbox
+        const fileName = file.name;
+        
+        localStorage.setItem('item_gen_reference_items_filename', fileName);
+        // Update display textbox - show only filename (full path not available for security)
         if (referenceItemsDisplay) {
-          referenceItemsDisplay.value = file.name;
+          referenceItemsDisplay.value = fileName;
+          referenceItemsDisplay.title = fileName; // Tooltip shows filename on hover
         }
         referenceItems = await parseReferenceItemsFile(file);
         setItemNumbersStatus(
@@ -1751,7 +1765,9 @@
       document.getElementById('items_file').addEventListener('change', async (e) => {
         if (!e.target.files.length) {
           document.getElementById('existing_list').value = '';
+          document.getElementById('existing_list').removeAttribute('title');
           setExistingListStatus('');
+          localStorage.removeItem('item_gen_existing_list_filename');
           return;
         }
         const file = e.target.files[0];
@@ -1764,14 +1780,25 @@
           setExistingListStatus('');
           alert(`Invalid file format: ${validation.error}\n\nPlease ensure the file is a .txt file with one item per line (plain text format).`);
           document.getElementById('existing_list').value = '';
+          document.getElementById('existing_list').removeAttribute('title');
+          localStorage.removeItem('item_gen_existing_list_filename');
           e.target.value = '';
           return;
         }
 
         // File is valid, update display and load items
-        document.getElementById('existing_list').value = file.name || e.target.value;
+        // Display only filename (browsers don't provide full path for security)
+        const existingListInput = document.getElementById('existing_list');
+        const fileName = file.name;
+        
+        existingListInput.value = fileName;
+        existingListInput.title = fileName; // Tooltip shows filename on hover (full path not available for security)
         setItemList(validation.items, `${validation.count} items loaded from ${file.name}`);
         setExistingListStatus(`${validation.count} items loaded`);
+        
+        // Store filename in localStorage for persistence
+        localStorage.setItem('item_gen_existing_list_filename', fileName);
+        
         e.target.value = '';
       });
 
