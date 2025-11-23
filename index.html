@@ -1001,6 +1001,31 @@
       // Handle directory selection - use both change and input events for maximum compatibility
       const dirInput = document.getElementById('save_dir_file');
       
+      // Store reference to files for comparison
+      let previousFiles = null;
+      
+      // Use Object.defineProperty to intercept files property changes (if possible)
+      try {
+        const originalValue = dirInput.files;
+        Object.defineProperty(dirInput, 'files', {
+          get: function() {
+            return originalValue;
+          },
+          set: function(newValue) {
+            console.log('📁 [DIRECTORY] files property set directly:', newValue ? newValue.length : 0);
+            if (newValue && newValue.length > 0) {
+              setTimeout(() => {
+                handleDirectorySelection({ type: 'property-set', target: dirInput });
+              }, 100);
+            }
+            originalValue = newValue;
+          },
+          configurable: true
+        });
+      } catch (e) {
+        console.log('📁 [DIRECTORY] Could not intercept files property:', e.message);
+      }
+      
       function handleDirectorySelection(e) {
         console.log('📁 [DIRECTORY] Directory selection event fired');
         console.log('📁 [DIRECTORY] Event type:', e.type);
@@ -1065,13 +1090,51 @@
       dirInput.addEventListener('change', handleDirectorySelection);
       dirInput.addEventListener('input', handleDirectorySelection);
       
+      // Check when window regains focus (native dialog closes)
+      let checkingFiles = false;
+      window.addEventListener('focus', () => {
+        if (checkingFiles) {
+          console.log('📁 [DIRECTORY] Window regained focus, checking for files...');
+          setTimeout(() => {
+            if (dirInput.files && dirInput.files.length > 0) {
+              console.log('📁 [DIRECTORY] Files detected after focus:', dirInput.files.length);
+              handleDirectorySelection({ type: 'focus', target: dirInput });
+            } else {
+              console.log('📁 [DIRECTORY] No files detected after focus');
+            }
+            checkingFiles = false;
+          }, 200);
+        }
+      });
+      
+      // Track when directory picker is opened
+      const chooseDirBtn = document.querySelector('button[onclick*="save_dir_file"]');
+      if (chooseDirBtn) {
+        chooseDirBtn.addEventListener('click', () => {
+          console.log('📁 [DIRECTORY] Choose Directory button clicked');
+          checkingFiles = true;
+          // Also check immediately after a short delay
+          setTimeout(() => {
+            if (dirInput.files && dirInput.files.length > 0) {
+              console.log('📁 [DIRECTORY] Files detected immediately after click:', dirInput.files.length);
+              handleDirectorySelection({ type: 'click-followup', target: dirInput });
+            }
+          }, 500);
+        });
+      }
+      
       // Also check periodically if files were added (fallback for some browsers)
       let lastFileCount = 0;
       const pollInterval = setInterval(() => {
-        if (dirInput.files && dirInput.files.length !== lastFileCount && dirInput.files.length > 0) {
-          console.log('📁 [DIRECTORY] File count changed via polling:', dirInput.files.length);
-          lastFileCount = dirInput.files.length;
+        const currentCount = dirInput.files ? dirInput.files.length : 0;
+        if (currentCount !== lastFileCount && currentCount > 0) {
+          console.log('📁 [DIRECTORY] File count changed via polling:', currentCount, '(was', lastFileCount, ')');
+          lastFileCount = currentCount;
           handleDirectorySelection({ type: 'polling', target: dirInput });
+        }
+        // Log current state every 5 seconds for debugging
+        if (Date.now() % 5000 < 1000) {
+          console.log('📁 [DIRECTORY] Polling check - current file count:', currentCount);
         }
       }, 1000);
       
