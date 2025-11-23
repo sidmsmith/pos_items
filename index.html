@@ -607,10 +607,14 @@
       <div id="galleryWarnings"></div>
       <div class="gallery-grid" id="galleryGrid"></div>
       <div class="gallery-footer-status" id="galleryFooterStatus"></div>
-      <div class="gallery-footer-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+      <div class="gallery-footer-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <input type="checkbox" id="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer;">
           <label for="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="updateWmAfterDownloadGallery" style="margin: 0; cursor: pointer;">
+          <label for="updateWmAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
         </div>
         <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Download Selected Items</button>
       </div>
@@ -735,9 +739,15 @@
         <div style="display: flex; justify-content: center; flex: 1;">
           <button id="dlBtn" class="btn btn-success" style="width: 200px;">Download Items</button>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <input type="checkbox" id="uploadAfterDownload" style="margin: 0; cursor: pointer;">
-          <label for="uploadAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="uploadAfterDownload" style="margin: 0; cursor: pointer;">
+            <label for="uploadAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="updateWmAfterDownload" style="margin: 0; cursor: pointer;">
+            <label for="updateWmAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
+          </div>
         </div>
       </div>
       <div class="status-label" id="itemListStatus"></div>
@@ -872,6 +882,10 @@
     let lastGalleryPayload = null;
     let galleryLoading = false;
     let csvData = null;
+    let loadedCsvData = null; // CSV data from loaded file
+    let sessionOrg = null; // ORG stored in session (resets on refresh)
+    let sessionToken = null; // Token stored in session (resets on refresh)
+    let orgFromUrl = false; // Flag to track if ORG came from URL
     let fullScriptContent = '';
     let carouselGroup = null;
     let carouselIndex = 0;
@@ -1745,6 +1759,7 @@
         if (!e.target.files.length) {
           document.getElementById('csv_out').value = '';
           setCsvOutStatus('');
+          loadedCsvData = null; // Clear loaded CSV data
           localStorage.removeItem('item_gen_csv_out_filename');
           return;
         }
@@ -1762,12 +1777,37 @@
           return;
         }
 
-        // File is valid, update display
+        // File is valid, parse and store CSV data
         const csvOutInput = document.getElementById('csv_out');
         const fileName = file.name;
         csvOutInput.value = fileName;
         csvOutInput.title = fileName; // Tooltip shows filename on hover
         setCsvOutStatus(`${validation.rowCount} rows loaded`);
+        
+        // Parse CSV data from file
+        try {
+          if (file.name.toLowerCase().endsWith('.csv')) {
+            const text = await file.text();
+            loadedCsvData = parseCsvToArray(text);
+          } else {
+            // Excel file - convert to CSV format
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            // Convert to same format as parseCsvToArray (skip header, split by comma)
+            loadedCsvData = rows.slice(1).map(row => {
+              if (Array.isArray(row)) {
+                return row.map(cell => String(cell || '').trim());
+              }
+              return [];
+            }).filter(row => row.length > 0 && row.some(cell => cell.length > 0));
+          }
+        } catch (error) {
+          console.error('Error parsing CSV file:', error);
+          loadedCsvData = null;
+        }
         
         // Store filename in localStorage for persistence
         localStorage.setItem('item_gen_csv_out_filename', fileName);
@@ -2788,6 +2828,15 @@
         }
       }
 
+      // Check if update WM after download is enabled
+      const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
+      if (updateWmAfterDownload && updateWmAfterDownload.checked && csvData) {
+        // Trigger WM update
+        logToConsole('Update WM after download enabled. Updating WM...', 'info');
+        setGalleryStatus('Updating WM...');
+        await handleWmUpdate();
+      }
+
       document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
       setGalleryStatus('Downloads ready. Check your browser downloads folder.');
       showScriptModal(result.csv_filename, result.zip_filename);
@@ -3327,37 +3376,97 @@
     }
 
     async function handleWmUpdate() {
-      const org = prompt('Enter ORG for Manhattan WMS:');
-      if (!org) return;
-      const authResult = await apiCall('auth', { org });
-      if (!authResult.success) {
-        alert(`Authentication failed: ${authResult.error}`);
+      // Validate CSV data is available
+      const csvDataToUse = csvData || loadedCsvData;
+      if (!csvDataToUse || csvDataToUse.length === 0) {
+        alert('Please load a CSV file or download items first to create CSV data.');
         return;
       }
-      if (!csvData) {
-        alert('Please download images first to create CSV data');
+
+      // Check if CSV file is loaded (validate it exists)
+      const csvOutInput = document.getElementById('csv_out');
+      const csvOutFileInput = document.getElementById('csv_out_file');
+      if (!csvData && !loadedCsvData) {
+        alert('Please load a CSV file using the "Load" button next to "Output CSV File" or download items first.');
         return;
       }
+
+      // Get ORG - check URL parameter first, then session, then prompt
+      let org = null;
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlOrg = urlParams.get('Organization');
+      
+      if (urlOrg) {
+        // ORG from URL - use it (should already be authenticated)
+        org = urlOrg.trim();
+        if (sessionToken && sessionOrg === org) {
+          // Already authenticated with this ORG, use stored token
+        } else {
+          // Need to authenticate
+          const authResult = await apiCall('auth', { org });
+          if (!authResult.success) {
+            alert(`Authentication failed: ${authResult.error}`);
+            return;
+          }
+          sessionToken = authResult.token;
+          sessionOrg = org;
+        }
+      } else if (sessionOrg && sessionToken) {
+        // Use session ORG and token (pre-populated)
+        org = sessionOrg;
+      } else if (sessionOrg) {
+        // Have ORG but no token - re-authenticate
+        org = sessionOrg;
+        const authResult = await apiCall('auth', { org });
+        if (!authResult.success) {
+          alert(`Authentication failed: ${authResult.error}`);
+          return;
+        }
+        sessionToken = authResult.token;
+      } else {
+        // Prompt for ORG (first time, blank default)
+        org = prompt('Enter ORG for Manhattan WMS:', '');
+        if (!org || !org.trim()) return;
+        org = org.trim();
+        
+        // Authenticate
+        const authResult = await apiCall('auth', { org });
+        if (!authResult.success) {
+          alert(`Authentication failed: ${authResult.error}`);
+          return;
+        }
+        sessionToken = authResult.token;
+        sessionOrg = org;
+      }
+
       const wmBtn = document.getElementById('wmBtn');
       const dlStatus = document.getElementById('dlStatus');
 
+      // Show visual indicator
       wmBtn.disabled = true;
-      dlStatus.textContent = 'Uploading to WMS...';
+      wmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...';
+      dlStatus.textContent = 'Updating WM...';
 
-      const result = await apiCall('update_wm', {
-        org,
-        token: authResult.token,
-        csv_data: csvData
-      });
+      try {
+        const result = await apiCall('update_wm', {
+          org,
+          token: sessionToken,
+          csv_data: csvDataToUse
+        });
 
-      wmBtn.disabled = false;
-
-      if (result.success) {
-        alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
-        dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
-      } else {
-        alert(`WM Update failed: ${result.error}`);
-        dlStatus.textContent = `Error: ${result.error}`;
+        if (result.success) {
+          alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
+          dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
+        } else {
+          alert(`WM Update failed: ${result.error}`);
+          dlStatus.textContent = `Error: ${result.error}`;
+        }
+      } catch (error) {
+        alert(`WM Update failed: ${error.message}`);
+        dlStatus.textContent = `Error: ${error.message}`;
+      } finally {
+        wmBtn.disabled = false;
+        wmBtn.innerHTML = 'Update WM';
       }
     }
 
@@ -3409,6 +3518,20 @@
         });
       }
 
+      // Sync Update WM checkboxes between main section and gallery modal
+      const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
+      const updateWmAfterDownloadGallery = document.getElementById('updateWmAfterDownloadGallery');
+      if (updateWmAfterDownload && updateWmAfterDownloadGallery) {
+        // Sync main checkbox to gallery checkbox
+        updateWmAfterDownload.addEventListener('change', (e) => {
+          updateWmAfterDownloadGallery.checked = e.target.checked;
+        });
+        // Sync gallery checkbox to main checkbox
+        updateWmAfterDownloadGallery.addEventListener('change', (e) => {
+          updateWmAfterDownload.checked = e.target.checked;
+        });
+      }
+
       const galleryModalEl = document.getElementById('galleryModal');
       if (galleryModalEl) {
         galleryModalEl.addEventListener('click', (e) => {
@@ -3453,6 +3576,33 @@
       initUI();
       registerEventHandlers();
       apiCall('app_opened', {});
+      
+      // Check for ORG in URL parameter and auto-authenticate if present
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlOrg = urlParams.get('Organization');
+      if (urlOrg && urlOrg.trim()) {
+        // Auto-populate ORG and authenticate silently
+        sessionOrg = urlOrg.trim();
+        orgFromUrl = true;
+        logToConsole(`ORG detected in URL: ${sessionOrg}. Auto-authenticating...`, 'info');
+        
+        // Auto-authenticate in background
+        apiCall('auth', { org: sessionOrg }).then(authResult => {
+          if (authResult.success) {
+            sessionToken = authResult.token;
+            logToConsole(`Auto-authentication successful for ORG: ${sessionOrg}`, 'success');
+          } else {
+            logToConsole(`Auto-authentication failed for ORG: ${sessionOrg} - ${authResult.error}`, 'error');
+            sessionOrg = null;
+            orgFromUrl = false;
+          }
+        }).catch(error => {
+          logToConsole(`Auto-authentication error: ${error.message}`, 'error');
+          sessionOrg = null;
+          orgFromUrl = false;
+        });
+      }
+      
       logToConsole(`Item Generator ${APP_VERSION} initialized`, 'success');
       
       // Log instructions for viewing console
