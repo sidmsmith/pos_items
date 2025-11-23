@@ -1816,6 +1816,7 @@
           if (file.name.toLowerCase().endsWith('.csv')) {
             const text = await file.text();
             loadedCsvData = parseCsvToArray(text);
+            console.log('CSV file parsed successfully, rows:', loadedCsvData ? loadedCsvData.length : 0);
           } else {
             // Excel file - convert to CSV format
             const buffer = await file.arrayBuffer();
@@ -1830,13 +1831,34 @@
               }
               return [];
             }).filter(row => row.length > 0 && row.some(cell => cell.length > 0));
+            console.log('Excel file parsed successfully, rows:', loadedCsvData ? loadedCsvData.length : 0);
           }
+          
+          // Verify loadedCsvData is valid
+          if (!loadedCsvData || loadedCsvData.length === 0) {
+            console.error('Parsed CSV data is empty or invalid');
+            setCsvOutStatus('');
+            alert('Error: The CSV file was validated but could not be parsed. Please try a different file.');
+            csvOutInput.value = '';
+            updateFileInputShading(csvOutInput, true);
+            loadedCsvData = null;
+            e.target.value = '';
+            return;
+          }
+          
           // Clear csvData when a new CSV is successfully loaded manually
           // This ensures manually loaded CSV takes priority over downloaded CSV
           csvData = null;
+          console.log('loadedCsvData set successfully with', loadedCsvData.length, 'rows');
         } catch (error) {
           console.error('Error parsing CSV file:', error);
+          setCsvOutStatus('');
+          alert(`Error parsing file: ${error.message || 'Failed to parse file. Please ensure the file is a valid CSV or Excel file.'}`);
+          csvOutInput.value = '';
+          updateFileInputShading(csvOutInput, true);
           loadedCsvData = null;
+          e.target.value = '';
+          return;
         }
         
         // Store filename in localStorage for persistence
@@ -2974,7 +2996,31 @@
 
     function parseCsvToArray(csvText) {
       const rows = csvText.split(/\r?\n/).filter(Boolean);
-      return rows.slice(1).map(row => row.split(','));
+      if (rows.length === 0) {
+        console.warn('parseCsvToArray: No rows found in CSV text');
+        return [];
+      }
+      // Parse CSV properly handling quoted values
+      const parsedRows = rows.slice(1).map(row => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      }).filter(row => row.length > 0 && row.some(cell => cell.length > 0));
+      console.log('parseCsvToArray: Parsed', parsedRows.length, 'data rows from', rows.length, 'total rows');
+      return parsedRows;
     }
 
     async function finalizeGallerySelections() {
@@ -3599,12 +3645,15 @@
       let csvDataToUse;
       if (forceUseCsvData) {
         csvDataToUse = csvData;
+        console.log('Update WM: Using csvData (from download), rows:', csvData ? csvData.length : 0);
       } else {
         // Manual call: prioritize manually loaded CSV over downloaded CSV
         csvDataToUse = loadedCsvData || csvData;
+        console.log('Update WM: Using', loadedCsvData ? 'loadedCsvData' : 'csvData', ', rows:', csvDataToUse ? csvDataToUse.length : 0);
       }
       
       if (!csvDataToUse || csvDataToUse.length === 0) {
+        console.error('Update WM: No CSV data available. loadedCsvData:', loadedCsvData ? loadedCsvData.length : 'null', ', csvData:', csvData ? csvData.length : 'null');
         alert('Please load a CSV file or download items first to create CSV data.');
         return;
       }
