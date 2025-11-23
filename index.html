@@ -672,7 +672,7 @@
         <input type="text" id="save_dir" class="form-control" placeholder="Select directory for cleanup/upload reference" style="flex: 1;" />
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('save_dir_file').click();" type="button">Choose Directory</button>
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 0.5rem;">
-          <input type="checkbox" id="include_subfolders" checked style="margin: 0;" />
+          <input type="checkbox" id="include_subfolders" style="margin: 0;" />
           <label for="include_subfolders" style="margin: 0; font-size: 0.9em; color: var(--text);">Include subfolders</label>
         </div>
       </div>
@@ -706,7 +706,7 @@
 
       <div class="btn-row">
         <button id="cleanupBtn" class="btn btn-orange" style="width: 160px;">Clean Up CSV</button>
-        <button id="upBtn" class="btn btn-blue" style="width: 160px;">Upload to Cloudinary</button>
+        <button id="upBtn" type="button" class="btn btn-blue" style="width: 160px;">Upload to Cloudinary</button>
         <button id="wmBtn" class="btn btn-purple" style="width: 160px;">Update WM</button>
       </div>
 
@@ -824,8 +824,13 @@
       // Function to filter image files (shared by preview and upload)
       function filterImageFiles(files, includeSubfolders) {
         const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        let totalFiles = 0;
+        let rootFiles = 0;
+        let subfolderFiles = 0;
         
-        return Array.from(files).filter(file => {
+        const filtered = Array.from(files).filter(file => {
+          totalFiles++;
+          
           // Check file extension
           const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
           if (!imageExtensions.includes(ext)) {
@@ -839,16 +844,30 @@
             // - Root file: "filename.jpg" (no '/')
             // - Subfolder file: "subfolder/filename.jpg" (has '/')
             // - Nested file: "subfolder/nested/filename.jpg" (has '/')
-            // So if it contains '/', it's in a subfolder
             // Count path segments - if more than 1 (filename), it's in a subfolder
             const pathSegments = relativePath.split('/');
             if (pathSegments.length > 1) {
+              subfolderFiles++;
               return false; // File is in a subfolder
+            } else {
+              rootFiles++;
             }
+          } else if (includeSubfolders) {
+            // If including subfolders, count all files
+            if (file.webkitRelativePath && file.webkitRelativePath.split('/').length > 1) {
+              subfolderFiles++;
+            } else {
+              rootFiles++;
+            }
+          } else {
+            rootFiles++;
           }
           
           return true;
         });
+        
+        console.log(`Filtered images: ${filtered.length} of ${totalFiles} (Root: ${rootFiles}, Subfolder: ${subfolderFiles}, Include subfolders: ${includeSubfolders})`);
+        return filtered;
       }
       
       // Function to update image preview
@@ -858,13 +877,21 @@
         const previewList = document.getElementById('imagePreviewList');
         const imageCount = document.getElementById('imageCount');
         
-        if (!dirInput.files || dirInput.files.length === 0) {
-          previewContainer.style.display = 'none';
+        if (!dirInput || !dirInput.files || dirInput.files.length === 0) {
+          if (previewContainer) {
+            previewContainer.style.display = 'none';
+          }
           return;
         }
         
-        const includeSubfolders = document.getElementById('include_subfolders').checked;
+        const includeSubfoldersCheckbox = document.getElementById('include_subfolders');
+        const includeSubfolders = includeSubfoldersCheckbox ? includeSubfoldersCheckbox.checked : false;
         const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
+        
+        if (!previewContainer || !previewList || !imageCount) {
+          console.error('Preview elements not found');
+          return;
+        }
         
         if (imageFiles.length === 0) {
           previewContainer.style.display = 'none';
@@ -887,6 +914,7 @@
         });
         
         previewList.innerHTML = html;
+        console.log(`Preview updated: ${imageFiles.length} images displayed`);
       }
       
       document.getElementById('save_dir_file').addEventListener('change', (e) => {
@@ -1582,9 +1610,10 @@
       const uploadFolder = document.getElementById('upload_folder').value.trim();
       
       // Check if directory has been selected
-      if (!dirInput.files || dirInput.files.length === 0) {
+      if (!dirInput || !dirInput.files || dirInput.files.length === 0) {
         // If no directory selected, trigger the directory picker
-        dirInput.click();
+        alert('Please select a directory first by clicking "Choose Directory".');
+        dirInput?.click();
         
         // Wait for user to select directory (with timeout)
         try {
@@ -1593,15 +1622,19 @@
               reject(new Error('No directory selected'));
             }, 60000); // 60 second timeout
             
-            dirInput.addEventListener('change', (e) => {
+            const changeHandler = (e) => {
               clearTimeout(timeout);
+              dirInput.removeEventListener('change', changeHandler);
               resolve(e);
-            }, { once: true });
+            };
+            
+            dirInput.addEventListener('change', changeHandler);
           });
           // Update preview after directory selection
           updateImagePreview();
         } catch (error) {
           // User cancelled or timed out
+          console.log('Directory selection cancelled or timed out');
           return;
         }
       }
@@ -1739,7 +1772,13 @@
       if (cleanupBtn) cleanupBtn.addEventListener('click', handleCleanupClick);
 
       const uploadBtn = document.getElementById('upBtn');
-      if (uploadBtn) uploadBtn.addEventListener('click', handleUploadClick);
+      if (uploadBtn) {
+        uploadBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleUploadClick();
+        });
+      }
 
       const wmBtn = document.getElementById('wmBtn');
       if (wmBtn) wmBtn.addEventListener('click', handleWmUpdate);
