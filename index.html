@@ -1300,9 +1300,14 @@
           window.imageObjectURLs = [];
         }
         
+        // Clear the updating flag now that we're done
+        window.updatingPreview = false;
+        console.log('✅ [PREVIEW] Preview update completed, flag cleared');
+        
         console.log('📋 [PREVIEW] Preview updated successfully:', {
           imageCount: imageFiles.length,
-          previewVisible: previewContainer.style.display
+          previewVisible: previewContainer.style.display,
+          domItems: previewList.children.length
         });
       }
       
