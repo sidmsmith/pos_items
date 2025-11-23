@@ -3692,9 +3692,20 @@
       const wmBtn = document.getElementById('wmBtn');
       const dlStatus = document.getElementById('dlStatus');
 
-      // Log API call with row count
+      // Log API call with row count and first 2 item descriptions
       const rowCount = csvDataToUse.length;
-      logToConsole(`Update WM: Calling API with ${rowCount} item(s)`, 'info');
+      let itemDescriptions = '';
+      if (rowCount > 0) {
+        const firstTwo = csvDataToUse.slice(0, 2);
+        const descriptions = firstTwo.map(row => {
+          // CSV structure: [ItemId, ShortDescription, Description, ...]
+          // Use Description (index 2) if available, fallback to ShortDescription (index 1) or ItemId (index 0)
+          const desc = (row[2] && row[2].trim()) || (row[1] && row[1].trim()) || (row[0] && row[0].trim()) || 'N/A';
+          return `'${desc}'`;
+        });
+        itemDescriptions = ` - First items: ${descriptions.join(', ')}`;
+      }
+      logToConsole(`Update WM: Calling API with ${rowCount} item(s)${itemDescriptions}`, 'info');
 
       // Show visual indicator
       wmBtn.disabled = true;
