@@ -3391,13 +3391,13 @@
         return;
       }
 
-      // Get ORG - check URL parameter first, then session, then prompt
+      // Get ORG - check URL parameter first, then always prompt (unless from URL)
       let org = null;
       const urlParams = new URLSearchParams(window.location.search);
       const urlOrg = urlParams.get('Organization');
       
       if (urlOrg) {
-        // ORG from URL - use it (should already be authenticated)
+        // ORG from URL - use it (should already be authenticated, no prompt)
         org = urlOrg.trim();
         if (sessionToken && sessionOrg === org) {
           // Already authenticated with this ORG, use stored token
@@ -3411,25 +3411,13 @@
           sessionToken = authResult.token;
           sessionOrg = org;
         }
-      } else if (sessionOrg && sessionToken) {
-        // Use session ORG and token (pre-populated)
-        org = sessionOrg;
-      } else if (sessionOrg) {
-        // Have ORG but no token - re-authenticate
-        org = sessionOrg;
-        const authResult = await apiCall('auth', { org });
-        if (!authResult.success) {
-          alert(`Authentication failed: ${authResult.error}`);
-          return;
-        }
-        sessionToken = authResult.token;
       } else {
-        // Prompt for ORG (first time, blank default)
-        org = prompt('Enter ORG for Manhattan WMS:', '');
+        // Always prompt for ORG, pre-populate with previous value if available
+        org = prompt('Enter ORG for Manhattan WMS:', sessionOrg || '');
         if (!org || !org.trim()) return;
         org = org.trim();
         
-        // Authenticate
+        // Authenticate (always authenticate, even if ORG matches previous)
         const authResult = await apiCall('auth', { org });
         if (!authResult.success) {
           alert(`Authentication failed: ${authResult.error}`);
