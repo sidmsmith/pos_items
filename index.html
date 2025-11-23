@@ -3652,8 +3652,17 @@
         console.log('Update WM: Using csvData (from download), rows:', csvData ? csvData.length : 0);
       } else {
         // Manual call: prioritize manually loaded CSV over downloaded CSV
-        csvDataToUse = loadedCsvData || csvData;
-        console.log('Update WM: Using', loadedCsvData ? 'loadedCsvData' : 'csvData', ', rows:', csvDataToUse ? csvDataToUse.length : 0);
+        // Explicitly check and assign to avoid any potential issues
+        if (loadedCsvData && Array.isArray(loadedCsvData) && loadedCsvData.length > 0) {
+          csvDataToUse = loadedCsvData;
+          console.log('Update WM: Using loadedCsvData, rows:', csvDataToUse.length);
+        } else if (csvData && Array.isArray(csvData) && csvData.length > 0) {
+          csvDataToUse = csvData;
+          console.log('Update WM: Using csvData, rows:', csvDataToUse.length);
+        } else {
+          csvDataToUse = null;
+          console.log('Update WM: Neither loadedCsvData nor csvData is available');
+        }
         console.log('Update WM: csvDataToUse type:', typeof csvDataToUse, ', isArray:', Array.isArray(csvDataToUse));
       }
       
