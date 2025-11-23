@@ -1064,13 +1064,21 @@
       let config = loadConfig();
       config = normalizePathDefaults(config);
 
+      // Populate all fields from config
       for (const key in config) {
         const el = document.getElementById(key);
         if (el) el.value = config[key];
       }
 
-      // Don't pre-populate filenames - user must load files each time
+      // Don't pre-populate the 3 file input textboxes - user must load files each time
       // Red shading on textboxes indicates files need to be loaded
+      // Clear these AFTER populating all other fields
+      const existingListInput = document.getElementById('existing_list');
+      const csvOutInput = document.getElementById('csv_out');
+      const referenceItemsDisplay = document.getElementById('reference_items_display');
+      if (existingListInput) existingListInput.value = '';
+      if (csvOutInput) csvOutInput.value = '';
+      if (referenceItemsDisplay) referenceItemsDisplay.value = '';
       
       // Function to update image preview
       function updateImagePreview() {
