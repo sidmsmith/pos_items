@@ -1087,14 +1087,15 @@
         }
       }
 
-      // Now clear ONLY the 3 file input textboxes - user must load files each time
+      // Now clear ONLY the 4 file input textboxes - user must load files each time
       // Red shading on textboxes indicates files need to be loaded
       // This happens AFTER all other fields are populated
       const existingListInput = document.getElementById('existing_list');
       const csvOutInput = document.getElementById('csv_out');
       const referenceItemsDisplay = document.getElementById('reference_items_display');
+      const saveDirInput = document.getElementById('save_dir');
       
-      // Only clear these 3 specific fields - nothing else
+      // Only clear these 4 specific fields - nothing else
       if (existingListInput) {
         existingListInput.value = '';
         updateFileInputShading(existingListInput, true);
@@ -1106,6 +1107,10 @@
       if (referenceItemsDisplay) {
         referenceItemsDisplay.value = '';
         updateFileInputShading(referenceItemsDisplay, true);
+      }
+      if (saveDirInput) {
+        saveDirInput.value = '';
+        updateFileInputShading(saveDirInput, true);
       }
       
       // Function to update image preview
@@ -1507,6 +1512,12 @@
           
           if (!filesAfterDelay || filesLengthAfterDelay === 0) {
             console.log('📁 [DIRECTORY] No files selected, updating preview');
+            // User cancelled or no files selected - apply red shading
+            const saveDirInput = document.getElementById('save_dir');
+            if (saveDirInput) {
+              saveDirInput.value = '';
+              updateFileInputShading(saveDirInput, true);
+            }
             updateImagePreview();
             return;
           }
@@ -1565,6 +1576,8 @@
               saveDirInput.value = 'Root';
               console.log('📁 [DIRECTORY] Root directory selected');
             }
+            // Remove red shading when directory is successfully selected
+            updateFileInputShading(saveDirInput, false);
           }
           
           // Always update preview when directory changes
@@ -2550,6 +2563,10 @@
       }
       const website = document.getElementById('website').value.trim();
       const count = parseInt(document.getElementById('count').value) || DEFAULTS.count;
+      if (count <= 0) {
+        alert('Item Count must be greater than 0');
+        return;
+      }
       const extra_prompt = document.getElementById('extra_prompt').value.trim();
 
       const genBtn = document.getElementById('genBtn');
