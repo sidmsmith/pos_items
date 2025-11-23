@@ -1094,8 +1094,16 @@
         // Scroll preview into view
         previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
+        // Prevent multiple simultaneous updates
+        if (window.updatingPreview) {
+          console.log('⏸️ [PREVIEW] Update already in progress, skipping...');
+          return;
+        }
+        window.updatingPreview = true;
+        
         // Build gallery view with thumbnails
         previewList.innerHTML = ''; // Clear first
+        console.log('🧹 [GALLERY] Cleared preview list, starting to add', imageFiles.length, 'items');
         
         // Helper function to extract subfolder from path
         function getSubfolder(relativePath) {
@@ -1114,7 +1122,11 @@
         }
         
         // Create gallery items
+        console.log('🎨 [GALLERY] Starting to create', imageFiles.length, 'gallery items');
+        let itemsCreated = 0;
         imageFiles.forEach((file, index) => {
+          try {
+            console.log(`🎨 [GALLERY] Processing item ${index + 1}/${imageFiles.length}:`, file.name);
           const relativePath = file.webkitRelativePath || file.name;
           const fileKey = relativePath;
           const isChecked = window.imageSelectionState[fileKey] !== false; // Default true
@@ -1238,7 +1250,15 @@
             window.imageObjectURLs = [];
           }
           window.imageObjectURLs.push({ url: objectURL, fileKey: fileKey });
+          
+          itemsCreated++;
+          console.log(`✅ [GALLERY] Successfully created item ${index + 1}/${imageFiles.length} (${itemsCreated} total created so far)`);
+          } catch (error) {
+            console.error(`❌ [GALLERY] Error creating item ${index + 1}:`, error, file.name);
+          }
         });
+        
+        console.log(`🎯 [GALLERY] forEach loop completed. Created ${itemsCreated} items out of ${imageFiles.length} total`);
         
         // Debug: Log final gallery state after a brief delay to allow rendering
         setTimeout(() => {
