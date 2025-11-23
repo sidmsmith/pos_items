@@ -1850,7 +1850,8 @@
         
         existingListInput.value = fileName;
         existingListInput.title = fileName; // Tooltip shows filename on hover (full path not available for security)
-        setItemList(validation.items, `${validation.count} items loaded from ${file.name}`);
+        // Auto-apply when loading from file - no warnings, display in white
+        setItemList(validation.items, `${validation.count} items loaded from ${file.name}`, true);
         setExistingListStatus(`${validation.count} items loaded`);
         
         // Store filename in localStorage for persistence
@@ -1862,22 +1863,22 @@
       // Add event listener to textarea to detect changes
       const itemListTextarea = document.getElementById('itemListTextarea');
       if (itemListTextarea) {
-        // Handle input events - debounce to avoid too many re-renders while typing
+        // Handle input events - update badge only, don't re-render during typing
         let inputTimeout;
         itemListTextarea.addEventListener('input', () => {
           clearTimeout(inputTimeout);
-          // Update badge immediately for responsiveness
-          updateBadgeOnly();
-          // Re-render highlights after user stops typing
+          // Update badge immediately without re-rendering (preserves cursor)
+          checkForUnappliedChanges(false); // false = don't render highlights
+          // Re-render highlights only after user stops typing
           inputTimeout = setTimeout(() => {
-            checkForUnappliedChanges();
-          }, 300); // Debounce for 300ms - user stops typing
+            checkForUnappliedChanges(true); // true = render highlights with cursor preservation
+          }, 500); // Longer debounce - 500ms after typing stops
         });
         
         // Handle blur - re-render when user leaves the field
         itemListTextarea.addEventListener('blur', () => {
           clearTimeout(inputTimeout);
-          checkForUnappliedChanges();
+          checkForUnappliedChanges(true); // Render highlights when leaving field
         });
         
         // Handle paste events - prevent HTML formatting, keep plain text
@@ -1885,46 +1886,11 @@
           e.preventDefault();
           const text = (e.clipboardData || window.clipboardData).getData('text/plain');
           document.execCommand('insertText', false, text);
-          // Re-render with highlights after paste
+          // Re-render with highlights after paste (with cursor preservation)
           setTimeout(() => {
-            checkForUnappliedChanges();
+            checkForUnappliedChanges(true);
           }, 10);
         });
-      }
-      
-      // Helper function to update badge without re-rendering (for faster feedback)
-      function updateBadgeOnly() {
-        const textarea = document.getElementById('itemListTextarea');
-        const badge = document.getElementById('unappliedChangesBadge');
-        const countSpan = document.getElementById('unappliedChangesCount');
-        
-        if (!textarea || !badge || !countSpan) return;
-        
-        const textareaValue = getTextareaValue().trim();
-        const currentValue = currentItemList.join('\n');
-        const hasChanges = textareaValue !== currentValue;
-        
-        if (hasChanges) {
-          const textareaLines = textareaValue.split(/\r?\n/).filter(line => line.trim().length > 0);
-          const originalLines = currentValue.split('\n').filter(line => line.trim().length > 0);
-          const newLines = textareaValue.split(/\r?\n/).filter(line => line.trim().length > 0);
-          
-          let changeCount = 0;
-          const maxLen = Math.max(originalLines.length, newLines.length);
-          for (let i = 0; i < maxLen; i++) {
-            const orig = originalLines[i] || '';
-            const newLine = newLines[i] || '';
-            if (orig.trim() !== newLine.trim()) {
-              changeCount++;
-            }
-          }
-          changeCount = changeCount || Math.abs(newLines.length - originalLines.length) || 1;
-          
-          badge.style.display = 'block';
-          countSpan.textContent = changeCount;
-        } else {
-          badge.style.display = 'none';
-        }
       }
 
       document.getElementById('itemListApplyBtn').addEventListener('click', () => {
@@ -2003,19 +1969,71 @@
       return textarea.textContent || textarea.innerText || '';
     }
 
+    function saveCursorPosition() {
+      const textarea = document.getElementById('itemListTextarea');
+      if (!textarea || !window.getSelection) return null;
+      
+      const selection = window.getSelection();
+      if (selection.rangeCount === 0) return null;
+      
+      const range = selection.getRangeAt(0);
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(textarea);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+      
+      return {
+        start: preCaretRange.toString().length,
+        end: preCaretRange.toString().length
+      };
+    }
+
+    function restoreCursorPosition(savedPosition) {
+      if (!savedPosition) return;
+      
+      const textarea = document.getElementById('itemListTextarea');
+      if (!textarea || !window.getSelection) return;
+      
+      try {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        
+        let charCount = 0;
+        let nodeStack = [textarea];
+        let node;
+        let foundStart = false;
+        
+        while (!foundStart && (node = nodeStack.pop())) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const nextCharCount = charCount + node.textContent.length;
+            if (savedPosition.start <= nextCharCount) {
+              range.setStart(node, savedPosition.start - charCount);
+              range.setEnd(node, savedPosition.end - charCount);
+              foundStart = true;
+            }
+            charCount = nextCharCount;
+          } else {
+            let i = node.childNodes.length;
+            while (i--) {
+              nodeStack.push(node.childNodes[i]);
+            }
+          }
+        }
+        
+        if (foundStart) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      } catch (e) {
+        // Ignore cursor restoration errors
+      }
+    }
+
     function renderItemListWithHighlights(preserveCursor = false) {
       const textarea = document.getElementById('itemListTextarea');
       if (!textarea) return;
       
-      // Save cursor position if needed
-      let cursorPosition = null;
-      if (preserveCursor && window.getSelection) {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          cursorPosition = range.startOffset;
-        }
-      }
+      // Save cursor position before re-rendering
+      const savedPosition = preserveCursor ? saveCursorPosition() : null;
       
       const currentValue = currentItemList.join('\n');
       const textareaValue = getTextareaValue().trim();
@@ -2025,6 +2043,7 @@
         textarea.innerHTML = currentValue.split('\n').map(line => {
           return line ? `<span style="color: #fff;">${escapeHtml(line)}</span>` : '<br>';
         }).join('\n');
+        if (savedPosition) restoreCursorPosition(savedPosition);
         return;
       }
       
@@ -2057,18 +2076,9 @@
       
       textarea.innerHTML = htmlLines.join('\n');
       
-      // Restore cursor position if we were preserving it
-      if (preserveCursor && cursorPosition !== null && textarea.firstChild) {
-        try {
-          const range = document.createRange();
-          const selection = window.getSelection();
-          range.setStart(textarea.firstChild, Math.min(cursorPosition, textarea.firstChild.textContent.length));
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        } catch (e) {
-          // Ignore cursor restoration errors
-        }
+      // Restore cursor position after re-rendering
+      if (savedPosition) {
+        setTimeout(() => restoreCursorPosition(savedPosition), 0);
       }
     }
 
@@ -2078,15 +2088,21 @@
       return div.innerHTML;
     }
 
-    function updateItemListTextarea(message) {
+    function updateItemListTextarea(message, autoApply = false) {
       const textarea = document.getElementById('itemListTextarea');
       if (!textarea) return;
       
-      // Store the current contentEditable value before updating
-      const currentText = getTextareaValue();
-      
-      // Render with highlights
-      renderItemListWithHighlights();
+      // If auto-applying (e.g., loading from file), update currentItemList and render in white
+      if (autoApply) {
+        // Render all in white since we're applying the changes
+        const value = currentItemList.join('\n');
+        textarea.innerHTML = value.split('\n').map(line => {
+          return line ? `<span style="color: #fff;">${escapeHtml(line)}</span>` : '<br>';
+        }).join('\n');
+      } else {
+        // Normal update - render with highlights
+        renderItemListWithHighlights();
+      }
       
       const status = document.getElementById('itemListStatus');
       status.textContent = message || (currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.');
@@ -2095,7 +2111,7 @@
       checkForUnappliedChanges();
     }
 
-    function checkForUnappliedChanges() {
+    function checkForUnappliedChanges(renderHighlights = true) {
       const textarea = document.getElementById('itemListTextarea');
       const badge = document.getElementById('unappliedChangesBadge');
       const countSpan = document.getElementById('unappliedChangesCount');
@@ -2131,14 +2147,18 @@
         badge.style.display = 'block';
         countSpan.textContent = changeCount;
         
-        // Re-render with highlights
-        renderItemListWithHighlights();
+        // Only re-render highlights if requested (not during active typing)
+        if (renderHighlights) {
+          renderItemListWithHighlights(true); // Preserve cursor
+        }
       } else {
         // Hide badge
         badge.style.display = 'none';
         
-        // Render all in white
-        renderItemListWithHighlights();
+        // Render all in white only if requested
+        if (renderHighlights) {
+          renderItemListWithHighlights(true); // Preserve cursor
+        }
       }
     }
 
@@ -2165,9 +2185,9 @@
       return { success: true };
     }
 
-    function setItemList(items, statusMessage) {
+    function setItemList(items, statusMessage, autoApply = false) {
       currentItemList = normalizeItemList(items || []);
-      updateItemListTextarea(statusMessage);
+      updateItemListTextarea(statusMessage, autoApply);
     }
 
     async function loadItemsFromTextFile(file) {
@@ -2176,7 +2196,8 @@
       if (!file) return;
       const text = await file.text();
       const items = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      setItemList(items, `${items.length} items loaded from ${file.name}`);
+      // Auto-apply when loading from file - no warnings, display in white
+      setItemList(items, `${items.length} items loaded from ${file.name}`, true);
       setExistingListStatus(`${items.length} items loaded`);
     }
 
@@ -2441,7 +2462,8 @@
       }
 
       generatedProducts = result.products;
-      setItemList(result.products, `${result.products.length} generated items ready for gallery.`);
+      // Auto-apply when generating items - no warnings, display in white
+      setItemList(result.products, `${result.products.length} generated items ready for gallery.`, true);
 
       genStatus.textContent = `Generated ${result.count} products successfully!`;
     }
