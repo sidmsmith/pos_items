@@ -3604,10 +3604,10 @@
       // If forceUseCsvData is true (called from download process), always use csvData
       // Otherwise, prioritize loadedCsvData (manually loaded file) over csvData (downloaded CSV)
       
-      console.log('=== handleWmUpdate START ===');
-      console.log('forceUseCsvData:', forceUseCsvData);
-      console.log('loadedCsvData:', loadedCsvData, 'type:', typeof loadedCsvData, 'isArray:', Array.isArray(loadedCsvData), 'length:', loadedCsvData?.length);
-      console.log('csvData:', csvData, 'type:', typeof csvData, 'isArray:', Array.isArray(csvData), 'length:', csvData?.length);
+      console.error('=== handleWmUpdate START ===');
+      console.error('forceUseCsvData:', forceUseCsvData);
+      console.error('loadedCsvData:', loadedCsvData, 'type:', typeof loadedCsvData, 'isArray:', Array.isArray(loadedCsvData), 'length:', loadedCsvData?.length);
+      console.error('csvData:', csvData, 'type:', typeof csvData, 'isArray:', Array.isArray(csvData), 'length:', csvData?.length);
       
       let csvDataToUse = null;
       
@@ -3617,18 +3617,30 @@
       } else {
         // Manual call: prioritize manually loaded CSV over downloaded CSV
         // Simple direct check: is it an array with length > 0?
+        console.error('DEBUG: Checking loadedCsvData...');
+        console.error('DEBUG: loadedCsvData ===', loadedCsvData);
+        console.error('DEBUG: Array.isArray(loadedCsvData) ===', Array.isArray(loadedCsvData));
+        console.error('DEBUG: loadedCsvData?.length ===', loadedCsvData?.length);
+        console.error('DEBUG: Full condition result ===', Array.isArray(loadedCsvData) && loadedCsvData.length > 0);
+        
         if (Array.isArray(loadedCsvData) && loadedCsvData.length > 0) {
+          console.error('DEBUG: Condition PASSED - assigning loadedCsvData');
           csvDataToUse = loadedCsvData;
+          console.error('DEBUG: csvDataToUse after assignment ===', csvDataToUse);
           console.log('Using loadedCsvData, length:', csvDataToUse.length);
-        } else if (Array.isArray(csvData) && csvData.length > 0) {
-          csvDataToUse = csvData;
-          console.log('Using csvData (fallback), length:', csvDataToUse.length);
         } else {
-          console.log('No valid CSV data found');
+          console.error('DEBUG: Condition FAILED for loadedCsvData');
+          if (Array.isArray(csvData) && csvData.length > 0) {
+            csvDataToUse = csvData;
+            console.log('Using csvData (fallback), length:', csvDataToUse.length);
+          } else {
+            console.error('DEBUG: No valid CSV data found');
+            console.log('No valid CSV data found');
+          }
         }
       }
       
-      console.log('csvDataToUse final:', csvDataToUse, 'length:', csvDataToUse?.length);
+      console.error('csvDataToUse final:', csvDataToUse, 'length:', csvDataToUse?.length);
       
       if (!csvDataToUse || !Array.isArray(csvDataToUse) || csvDataToUse.length === 0) {
         console.error('ERROR: csvDataToUse is invalid:', csvDataToUse);
