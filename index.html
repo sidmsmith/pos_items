@@ -3748,7 +3748,7 @@
       }
 
       const wmBtn = document.getElementById('wmBtn');
-      if (wmBtn) wmBtn.addEventListener('click', handleWmUpdate);
+      if (wmBtn) wmBtn.addEventListener('click', () => handleWmUpdate(false));
 
       const galleryCloseBtn = document.getElementById('galleryCloseBtn');
       if (galleryCloseBtn) galleryCloseBtn.addEventListener('click', closeGalleryModal);
