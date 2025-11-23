@@ -3604,22 +3604,15 @@
       // If forceUseCsvData is true (called from download process), always use csvData
       // Otherwise, prioritize loadedCsvData (manually loaded file) over csvData (downloaded CSV)
       
-      // Debug: Check variables before assignment
-      const debugLoadedCsvData = loadedCsvData;
-      const debugCsvData = csvData;
-      console.log('DEBUG: Before assignment - loadedCsvData:', debugLoadedCsvData, ', type:', typeof debugLoadedCsvData, ', isArray:', Array.isArray(debugLoadedCsvData));
-      console.log('DEBUG: Before assignment - csvData:', debugCsvData, ', type:', typeof debugCsvData, ', isArray:', Array.isArray(debugCsvData));
-      
       let csvDataToUse;
       if (forceUseCsvData) {
         csvDataToUse = csvData;
-        console.log('DEBUG: Using csvData (forceUseCsvData=true)');
       } else {
         // Manual call: prioritize manually loaded CSV over downloaded CSV
-        // Direct assignment - if loadedCsvData exists, use it; otherwise use csvData
-        if (loadedCsvData) {
+        // Check loadedCsvData first - if it exists and is an array with data, use it
+        if (loadedCsvData && typeof loadedCsvData === 'object' && Array.isArray(loadedCsvData) && loadedCsvData.length > 0) {
           csvDataToUse = loadedCsvData;
-        } else if (csvData) {
+        } else if (csvData && typeof csvData === 'object' && Array.isArray(csvData) && csvData.length > 0) {
           csvDataToUse = csvData;
         } else {
           csvDataToUse = null;
