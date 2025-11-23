@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Item Generator v0.0.8</title>
+  <title>Item Generator v0.1.0</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-TdLkn9X3yYbplwVpO6ghPEP3syyLBb4Z8RXOqfN4KVm3vIPpcPpC5XJK0A0VYHkH3VddOZXS6SmfDk5F7bP2Nw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -90,6 +90,63 @@
     .form-label { color: #bbbbbb; font-weight: 600; font-size: 0.9em; }
     small { color: #999; font-size: 0.85em; }
     h2 { color: var(--primary); text-align: center; margin-bottom: 1.5rem; }
+    
+    /* Gallery View Styles */
+    .gallery-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.5rem;
+      border-radius: 8px;
+      background: var(--input-bg);
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .gallery-item.selected {
+      border-color: #00ffff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.6), 0 0 30px rgba(0, 255, 255, 0.4);
+    }
+    
+    .gallery-item:hover {
+      background: #333;
+      transform: translateY(-2px);
+    }
+    
+    .gallery-thumbnail {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+    }
+    
+    .gallery-thumbnail.loading {
+      opacity: 0.5;
+    }
+    
+    .gallery-info {
+      margin-top: 0.5rem;
+      text-align: center;
+      width: 100%;
+    }
+    
+    .gallery-filename {
+      font-size: 0.75em;
+      color: var(--text);
+      word-break: break-word;
+      font-weight: 500;
+    }
+    
+    .gallery-subfolder {
+      font-size: 0.65em;
+      color: #999;
+      margin-top: 0.25rem;
+      font-style: italic;
+    }
 
     .progress { height: 12px; background: var(--input-bg); border-radius: 6px; }
     .progress-bar { background: var(--success); }
@@ -689,11 +746,11 @@
             <button id="deselectAllImages" class="btn btn-secondary btn-sm" type="button" style="font-size: 0.8em; padding: 0.25rem 0.5rem;">Deselect All</button>
           </div>
         </div>
-        <div id="imagePreviewList" style="max-height: 200px; overflow-y: auto; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.5rem; font-size: 0.85em; font-family: monospace;">
-          <!-- Image list will be populated here -->
+        <div id="imagePreviewList" style="max-height: 400px; overflow-y: auto; background: var(--input-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem;">
+          <!-- Image gallery will be populated here -->
         </div>
         <div id="imagePreviewNote" style="font-size: 0.8em; color: #999; margin-top: 0.5rem; font-style: italic;">
-          Note: The browser may show "Upload 30 files" in the native dialog - this is normal. After confirming, the preview above shows the filtered count based on your "Include subfolders" setting. Uncheck images you don't want to upload.
+          Note: The browser may show "Upload 30 files" in the native dialog - this is normal. After confirming, the preview above shows the filtered count based on your "Include subfolders" setting. Click images to toggle selection (selected images have a cyan halo).
         </div>
       </div>
 
@@ -748,7 +805,7 @@
   </div>
 
   <script>
-    const APP_VERSION = 'v0.0.9';
+    const APP_VERSION = 'v0.1.0';
     const DEFAULTS = {
       company: "Nike",
       website: "nike.com",
@@ -1031,41 +1088,116 @@
         // Scroll preview into view
         previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
-        // Build preview list with checkboxes
-        let html = '';
+        // Build gallery view with thumbnails
+        previewList.innerHTML = ''; // Clear first
+        
+        // Helper function to extract subfolder from path
+        function getSubfolder(relativePath) {
+          const parts = relativePath.split('/');
+          if (parts.length > 2) {
+            // Skip the first part (selected folder name) and last part (filename)
+            return parts.slice(1, -1).join('/');
+          }
+          return null;
+        }
+        
+        // Helper function to get just the filename
+        function getFilename(relativePath) {
+          const parts = relativePath.split('/');
+          return parts[parts.length - 1];
+        }
+        
+        // Create gallery items
         imageFiles.forEach((file, index) => {
           const relativePath = file.webkitRelativePath || file.name;
           const fileKey = relativePath;
-          const fileSize = (file.size / 1024).toFixed(1); // KB
           const isChecked = window.imageSelectionState[fileKey] !== false; // Default true
-          const checkboxId = `img_check_${index}`;
-          const icon = '🖼️';
-          html += `<div style="padding: 0.25rem 0; border-bottom: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="${checkboxId}" data-file-key="${fileKey}" ${isChecked ? 'checked' : ''} style="margin: 0; cursor: pointer;">
-            <label for="${checkboxId}" style="margin: 0; cursor: pointer; flex: 1;">
-              <span style="color: var(--success);">${icon}</span> ${relativePath} <span style="color: #999; font-size: 0.9em;">(${fileSize} KB)</span>
-            </label>
-          </div>`;
-        });
-        
-        previewList.innerHTML = html;
-        
-        // Add event listeners to checkboxes
-        imageFiles.forEach((file, index) => {
-          const checkboxId = `img_check_${index}`;
-          const checkbox = document.getElementById(checkboxId);
-          if (checkbox) {
-            checkbox.addEventListener('change', (e) => {
-              const fileKey = e.target.getAttribute('data-file-key');
-              window.imageSelectionState[fileKey] = e.target.checked;
-              updateSelectedCount();
-            });
+          const itemId = `gallery_item_${index}`;
+          const thumbnailId = `gallery_thumb_${index}`;
+          const filename = getFilename(relativePath);
+          const subfolder = getSubfolder(relativePath);
+          
+          // Create gallery item container
+          const itemDiv = document.createElement('div');
+          itemDiv.id = itemId;
+          itemDiv.className = `gallery-item ${isChecked ? 'selected' : ''}`;
+          itemDiv.setAttribute('data-file-key', fileKey);
+          
+          // Create thumbnail image (lazy loading)
+          const img = document.createElement('img');
+          img.id = thumbnailId;
+          img.className = 'gallery-thumbnail loading';
+          img.alt = filename;
+          img.loading = 'lazy'; // Native lazy loading
+          
+          // Create object URL for the image
+          const objectURL = URL.createObjectURL(file);
+          img.src = objectURL;
+          
+          // Handle image load
+          img.onload = function() {
+            this.classList.remove('loading');
+          };
+          
+          // Create info section
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'gallery-info';
+          
+          const filenameDiv = document.createElement('div');
+          filenameDiv.className = 'gallery-filename';
+          filenameDiv.textContent = filename;
+          
+          infoDiv.appendChild(filenameDiv);
+          
+          if (subfolder) {
+            const subfolderDiv = document.createElement('div');
+            subfolderDiv.className = 'gallery-subfolder';
+            subfolderDiv.textContent = `📁 ${subfolder}`;
+            infoDiv.appendChild(subfolderDiv);
           }
+          
+          // Assemble item
+          itemDiv.appendChild(img);
+          itemDiv.appendChild(infoDiv);
+          
+          // Add click handler to toggle selection
+          itemDiv.addEventListener('click', (e) => {
+            // Allow clicking anywhere on the item to toggle
+            const currentState = window.imageSelectionState[fileKey] !== false;
+            const newState = !currentState;
+            window.imageSelectionState[fileKey] = newState;
+            
+            // Update visual state
+            if (newState) {
+              itemDiv.classList.add('selected');
+            } else {
+              itemDiv.classList.remove('selected');
+            }
+            
+            updateSelectedCount();
+          });
+          
+          // Add to preview list
+          previewList.appendChild(itemDiv);
+          
+          // Store object URL for cleanup later
+          if (!window.imageObjectURLs) {
+            window.imageObjectURLs = [];
+          }
+          window.imageObjectURLs.push({ url: objectURL, fileKey: fileKey });
         });
+        
+        // Cleanup old object URLs when preview is updated
+        if (window.imageObjectURLs) {
+          window.imageObjectURLs.forEach(item => {
+            URL.revokeObjectURL(item.url);
+          });
+          window.imageObjectURLs = [];
+        }
+        
         console.log('📋 [PREVIEW] Preview updated successfully:', {
           imageCount: imageFiles.length,
-          previewVisible: previewContainer.style.display,
-          htmlLength: html.length
+          previewVisible: previewContainer.style.display
         });
       }
       
@@ -1104,16 +1236,18 @@
         const includeSubfolders = includeSubfoldersCheckbox ? includeSubfoldersCheckbox.checked : false;
         const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
         
-        imageFiles.forEach(file => {
+        imageFiles.forEach((file) => {
           const fileKey = file.webkitRelativePath || file.name;
           window.imageSelectionState[fileKey] = true;
-        });
-        
-        // Update checkboxes
-        imageFiles.forEach((file, index) => {
-          const checkboxId = `img_check_${index}`;
-          const checkbox = document.getElementById(checkboxId);
-          if (checkbox) checkbox.checked = true;
+          
+          // Update gallery item visual state by finding item with matching data attribute
+          const previewList = document.getElementById('imagePreviewList');
+          if (previewList) {
+            const itemDiv = previewList.querySelector(`[data-file-key="${fileKey}"]`);
+            if (itemDiv) {
+              itemDiv.classList.add('selected');
+            }
+          }
         });
         
         updateSelectedCount();
@@ -1127,16 +1261,18 @@
         const includeSubfolders = includeSubfoldersCheckbox ? includeSubfoldersCheckbox.checked : false;
         const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
         
-        imageFiles.forEach(file => {
+        imageFiles.forEach((file) => {
           const fileKey = file.webkitRelativePath || file.name;
           window.imageSelectionState[fileKey] = false;
-        });
-        
-        // Update checkboxes
-        imageFiles.forEach((file, index) => {
-          const checkboxId = `img_check_${index}`;
-          const checkbox = document.getElementById(checkboxId);
-          if (checkbox) checkbox.checked = false;
+          
+          // Update gallery item visual state by finding item with matching data attribute
+          const previewList = document.getElementById('imagePreviewList');
+          if (previewList) {
+            const itemDiv = previewList.querySelector(`[data-file-key="${fileKey}"]`);
+            if (itemDiv) {
+              itemDiv.classList.remove('selected');
+            }
+          }
         });
         
         updateSelectedCount();
