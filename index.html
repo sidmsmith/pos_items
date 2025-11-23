@@ -1039,19 +1039,12 @@
         if (el) el.value = config[key];
       }
       
-      // Restore Reference Items filename hint if stored
+      // Restore Reference Items filename if stored
       const storedRefFilename = localStorage.getItem('item_gen_reference_items_filename');
       if (storedRefFilename) {
-        const refFileInput = document.getElementById('item_numbers_csv');
-        if (refFileInput && !document.getElementById('reference_items_hint')) {
-          const hint = document.createElement('small');
-          hint.id = 'reference_items_hint';
-          hint.style.color = '#999';
-          hint.style.fontSize = '0.85em';
-          hint.style.marginLeft = '0.5rem';
-          hint.style.display = 'block';
-          hint.textContent = `Last used: ${storedRefFilename}`;
-          refFileInput.parentElement.appendChild(hint);
+        const refDisplay = document.getElementById('reference_items_display');
+        if (refDisplay) {
+          refDisplay.value = storedRefFilename;
         }
       }
       
