@@ -1953,12 +1953,17 @@
       logToConsole('Upload to Cloudinary button clicked...', 'info');
       
       // Check if directory has been selected
-      if (!dirInput || !dirInput.files || dirInput.files.length === 0) {
+      const filesCount = dirInput && dirInput.files ? dirInput.files.length : 0;
+      console.log('⬆️ [UPLOAD] Checking directory selection - filesCount:', filesCount);
+      
+      if (!dirInput || !dirInput.files || filesCount === 0) {
         console.log('⬆️ [UPLOAD] No directory selected, prompting user');
         logToConsole('Please select a directory first by clicking "Choose Directory" button.', 'error');
         alert('Please select a directory first by clicking "Choose Directory" button.\n\nThen select your images folder and confirm the upload dialog.');
         return;
       }
+      
+      console.log('⬆️ [UPLOAD] Directory selected - proceeding with upload');
       
       // Use the same filtering logic as preview
       const includeSubfoldersCheckbox = document.getElementById('include_subfolders');
@@ -1970,7 +1975,16 @@
       });
       
       console.log('⬆️ [UPLOAD] Calling filterImageFiles with', dirInput.files.length, 'files');
-      const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
+      let imageFiles = [];
+      try {
+        imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
+        console.log('⬆️ [UPLOAD] filterImageFiles completed successfully');
+      } catch (error) {
+        console.error('⬆️ [UPLOAD] Error in filterImageFiles:', error);
+        logToConsole(`Error filtering files: ${error.message}`, 'error');
+        alert(`Error filtering files: ${error.message}`);
+        return;
+      }
       
       console.log('⬆️ [UPLOAD] Filtered result:', {
         imageFilesCount: imageFiles.length,
