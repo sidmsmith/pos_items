@@ -2296,7 +2296,9 @@
 
     async function apiCall(endpoint, data) {
       try {
-        logToConsole(`Calling ${endpoint}...`, 'info');
+        // Use human-readable names for common endpoints
+        const endpointDisplayName = endpoint === 'update_wm' ? 'Update WM' : endpoint;
+        logToConsole(`Calling ${endpointDisplayName}...`, 'info');
         const response = await fetch(`/api/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2304,13 +2306,13 @@
         });
         const result = await response.json();
         if (result.success) {
-          logToConsole(`${endpoint} succeeded`, 'success');
+          logToConsole(`${endpointDisplayName} succeeded`, 'success');
         } else {
-          logToConsole(`${endpoint} failed: ${result.error}`, 'error');
+          logToConsole(`${endpointDisplayName} failed: ${result.error}`, 'error');
         }
         return result;
       } catch (error) {
-        logToConsole(`${endpoint} error: ${error.message}`, 'error');
+        logToConsole(`${endpointDisplayName} error: ${error.message}`, 'error');
         return { success: false, error: error.message };
       }
     }
@@ -3440,6 +3442,10 @@
       const wmBtn = document.getElementById('wmBtn');
       const dlStatus = document.getElementById('dlStatus');
 
+      // Log API call with row count
+      const rowCount = csvDataToUse.length;
+      logToConsole(`Update WM: Calling API with ${rowCount} item(s)`, 'info');
+
       // Show visual indicator
       wmBtn.disabled = true;
       wmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...';
@@ -3453,13 +3459,17 @@
         });
 
         if (result.success) {
+          const summary = `Total: ${result.total}, Success: ${result.success_count}, Failed: ${result.failed_count}`;
+          logToConsole(`Update WM succeeded - ${summary}`, 'success');
           alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
           dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
         } else {
+          logToConsole(`Update WM failed: ${result.error}`, 'error');
           alert(`WM Update failed: ${result.error}`);
           dlStatus.textContent = `Error: ${result.error}`;
         }
       } catch (error) {
+        logToConsole(`Update WM error: ${error.message}`, 'error');
         alert(`WM Update failed: ${error.message}`);
         dlStatus.textContent = `Error: ${error.message}`;
       } finally {
