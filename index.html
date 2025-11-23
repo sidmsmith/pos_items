@@ -2318,12 +2318,9 @@
       if (result.zip_content) {
         downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${Date.now()}.zip`, 'application/zip');
         
-        // Check if upload after download is enabled (check both checkboxes)
+        // Check if upload after download is enabled (checkboxes are synchronized, so check either one)
         const uploadAfterDownload = document.getElementById('uploadAfterDownload');
-        const uploadAfterDownloadGallery = document.getElementById('uploadAfterDownloadGallery');
-        const shouldUpload = (uploadAfterDownload && uploadAfterDownload.checked) || 
-                            (uploadAfterDownloadGallery && uploadAfterDownloadGallery.checked);
-        if (shouldUpload) {
+        if (uploadAfterDownload && uploadAfterDownload.checked) {
           // Trigger upload from zip
           logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
           setGalleryStatus('Extracting zip and uploading to Cloudinary...');
