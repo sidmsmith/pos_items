@@ -821,6 +821,36 @@
         if (el) el.value = config[key];
       }
 
+      // Function to filter image files (shared by preview and upload)
+      function filterImageFiles(files, includeSubfolders) {
+        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+        
+        return Array.from(files).filter(file => {
+          // Check file extension
+          const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+          if (!imageExtensions.includes(ext)) {
+            return false;
+          }
+          
+          // If subfolders not included, exclude files that are in subfolders
+          if (!includeSubfolders && file.webkitRelativePath) {
+            const relativePath = file.webkitRelativePath;
+            // webkitRelativePath format:
+            // - Root file: "filename.jpg" (no '/')
+            // - Subfolder file: "subfolder/filename.jpg" (has '/')
+            // - Nested file: "subfolder/nested/filename.jpg" (has '/')
+            // So if it contains '/', it's in a subfolder
+            // Count path segments - if more than 1 (filename), it's in a subfolder
+            const pathSegments = relativePath.split('/');
+            if (pathSegments.length > 1) {
+              return false; // File is in a subfolder
+            }
+          }
+          
+          return true;
+        });
+      }
+      
       // Function to update image preview
       function updateImagePreview() {
         const dirInput = document.getElementById('save_dir_file');
@@ -833,25 +863,8 @@
           return;
         }
         
-        // Filter for image files
-        const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
         const includeSubfolders = document.getElementById('include_subfolders').checked;
-        
-        const imageFiles = Array.from(dirInput.files).filter(file => {
-          const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-          if (!imageExtensions.includes(ext)) {
-            return false;
-          }
-          
-          if (!includeSubfolders && file.webkitRelativePath) {
-            const relativePath = file.webkitRelativePath;
-            if (relativePath.includes('/')) {
-              return false;
-            }
-          }
-          
-          return true;
-        });
+        const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
         
         if (imageFiles.length === 0) {
           previewContainer.style.display = 'none';
@@ -884,15 +897,26 @@
         const firstFile = e.target.files[0];
         let dirPath = '';
         if (firstFile.webkitRelativePath) {
+          // Extract directory path from webkitRelativePath
+          // For root files: webkitRelativePath = "filename.jpg", dirPath = ""
+          // For subfolder files: webkitRelativePath = "subfolder/filename.jpg", dirPath = "subfolder"
           const parts = firstFile.webkitRelativePath.split('/');
-          parts.pop();
-          dirPath = parts.join('/');
+          if (parts.length > 1) {
+            parts.pop(); // Remove filename
+            dirPath = parts.join('/');
+          }
         } else if (firstFile.path) {
           const parts = firstFile.path.split(/[/\\]/);
           parts.pop();
           dirPath = parts.join('/');
         }
-        if (dirPath) document.getElementById('save_dir').value = dirPath;
+        if (dirPath) {
+          document.getElementById('save_dir').value = dirPath;
+        } else {
+          // Root directory selected
+          document.getElementById('save_dir').value = 'Root';
+        }
+        // Always update preview when directory changes
         updateImagePreview();
       });
       
@@ -1574,44 +1598,26 @@
               resolve(e);
             }, { once: true });
           });
+          // Update preview after directory selection
+          updateImagePreview();
         } catch (error) {
           // User cancelled or timed out
           return;
         }
       }
       
-      const files = dirInput.files;
-      if (!files || files.length === 0) {
-        alert('Please select a directory containing images');
-        return;
-      }
-      
-      // Filter for image files only
-      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+      // Use the same filtering logic as preview
       const includeSubfolders = document.getElementById('include_subfolders').checked;
-      
-      const imageFiles = Array.from(files).filter(file => {
-        // Check file extension
-        const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-        if (!imageExtensions.includes(ext)) {
-          return false;
-        }
-        
-        // If subfolders not included, exclude files that are in subfolders
-        // webkitRelativePath will contain '/' if file is in a subfolder
-        if (!includeSubfolders && file.webkitRelativePath) {
-          const relativePath = file.webkitRelativePath;
-          // File is in subfolder if webkitRelativePath contains '/' (path separator)
-          if (relativePath.includes('/')) {
-            return false;
-          }
-        }
-        
-        return true;
-      });
+      const imageFiles = filterImageFiles(dirInput.files, includeSubfolders);
       
       if (imageFiles.length === 0) {
-        alert('No image files found in selected directory. Supported formats: JPG, PNG, GIF, WebP, BMP');
+        // Check if preview is showing - if so, use that info
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        if (previewContainer.style.display === 'none' || previewContainer.style.display === '') {
+          alert('No image files found in selected directory. Supported formats: JPG, PNG, GIF, WebP, BMP\n\nPlease select a directory with images or check "Include subfolders" if images are in subfolders.');
+        } else {
+          alert('No image files match the current filter settings. Try checking "Include subfolders" if your images are in subfolders.');
+        }
         return;
       }
       
