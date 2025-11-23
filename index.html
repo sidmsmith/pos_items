@@ -2937,6 +2937,20 @@
 
       const saveBtn = document.getElementById('gallerySaveBtn');
       if (saveBtn) saveBtn.addEventListener('click', finalizeGallerySelections);
+      
+      // Sync checkboxes between main section and gallery modal
+      const uploadAfterDownload = document.getElementById('uploadAfterDownload');
+      const uploadAfterDownloadGallery = document.getElementById('uploadAfterDownloadGallery');
+      if (uploadAfterDownload && uploadAfterDownloadGallery) {
+        // Sync main checkbox to gallery checkbox
+        uploadAfterDownload.addEventListener('change', (e) => {
+          uploadAfterDownloadGallery.checked = e.target.checked;
+        });
+        // Sync gallery checkbox to main checkbox
+        uploadAfterDownloadGallery.addEventListener('change', (e) => {
+          uploadAfterDownload.checked = e.target.checked;
+        });
+      }
 
       const galleryModalEl = document.getElementById('galleryModal');
       if (galleryModalEl) {
