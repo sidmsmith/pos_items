@@ -3603,15 +3603,44 @@
       // Determine which CSV data to use
       // If forceUseCsvData is true (called from download process), always use csvData
       // Otherwise, prioritize loadedCsvData (manually loaded file) over csvData (downloaded CSV)
+      
+      // Debug: Check variables before assignment
+      const debugLoadedCsvData = loadedCsvData;
+      const debugCsvData = csvData;
+      console.log('DEBUG: Before assignment - loadedCsvData:', debugLoadedCsvData, ', type:', typeof debugLoadedCsvData, ', isArray:', Array.isArray(debugLoadedCsvData));
+      console.log('DEBUG: Before assignment - csvData:', debugCsvData, ', type:', typeof debugCsvData, ', isArray:', Array.isArray(debugCsvData));
+      
       let csvDataToUse;
       if (forceUseCsvData) {
         csvDataToUse = csvData;
+        console.log('DEBUG: Using csvData (forceUseCsvData=true)');
       } else {
         // Manual call: prioritize manually loaded CSV over downloaded CSV
-        csvDataToUse = loadedCsvData || csvData;
+        // Store in local variable first to avoid any potential issues
+        const localLoadedCsvData = loadedCsvData;
+        const localCsvData = csvData;
+        
+        console.log('DEBUG: Manual call - localLoadedCsvData:', localLoadedCsvData, ', type:', typeof localLoadedCsvData, ', isArray:', Array.isArray(localLoadedCsvData));
+        console.log('DEBUG: Manual call - localCsvData:', localCsvData, ', type:', typeof localCsvData, ', isArray:', Array.isArray(localCsvData));
+        
+        if (localLoadedCsvData && Array.isArray(localLoadedCsvData) && localLoadedCsvData.length > 0) {
+          csvDataToUse = localLoadedCsvData;
+          console.log('DEBUG: Assigned localLoadedCsvData to csvDataToUse, length:', csvDataToUse.length);
+        } else if (localCsvData && Array.isArray(localCsvData) && localCsvData.length > 0) {
+          csvDataToUse = localCsvData;
+          console.log('DEBUG: Assigned localCsvData to csvDataToUse, length:', csvDataToUse.length);
+        } else {
+          csvDataToUse = null;
+          console.log('DEBUG: Neither variable is valid, csvDataToUse set to null');
+        }
+        
+        console.log('DEBUG: After assignment - csvDataToUse:', csvDataToUse, ', type:', typeof csvDataToUse, ', isArray:', Array.isArray(csvDataToUse));
       }
       
       if (!csvDataToUse || csvDataToUse.length === 0) {
+        console.error('ERROR: csvDataToUse is invalid:', csvDataToUse);
+        console.error('ERROR: loadedCsvData at error time:', loadedCsvData, ', type:', typeof loadedCsvData, ', isArray:', Array.isArray(loadedCsvData));
+        console.error('ERROR: csvData at error time:', csvData, ', type:', typeof csvData, ', isArray:', Array.isArray(csvData));
         alert('Please load a CSV file or download items first to create CSV data.');
         return;
       }
