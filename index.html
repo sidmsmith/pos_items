@@ -2053,6 +2053,14 @@
       });
 
       document.getElementById('itemListSaveBtn').addEventListener('click', () => {
+        // Validate before saving (same validations as Validate List button)
+        const result = validateItemsFromTextarea();
+        if (!result.success) {
+          alert(`Cannot save: ${result.error}`);
+          return;
+        }
+        
+        // If validation passes, get the content and save
         const textarea = document.getElementById('itemListTextarea');
         const content = textarea.value.trim().length ? textarea.value : currentItemList.join('\n');
         
@@ -2427,23 +2435,23 @@
           return { valid: false, error: 'File is empty or contains no data rows' };
         }
 
-        // Validate that first column has item IDs and column B is empty
+        // Validate that first column has item IDs and column E (fifth column) is empty
         const invalidRows = [];
-        const rowsWithDataInColumnB = [];
+        const rowsWithDataInColumnE = [];
         
         rows.forEach((row, index) => {
           const rowNum = index + 1; // 1-based row numbering
           const firstColumn = row[0] ? String(row[0]).trim() : '';
-          const secondColumn = row[1] ? String(row[1]).trim() : '';
+          const fifthColumn = row[4] ? String(row[4]).trim() : ''; // Column E (index 4)
           
           // Check if first column is empty (invalid - no item ID)
           if (firstColumn.length === 0) {
             invalidRows.push(rowNum);
           }
           
-          // Check if column B has data (should be empty for reference items file)
-          if (secondColumn.length > 0) {
-            rowsWithDataInColumnB.push(rowNum);
+          // Check if column E has data (should be empty for reference items file)
+          if (fifthColumn.length > 0) {
+            rowsWithDataInColumnE.push(rowNum);
           }
         });
 
@@ -2457,13 +2465,13 @@
           };
         }
 
-        if (rowsWithDataInColumnB.length > 0) {
-          const rowList = rowsWithDataInColumnB.length <= 5 
-            ? rowsWithDataInColumnB.join(', ')
-            : `${rowsWithDataInColumnB.slice(0, 5).join(', ')} and ${rowsWithDataInColumnB.length - 5} more`;
+        if (rowsWithDataInColumnE.length > 0) {
+          const rowList = rowsWithDataInColumnE.length <= 5 
+            ? rowsWithDataInColumnE.join(', ')
+            : `${rowsWithDataInColumnE.slice(0, 5).join(', ')} and ${rowsWithDataInColumnE.length - 5} more`;
           return { 
             valid: false, 
-            error: `Invalid file format: Column B (second column) should be empty for Reference Items File. Found data in column B on ${rowsWithDataInColumnB.length} row(s): ${rowList}. This may indicate the wrong spreadsheet was uploaded (e.g., Output CSV file instead of Reference Items File).` 
+            error: `Invalid file format: Column E (fifth column) should be empty for Reference Items File. Found data in column E on ${rowsWithDataInColumnE.length} row(s): ${rowList}. This may indicate the wrong spreadsheet was uploaded (e.g., Output CSV file instead of Reference Items File).` 
           };
         }
 
@@ -2683,6 +2691,10 @@
       saveConfig();
       const sites = document.getElementById('sites').value.trim() || DEFAULTS.sites;
       const images_per_item = parseInt(document.getElementById('images_per_item').value) || DEFAULTS.images_per_item;
+      if (images_per_item <= 0) {
+        alert('Images Per Item must be greater than 0');
+        return;
+      }
       const prefix = document.getElementById('prefix').value.trim();
       const filter_str = document.getElementById('image_filters').value.trim();
 
