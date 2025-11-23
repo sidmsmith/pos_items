@@ -669,12 +669,15 @@
 
       <div class="input-row">
         <label class="form-label">Existing Item List:</label>
-        <input type="file" id="items_file" class="form-control" accept=".txt" style="display:none;" />
-        <input type="text" id="existing_list" class="form-control" placeholder="Load or enter a .txt item list path" style="flex:1;" />
+        <div style="flex:1; position: relative;">
+          <input type="file" id="items_file" class="form-control" accept=".txt" style="display:none;" />
+          <input type="text" id="existing_list" class="form-control" placeholder="Load or enter a .txt item list path" style="flex:1; padding-right: 200px;" />
+          <span id="existingListStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
+        </div>
         <button class="btn btn-secondary btn-sm" id="existingListLoadBtn" type="button">Load</button>
       </div>
 
-      <div class="input-row mt-3">
+      <div class="input-row">
         <label class="form-label">Reference Items File:</label>
         <div style="flex:1; position: relative;">
           <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
@@ -1748,11 +1751,27 @@
       document.getElementById('items_file').addEventListener('change', async (e) => {
         if (!e.target.files.length) {
           document.getElementById('existing_list').value = '';
+          setExistingListStatus('');
           return;
         }
         const file = e.target.files[0];
+        
+        // Validate file format before loading
+        const validation = await validateExistingListFile(file);
+        
+        if (!validation.valid) {
+          // Show error message
+          setExistingListStatus('');
+          alert(`Invalid file format: ${validation.error}\n\nPlease ensure the file is a .txt file with one item per line (plain text format).`);
+          document.getElementById('existing_list').value = '';
+          e.target.value = '';
+          return;
+        }
+
+        // File is valid, update display and load items
         document.getElementById('existing_list').value = file.name || e.target.value;
-        await loadItemsFromTextFile(file);
+        setItemList(validation.items, `${validation.count} items loaded from ${file.name}`);
+        setExistingListStatus(`${validation.count} items loaded`);
         e.target.value = '';
       });
 
@@ -1773,6 +1792,7 @@
 
       document.getElementById('itemListClearBtn').addEventListener('click', () => {
         setItemList([], 'Item list cleared');
+        setExistingListStatus('');
       });
 
       document.getElementById('itemListToggleBtn').addEventListener('click', toggleItemListPanel);
@@ -1831,10 +1851,13 @@
     }
 
     async function loadItemsFromTextFile(file) {
+      // This function is now primarily used for programmatic loading
+      // The file validation and loading is handled in the change event listener
       if (!file) return;
       const text = await file.text();
       const items = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
       setItemList(items, `${items.length} items loaded from ${file.name}`);
+      setExistingListStatus(`${items.length} items loaded`);
     }
 
     function toggleItemListPanel() {
@@ -1890,6 +1913,59 @@
 
     function setItemNumbersStatus(text) {
       document.getElementById('itemNumbersStatus').textContent = text || '';
+    }
+
+    function setExistingListStatus(text) {
+      document.getElementById('existingListStatus').textContent = text || '';
+    }
+
+    async function validateExistingListFile(file) {
+      if (!file) {
+        return { valid: false, error: 'No file selected' };
+      }
+
+      // Check file extension
+      const extension = file.name.split('.').pop().toLowerCase();
+      if (extension !== 'txt') {
+        return { valid: false, error: 'File must be a .txt file. The Download Items feature expects a plain text file with one item per line.' };
+      }
+
+      try {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/);
+        const items = lines.map(line => line.trim()).filter(Boolean);
+
+        if (items.length === 0) {
+          return { valid: false, error: 'File is empty or contains no valid items. Expected one item per line.' };
+        }
+
+        // The Download Items logic expects simple text with one item per line
+        // Validate that the format matches: one item per line, plain text (not CSV/Excel format)
+        // Check for common issues that suggest wrong format:
+        // - Multiple items per line (comma-separated or tab-separated)
+        // - CSV header row
+        const hasMultipleItemsPerLine = items.some(item => {
+          // If a line has commas or tabs and appears to have multiple columns, it's likely CSV/Excel format
+          if (item.includes('\t')) return true;
+          if (item.includes(',')) {
+            const parts = item.split(',').map(p => p.trim()).filter(Boolean);
+            // If there are multiple non-empty parts, it might be CSV format
+            if (parts.length > 1 && parts.every(p => p.length > 0)) return true;
+          }
+          return false;
+        });
+
+        if (hasMultipleItemsPerLine) {
+          return { 
+            valid: false, 
+            error: 'File format appears invalid. Expected one item per line (plain text format). This file appears to be in CSV/Excel format. Please use a plain text file with one item per line.' 
+          };
+        }
+
+        return { valid: true, items: items, count: items.length };
+      } catch (error) {
+        return { valid: false, error: `Error reading file: ${error.message}` };
+      }
     }
 
     async function apiCall(endpoint, data) {
