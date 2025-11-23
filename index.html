@@ -2047,7 +2047,8 @@
         });
         console.log(`⬆️ [UPLOAD] Total files added to FormData: ${imageFiles.length}`);
         
-        logToConsole(`Starting upload of ${imageFiles.length} images to Cloudinary...`, 'info');
+        // Use SSE for real-time progress
+        logToConsole(`Starting upload of ${imageFiles.length} images to Cloudinary (real-time progress)...`, 'info');
         if (uploadFolder) {
           logToConsole(`Using folder: ${uploadFolder}`, 'info');
         }
@@ -2055,47 +2056,78 @@
           logToConsole(`Using preset: ${uploadPreset}`, 'info');
         }
         
-        // Upload to API
-        const response = await fetch('/api/upload_cloudinary', {
+        // Use EventSource-like approach with fetch and ReadableStream
+        // Since EventSource doesn't support POST, we'll use fetch with streaming
+        const response = await fetch('/api/upload_cloudinary_stream', {
           method: 'POST',
           body: formData
         });
         
-        const result = await response.json();
-        
-        if (result.success) {
-          // Calculate total time from individual durations
-          const totalTime = result.uploaded.reduce((sum, item) => sum + (item.duration || 0), 0) +
-                           result.failed.reduce((sum, item) => sum + (item.duration || 0), 0);
-          
-          logToConsole(`✓ Upload complete: ${result.successful} successful, ${result.failed_count} failed (Total: ${totalTime.toFixed(2)}s)`, 'success');
-          
-          // Display results with timing information
-          if (result.uploaded && result.uploaded.length > 0) {
-            logToConsole(`Successfully uploaded ${result.uploaded.length} images:`, 'success');
-            result.uploaded.forEach(item => {
-              const progress = item.index ? `[${item.index}/${item.total}]` : '';
-              const duration = item.duration ? ` (${item.duration}s)` : '';
-              const filename = item.filename_only || item.filename;
-              logToConsole(`  ✓ ${progress} ${filename}${duration} → ${item.cloudinary_url}`, 'success');
-            });
-          }
-          
-          if (result.failed && result.failed.length > 0) {
-            logToConsole(`Failed to upload ${result.failed.length} images:`, 'error');
-            result.failed.forEach(item => {
-              const progress = item.index ? `[${item.index}/${item.total}]` : '';
-              const duration = item.duration ? ` (${item.duration}s)` : '';
-              const filename = item.filename_only || item.filename;
-              logToConsole(`  ✗ ${progress} ${filename}${duration}: ${item.error}`, 'error');
-            });
-          }
-          
-          alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed_count}\nTotal time: ${totalTime.toFixed(2)}s\n\nCheck console for details.`);
-        } else {
-          logToConsole(`Upload failed: ${result.error}`, 'error');
-          alert(`Upload failed: ${result.error}`);
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
         }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let uploadedCount = 0;
+        let failedCount = 0;
+        let totalDuration = 0;
+        const uploadedResults = [];
+        const failedResults = [];
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                switch (data.type) {
+                  case 'start':
+                    logToConsole(`Starting upload of ${data.total} images...`, 'info');
+                    break;
+                    
+                  case 'progress':
+                    console.log(`⬆️ [UPLOAD] Progress: ${data.index}/${data.total} - ${data.filename}`);
+                    break;
+                    
+                  case 'success':
+                    uploadedCount++;
+                    totalDuration += data.duration || 0;
+                    uploadedResults.push(data);
+                    logToConsole(`✓ [${data.index}/${data.total}] ${data.filename} (${data.duration}s) → ${data.cloudinary_url}`, 'success');
+                    // Update button text with progress
+                    uploadBtn.textContent = `Uploading ${data.index}/${data.total}...`;
+                    break;
+                    
+                  case 'error':
+                    failedCount++;
+                    totalDuration += data.duration || 0;
+                    failedResults.push(data);
+                    logToConsole(`✗ [${data.index}/${data.total}] ${data.filename} (${data.duration}s): ${data.error}`, 'error');
+                    // Update button text with progress
+                    uploadBtn.textContent = `Uploading ${data.index}/${data.total}...`;
+                    break;
+                    
+                  case 'complete':
+                    logToConsole(`✓ Upload complete: ${data.successful} successful, ${data.failed} failed (Total time: ${data.total_duration}s)`, 'success');
+                    alert(`Upload complete!\n\nSuccessful: ${data.successful}\nFailed: ${data.failed}\nTotal time: ${data.total_duration}s\n\nCheck console for details.`);
+                    break;
+                }
+              } catch (e) {
+                console.error('⬆️ [UPLOAD] Error parsing SSE data:', e, line);
+              }
+            }
+          }
+        }
+        
       } catch (error) {
         logToConsole(`Upload error: ${error.message}`, 'error');
         alert(`Upload error: ${error.message}`);
