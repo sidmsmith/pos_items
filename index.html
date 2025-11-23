@@ -670,7 +670,7 @@
         <label class="form-label">Image Directory:</label>
         <input type="file" id="save_dir_file" class="form-control" webkitdirectory directory style="display: none;" />
         <input type="text" id="save_dir" class="form-control" placeholder="Select directory for cleanup/upload reference" style="flex: 1;" />
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('save_dir_file').click();" type="button">Choose Directory</button>
+        <button id="chooseDirBtn" class="btn btn-secondary btn-sm" type="button">Choose Directory</button>
         <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 0.5rem;">
           <input type="checkbox" id="include_subfolders" style="margin: 0;" />
           <label for="include_subfolders" style="margin: 0; font-size: 0.9em; color: var(--text);">Include subfolders</label>
@@ -1091,15 +1091,32 @@
         });
       });
       
-      // Track when directory picker is opened
-      const chooseDirBtn = document.querySelector('button[onclick*="save_dir_file"]');
+      // Track when directory picker is opened - use ID selector for reliability
+      const chooseDirBtn = document.getElementById('chooseDirBtn');
       if (chooseDirBtn) {
-        chooseDirBtn.addEventListener('click', () => {
-          console.log('📁 [DIRECTORY] Choose Directory button clicked - will check for files when dialog closes');
+        chooseDirBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('📁 [DIRECTORY] Choose Directory button clicked - opening native dialog');
           checkingFiles = true;
           previousFileCount = dirInput.files ? dirInput.files.length : 0;
           console.log('📁 [DIRECTORY] Current file count before selection:', previousFileCount);
+          
+          // Trigger the file input click
+          dirInput.click();
+          
+          // Also set up a more aggressive check after a delay
+          setTimeout(() => {
+            console.log('📁 [DIRECTORY] Post-click check (2s delay):', dirInput.files ? dirInput.files.length : 0, 'files');
+            if (dirInput.files && dirInput.files.length > 0 && dirInput.files.length !== previousFileCount) {
+              console.log('📁 [DIRECTORY] Files detected in post-click check!');
+              previousFileCount = dirInput.files.length;
+              handleDirectorySelection({ type: 'post-click', target: dirInput });
+            }
+          }, 2000);
         });
+      } else {
+        console.error('📁 [DIRECTORY] Choose Directory button not found!');
       }
       
       // Also check periodically if files were added (fallback for some browsers)
@@ -1111,6 +1128,23 @@
           handleDirectorySelection({ type: 'polling', target: dirInput });
         }
       }, 1000);
+      
+      // Expose a manual check function for debugging
+      window.checkDirectoryFiles = function() {
+        console.log('📁 [DIRECTORY] Manual check triggered');
+        const currentCount = dirInput.files ? dirInput.files.length : 0;
+        console.log('📁 [DIRECTORY] Current file count:', currentCount);
+        console.log('📁 [DIRECTORY] Previous file count:', previousFileCount);
+        if (currentCount > 0) {
+          console.log('📁 [DIRECTORY] Files found! Triggering handler...');
+          previousFileCount = currentCount;
+          handleDirectorySelection({ type: 'manual', target: dirInput });
+        } else {
+          console.log('📁 [DIRECTORY] No files found in input element');
+        }
+      };
+      
+      console.log('📁 [DIRECTORY] Directory selection handler initialized. Use checkDirectoryFiles() in console to manually check.');
       
       // Update preview when subfolders checkbox changes
       document.getElementById('include_subfolders').addEventListener('change', (e) => {
