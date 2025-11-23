@@ -676,11 +676,13 @@
 
       <div class="input-row mt-3">
         <label class="form-label">Reference Items File:</label>
-        <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
-        <input type="text" id="reference_items_display" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="flex:1;" readonly />
+        <div style="flex:1; position: relative;">
+          <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
+          <input type="text" id="reference_items_display" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="padding-right: 200px;" readonly />
+          <span id="itemNumbersStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
+        </div>
         <button class="btn btn-secondary btn-sm" id="referenceItemsLoadBtn" type="button" title="CSV/Excel file with item numbers (one per row, first column)">Load</button>
       </div>
-      <div class="status-label" id="itemNumbersStatus"></div>
 
       <div class="input-row">
         <label class="form-label">Images Per Item:</label>
