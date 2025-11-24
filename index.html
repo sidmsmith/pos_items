@@ -3050,16 +3050,21 @@
 
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
-      // Filter out skipped items (use unique keys)
-      const selectableGroups = galleryItems.filter((item, itemIndex) => {
+      // Check all items: each must either be skipped OR have a selection
+      // Items with no variants are automatically "complete" (nothing to select)
+      const incompleteItems = galleryItems.filter((item, itemIndex) => {
+        // Items with no variants don't need selection
+        if (item.variants.length === 0) return false;
+        
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        return item.variants.length > 0 && !gallerySkippedItems.has(uniqueKey);
+        const isSkipped = gallerySkippedItems.has(uniqueKey);
+        const hasSelection = !!gallerySelections[uniqueKey];
+        
+        // Item is incomplete if it's not skipped AND has no selection
+        return !isSkipped && !hasSelection;
       });
-      const missingSelections = selectableGroups.filter((item, itemIndex) => {
-        const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        return !gallerySelections[uniqueKey];
-      });
-      saveBtn.disabled = selectableGroups.length === 0 || missingSelections.length > 0 || galleryLoading;
+      
+      saveBtn.disabled = incompleteItems.length > 0 || galleryLoading;
       document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
       document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
     }
