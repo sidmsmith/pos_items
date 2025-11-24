@@ -3471,81 +3471,100 @@
       updateGalleryToolbar();
       setGalleryStatus('Finalizing selection...');
 
-      const selectionsPayload = [];
-      galleryItems.forEach((item, itemIndex) => {
-        // Skip items that are marked as skipped (use unique keys)
-        const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        if (gallerySkippedItems.has(uniqueKey)) return;
-        
-        const selectedFile = gallerySelections[uniqueKey];
-        if (!selectedFile) return;
-        const variant = item.variants.find(v => v.fileName === selectedFile);
-        if (variant) {
-          selectionsPayload.push({
-            itemId: item.itemId,
-            referenceId: item.referenceId,
-            productName: item.productName,
-            fileName: variant.fileName,
-            originalUrl: variant.originalUrl,
-            shortDescription: variant.shortDescription,
-            description: variant.description,
-            source: variant.source
-          });
+      try {
+        const selectionsPayload = [];
+        galleryItems.forEach((item, itemIndex) => {
+          // Skip items that are marked as skipped (use unique keys)
+          const uniqueKey = getUniqueKey(itemIndex, item.itemId);
+          if (gallerySkippedItems.has(uniqueKey)) return;
+          
+          const selectedFile = gallerySelections[uniqueKey];
+          if (!selectedFile) return;
+          const variant = item.variants.find(v => v.fileName === selectedFile);
+          if (variant) {
+            selectionsPayload.push({
+              itemId: item.itemId,
+              referenceId: item.referenceId,
+              productName: item.productName,
+              fileName: variant.fileName,
+              originalUrl: variant.originalUrl,
+              shortDescription: variant.shortDescription,
+              description: variant.description,
+              source: variant.source
+            });
+          }
+        });
+
+        const payload = {
+          selections: selectionsPayload,
+          prefix,
+          reference_items: referenceItems,
+          required_items: requiredItems
+        };
+
+        const result = await apiCall('gallery_finalize', payload);
+
+        if (!result.success) {
+          setGalleryStatus(`Error finalizing: ${result.error || 'Unknown error'}`);
+          return;
         }
-      });
 
-      const payload = {
-        selections: selectionsPayload,
-        prefix,
-        reference_items: referenceItems,
-        required_items: requiredItems
-      };
-
-      const result = await apiCall('gallery_finalize', payload);
-      galleryLoading = false;
-      updateGalleryToolbar();
-
-      if (!result.success) {
-        setGalleryStatus(`Error finalizing: ${result.error || 'Unknown error'}`);
-        return;
-      }
-
-      if (result.csv_content) {
-        downloadBase64File(result.csv_content, result.csv_filename || 'imagedownload.csv', 'text/csv');
-        const csvText = atob(result.csv_content);
-        csvData = parseCsvToArray(csvText);
-      }
-      if (result.zip_content) {
-        downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${Date.now()}.zip`, 'application/zip');
-        
-        // Check if upload after download is enabled (checkboxes are synchronized, so check either one)
-        const uploadAfterDownload = document.getElementById('uploadAfterDownload');
-        if (uploadAfterDownload && uploadAfterDownload.checked) {
-          // Trigger upload from zip
-          logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
-          setGalleryStatus('Extracting zip and uploading to Cloudinary...');
-          await uploadFromZipContent(result.zip_content);
+        if (result.csv_content) {
+          downloadBase64File(result.csv_content, result.csv_filename || 'imagedownload.csv', 'text/csv');
+          const csvText = atob(result.csv_content);
+          csvData = parseCsvToArray(csvText);
         }
-      }
+        if (result.zip_content) {
+          downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${Date.now()}.zip`, 'application/zip');
+          
+          // Check if upload after download is enabled (checkboxes are synchronized, so check either one)
+          const uploadAfterDownload = document.getElementById('uploadAfterDownload');
+          if (uploadAfterDownload && uploadAfterDownload.checked) {
+            try {
+              // Trigger upload from zip
+              logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
+              setGalleryStatus('Extracting zip and uploading to Cloudinary...');
+              await uploadFromZipContent(result.zip_content);
+            } catch (uploadError) {
+              logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
+              setGalleryStatus(`Upload failed: ${uploadError.message || 'Unknown error'}`);
+              // Continue with WM update even if upload fails
+            }
+          }
+        }
 
-      // Check if update WM after download is enabled
-      const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
-      if (updateWmAfterDownload && updateWmAfterDownload.checked && csvData) {
-        // Trigger WM update - force use of csvData (the just-downloaded CSV)
-        logToConsole('Update WM after download enabled. Updating WM...', 'info');
-        setGalleryStatus('Updating WM...');
-        await handleWmUpdate(true); // Pass true to force use of csvData
-      }
+        // Check if update WM after download is enabled
+        const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
+        if (updateWmAfterDownload && updateWmAfterDownload.checked && csvData) {
+          try {
+            // Trigger WM update - force use of csvData (the just-downloaded CSV)
+            logToConsole('Update WM after download enabled. Updating WM...', 'info');
+            setGalleryStatus('Updating WM...');
+            await handleWmUpdate(true); // Pass true to force use of csvData
+          } catch (wmError) {
+            logToConsole(`WM Update error: ${wmError.message || 'Unknown error'}`, 'error');
+            setGalleryStatus(`WM Update failed: ${wmError.message || 'Unknown error'}`);
+            // Continue to close modal even if WM update fails
+          }
+        }
 
-      document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
-      setGalleryStatus('Downloads ready. Check your browser downloads folder.');
-      showScriptModal(result.csv_filename, result.zip_filename);
-      galleryItems = [];
-      gallerySelections = {};
-      gallerySkippedItems.clear(); // Clear skipped items
-      galleryNewImages.clear(); // Clear new images tracking
-      galleryMissingItems = [];
-      closeGalleryModal();
+        document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
+        setGalleryStatus('Downloads ready. Check your browser downloads folder.');
+        showScriptModal(result.csv_filename, result.zip_filename);
+        galleryItems = [];
+        gallerySelections = {};
+        gallerySkippedItems.clear(); // Clear skipped items
+        galleryNewImages.clear(); // Clear new images tracking
+        galleryMissingItems = [];
+        closeGalleryModal();
+      } catch (error) {
+        logToConsole(`Error in finalizeGallerySelections: ${error.message || 'Unknown error'}`, 'error');
+        setGalleryStatus(`Error: ${error.message || 'Unknown error'}`);
+      } finally {
+        // Always reset loading state, even if there was an error
+        galleryLoading = false;
+        updateGalleryToolbar();
+      }
     }
 
     function handleCleanupClick() {
