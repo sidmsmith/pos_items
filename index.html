@@ -3495,6 +3495,9 @@
           }
         });
 
+        // Get required items (items that need selection, not skipped)
+        const requiredItems = getGalleryRequiredItems();
+        
         const payload = {
           selections: selectionsPayload,
           prefix,
