@@ -781,10 +781,12 @@ def gallery_finalize():
         csv_buffer.close()
 
         csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
-        unique_suffix = uuid.uuid4().hex[:8]
-        csv_filename = f"imagedownload_{unique_suffix}.csv"
+        # Generate timestamp in YYMMDD-HHMM format (matching Items_xxx.txt format)
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%y%m%d-%H%M')
+        csv_filename = f"imagedownload_{timestamp}.csv"
 
-        zip_filename = f"downloaded_items_{unique_suffix}.zip"
+        zip_filename = f"downloaded_items_{timestamp}.zip"
         zip_path = os.path.join(temp_dir, zip_filename)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for image_path in image_files:
