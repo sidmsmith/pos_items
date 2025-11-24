@@ -3050,8 +3050,34 @@
 
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
+      // Get all items with variants (items that need selection or skip)
+      const itemsWithVariants = galleryItems.filter(item => item.variants.length > 0);
+      
+      // If no items with variants, disable button (nothing to download)
+      if (itemsWithVariants.length === 0) {
+        saveBtn.disabled = true;
+        document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
+        document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
+        return;
+      }
+      
+      // Check if all items with variants are skipped (nothing to download)
+      const allSkipped = itemsWithVariants.every((item, idx) => {
+        // Find original index in galleryItems
+        const originalIndex = galleryItems.findIndex(gi => gi === item);
+        if (originalIndex === -1) return false;
+        const uniqueKey = getUniqueKey(originalIndex, item.itemId);
+        return gallerySkippedItems.has(uniqueKey);
+      });
+      
+      if (allSkipped) {
+        saveBtn.disabled = true;
+        document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
+        document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
+        return;
+      }
+      
       // Check all items: each must either be skipped OR have a selection
-      // Items with no variants are automatically "complete" (nothing to select)
       const incompleteItems = galleryItems.filter((item, itemIndex) => {
         // Items with no variants don't need selection
         if (item.variants.length === 0) return false;
