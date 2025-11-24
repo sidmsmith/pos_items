@@ -214,6 +214,9 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
                 break
 
             for idx, item in enumerate(items):
+                # Calculate variant number based on start position + index
+                # This ensures unique fileNames across pagination calls
+                variant_number = start + idx
                 img_url = item.get("link")
                 if not img_url:
                     continue
@@ -228,7 +231,10 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
                     parsed_source = ""
 
                 filename_base = re.sub(r'[\\/:*?"<>|]', "", item_id)
-                file_name = f"{filename_base}_v{len(variants) + 1:02d}"
+                # Use start index + current position to ensure unique fileNames across pagination
+                # start is 1-based, idx is 0-based, so variant number = start + idx
+                variant_number = start + idx
+                file_name = f"{filename_base}_v{variant_number:02d}"
 
                 variants.append({
                     "fileName": file_name,
