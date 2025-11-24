@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Item Generator v0.4.6</title>
+  <title>Item Generator v0.4.7</title>
   <!-- Trigger Vercel deployment sync -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-TdLkn9X3yYbplwVpO6ghPEP3syyLBb4Z8RXOqfN4KVm3vIPpcPpC5XJK0A0VYHkH3VddOZXS6SmfDk5F7bP2Nw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -743,7 +743,7 @@
     </div>
   </div>
   <div class="main-card">
-    <h2>Item Generator v0.4.6</h2>
+    <h2>Item Generator v0.4.7</h2>
 
     <!-- ============================================================================= -->
     <!-- SECTION 1: GENERATE ITEMS -->
@@ -953,7 +953,7 @@
   </div>
 
   <script>
-    const APP_VERSION = 'v0.4.6';
+    const APP_VERSION = 'v0.4.7';
     const DEFAULTS = {
       company: "Nike",
       website: "nike.com",
@@ -3231,31 +3231,93 @@
         // Create payload for single item with 3 images
         // Use productName (the original search term) instead of itemId
         const productName = item.productName || item.itemId;
+        
+        // Find the index of this item in the original products array to get the correct reference item number
+        const originalProducts = lastGalleryPayload.products || [];
+        const itemIndex = originalProducts.findIndex(p => {
+          // Try to match by productName or itemId
+          return p === productName || p === item.itemId;
+        });
+        
+        // Get the correct reference item number for this item
+        const referenceItemNumbers = lastGalleryPayload.item_numbers || [];
+        const itemNumber = itemIndex >= 0 && itemIndex < referenceItemNumbers.length 
+          ? referenceItemNumbers[itemIndex] 
+          : (item.referenceId || null);
+        
+        // Request more images (10) to increase chances of getting new unique ones
+        // Google Search often returns the same top results, so requesting more helps
         const singleItemPayload = {
           ...lastGalleryPayload,
           products: [productName], // Use the original product name/search term
-          images_per_item: 3 // Request 3 new images
+          item_numbers: itemNumber ? [itemNumber] : [], // Pass the correct reference item number
+          images_per_item: 10 // Request 10 images to filter for 3 unique ones
         };
+
+        console.log('Refresh Images - Payload:', {
+          productName,
+          itemId,
+          itemNumber,
+          existingImageCount: item.variants.length,
+          existingUrls: Array.from(existingUrls).slice(0, 3) // Log first 3 URLs for debugging
+        });
 
         const result = await apiCall('gallery_generate', singleItemPayload);
 
         if (!result.success) {
           setGalleryStatus(`Error fetching new images: ${result.error || 'Unknown error'}`);
+          console.error('Refresh Images - API Error:', result.error);
           return;
         }
 
         const newItems = result.items || [];
-        if (newItems.length === 0 || newItems[0].itemId !== itemId) {
+        console.log('Refresh Images - API Response:', {
+          itemsCount: newItems.length,
+          firstItemId: newItems[0]?.itemId,
+          expectedItemId: itemId,
+          variantsCount: newItems[0]?.variants?.length || 0
+        });
+        
+        if (newItems.length === 0) {
           setGalleryStatus(`No new images found for ${getItemDisplayLabel(itemId)}`);
           return;
         }
+        
+        // Check if itemId matches (allowing for referenceId matching)
+        const returnedItem = newItems[0];
+        const itemIdMatches = returnedItem.itemId === itemId || 
+                             returnedItem.itemId === item.referenceId ||
+                             (item.referenceId && returnedItem.itemId === item.referenceId);
+        
+        if (!itemIdMatches) {
+          console.warn('Refresh Images - ItemId mismatch:', {
+            returned: returnedItem.itemId,
+            expected: itemId,
+            referenceId: item.referenceId
+          });
+          // Still try to use it if it's the only item returned
+          if (newItems.length > 1) {
+            setGalleryStatus(`Item mismatch for ${getItemDisplayLabel(itemId)}`);
+            return;
+          }
+        }
 
-        const newVariants = newItems[0].variants || [];
+        const newVariants = returnedItem.variants || [];
+        console.log('Refresh Images - New Variants:', {
+          total: newVariants.length,
+          urls: newVariants.map(v => v.originalUrl).slice(0, 3)
+        });
+        
         // Filter out duplicates by comparing image URLs (not file names, which are regenerated)
         const uniqueNewVariants = newVariants.filter(v => !existingUrls.has(v.originalUrl));
+        
+        console.log('Refresh Images - After Duplicate Filter:', {
+          unique: uniqueNewVariants.length,
+          filtered: newVariants.length - uniqueNewVariants.length
+        });
 
         if (uniqueNewVariants.length === 0) {
-          setGalleryStatus(`No new unique images found for ${getItemDisplayLabel(itemId)}`);
+          setGalleryStatus(`No new unique images found for ${getItemDisplayLabel(itemId)} (all ${newVariants.length} were duplicates)`);
           return;
         }
 
@@ -3266,11 +3328,11 @@
         if (!galleryNewImages.has(itemId)) {
           galleryNewImages.set(itemId, new Set());
         }
-        uniqueNewVariants.forEach(v => {
+        variantsToAdd.forEach(v => {
           galleryNewImages.get(itemId).add(v.originalUrl);
         });
 
-        setGalleryStatus(`Added ${uniqueNewVariants.length} new image(s) for ${getItemDisplayLabel(itemId)}`);
+        setGalleryStatus(`Added ${variantsToAdd.length} new image(s) for ${getItemDisplayLabel(itemId)}${uniqueNewVariants.length > 3 ? ` (${uniqueNewVariants.length - 3} more available)` : ''}`);
         renderGallery();
       } catch (error) {
         setGalleryStatus(`Error: ${error.message || 'Unknown error'}`);
