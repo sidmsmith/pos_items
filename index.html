@@ -1202,6 +1202,21 @@
         return filtered;
       }
 
+    // Helper function to update red shading on file input textboxes
+    // This function manages the red shading based on whether the textbox is empty
+    function updateFileInputShading(element, isEmpty) {
+      if (!element) return;
+      if (isEmpty || !element.value || element.value.trim() === '') {
+        // Apply red shading when empty
+        element.style.setProperty('background-color', 'rgba(255, 0, 0, 0.1)', 'important');
+        element.style.setProperty('border-color', 'rgba(255, 0, 0, 0.3)', 'important');
+      } else {
+        // Remove red shading when has value
+        element.style.setProperty('background-color', '', 'important');
+        element.style.setProperty('border-color', '', 'important');
+      }
+    }
+
     function initUI() {
       try {
         logToConsole('[INIT] Starting initUI()...', 'info');
@@ -1209,21 +1224,6 @@
         logToConsole(`[INIT] Config loaded: ${Object.keys(config).length} keys`, 'info');
         config = normalizePathDefaults(config);
         logToConsole('[INIT] Path defaults normalized', 'info');
-
-        // Helper function to update red shading on file input textboxes
-      // This function manages the red shading based on whether the textbox is empty
-      function updateFileInputShading(element, isEmpty) {
-        if (!element) return;
-        if (isEmpty || !element.value || element.value.trim() === '') {
-          // Apply red shading when empty
-          element.style.setProperty('background-color', 'rgba(255, 0, 0, 0.1)', 'important');
-          element.style.setProperty('border-color', 'rgba(255, 0, 0, 0.3)', 'important');
-        } else {
-          // Remove red shading when has value
-          element.style.setProperty('background-color', '', 'important');
-          element.style.setProperty('border-color', '', 'important');
-        }
-      }
 
       // Populate ALL fields from config first
       for (const key in config) {
