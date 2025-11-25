@@ -3503,7 +3503,7 @@
       // Check all items: each must either be skipped OR have a selection
       const incompleteItems = galleryItems.filter((item, itemIndex) => {
         // Items with no variants don't need selection
-        if (item.variants.length === 0) return false;
+        if (!hasVariants(item)) return false;
         
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
         const isSkipped = gallerySkippedItems.has(uniqueKey);
