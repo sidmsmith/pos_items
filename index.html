@@ -2907,16 +2907,17 @@
     }
 
     async function handleDownloadClick() {
-      logToConsole('=== Download Images Button Clicked ===', 'info');
-      
-      // Check if POS items data is loaded
-      logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
-      if (!posItemsData || posItemsData.length === 0) {
-        logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
-        alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
-        return;
-      }
-      logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
+      try {
+        logToConsole('=== Download Images Button Clicked ===', 'info');
+        
+        // Check if POS items data is loaded
+        logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
+        if (!posItemsData || posItemsData.length === 0) {
+          logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
+          alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
+          return;
+        }
+        logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
 
       logToConsole('Calling saveConfig()...', 'info');
       saveConfig();
