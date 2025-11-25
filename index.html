@@ -2618,17 +2618,22 @@
     }
 
     async function validateExistingListFile(file) {
+      logToConsole('[VALIDATE] validateExistingListFile called', 'info');
       if (!file) {
+        logToConsole('[VALIDATE] No file provided', 'error');
         return { valid: false, error: 'No file selected' };
       }
 
       // Check file extension
       const extension = file.name.split('.').pop().toLowerCase();
+      logToConsole(`[VALIDATE] File extension: ${extension}`, 'info');
       if (!['csv', 'xls', 'xlsx'].includes(extension)) {
+        logToConsole(`[VALIDATE] Invalid file extension: ${extension}`, 'error');
         return { valid: false, error: 'File must be a CSV or Excel file (.csv, .xls, .xlsx)' };
       }
 
       try {
+        logToConsole('[VALIDATE] Starting file parsing...', 'info');
         let rows = [];
         let headerRow = null;
         
