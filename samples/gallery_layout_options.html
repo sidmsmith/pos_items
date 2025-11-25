@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>POS Items - Gallery Layout Options</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-TdLkn9X3yYbplwVpO6ghPEP3syyLBb4Z8RXOqfN4KVm3vIPpcPpC5XJK0A0VYHkH3VddOZXS6SmfDk5F7bP2Nw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --input-bg: #2d2d2d;
+      --border: #333;
+      --text: #e0e0e0;
+      --text-secondary: #bbbbbb;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #ffc107;
+    }
+    
+    body {
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: var(--text);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    
+    h2 {
+      color: var(--text-secondary);
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    
+    /* Gallery Group Container */
+    .gallery-group {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    /* Gallery Group Header */
+    .gallery-group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .gallery-group-header h5 {
+      margin: 0;
+      color: var(--text);
+      font-size: 1.1em;
+    }
+    
+    .gallery-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    
+    /* URL Row Container */
+    .url-row-container {
+      margin-bottom: 1.5rem;
+    }
+    
+    .url-row-container:last-child {
+      margin-bottom: 0;
+    }
+    
+    .url-row-label {
+      font-size: 0.85em;
+      color: var(--text-secondary);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      padding-left: 0.25rem;
+    }
+    
+    /* Slider/Row Styles */
+    .variant-slider {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .slider-viewport {
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .slider-track {
+      display: flex;
+      gap: 0.75rem;
+      transition: transform 0.3s ease;
+    }
+    
+    .slider-nav-btn {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2em;
+      flex-shrink: 0;
+    }
+    
+    .slider-nav-btn:hover {
+      background: var(--card-bg);
+      border-color: var(--success);
+    }
+    
+    .slider-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    /* Gallery Card Styles */
+    .gallery-card {
+      flex: 0 0 200px;
+      background: var(--input-bg);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .gallery-card:hover {
+      border-color: var(--success);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .gallery-card.selected {
+      border-color: #00ffff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+    }
+    
+    .gallery-card-image {
+      width: 100%;
+      height: 200px;
+      position: relative;
+      background: var(--card-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    .gallery-card-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    /* Placeholder Styles - Option 1: Large X */
+    .placeholder-x {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+      border: 2px dashed var(--border);
+      color: var(--danger);
+    }
+    
+    .placeholder-x .x-icon {
+      font-size: 4em;
+      font-weight: bold;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      opacity: 0.7;
+    }
+    
+    .placeholder-x .x-text {
+      font-size: 0.75em;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 0 0.5rem;
+    }
+    
+    /* Placeholder Styles - Option 2: Broken Image Icon */
+    .placeholder-broken {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+      border: 2px dashed var(--warning);
+      color: var(--warning);
+    }
+    
+    .placeholder-broken .broken-icon {
+      font-size: 3.5em;
+      margin-bottom: 0.5rem;
+      opacity: 0.8;
+    }
+    
+    .placeholder-broken .broken-text {
+      font-size: 0.7em;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 0 0.5rem;
+    }
+    
+    /* Placeholder Styles - Option 3: Image Not Found with Icon */
+    .placeholder-notfound {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+      border: 2px dashed var(--danger);
+      color: var(--danger);
+    }
+    
+    .placeholder-notfound .notfound-icon {
+      font-size: 3em;
+      margin-bottom: 0.5rem;
+      opacity: 0.7;
+    }
+    
+    .placeholder-notfound .notfound-text {
+      font-size: 0.7em;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 0 0.5rem;
+      line-height: 1.3;
+    }
+    
+    /* Placeholder Styles - Option 4: Minimal with Border */
+    .placeholder-minimal {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--card-bg);
+      border: 3px solid var(--border);
+      color: var(--text-secondary);
+    }
+    
+    .placeholder-minimal .minimal-content {
+      text-align: center;
+      font-size: 0.8em;
+    }
+    
+    .placeholder-minimal .minimal-icon {
+      font-size: 2.5em;
+      margin-bottom: 0.25rem;
+      opacity: 0.5;
+    }
+    
+    /* Card Body */
+    .gallery-card-body {
+      padding: 0.5rem;
+      text-align: center;
+    }
+    
+    .gallery-card-title {
+      font-size: 0.75em;
+      color: var(--text);
+      font-weight: 500;
+    }
+    
+    .gallery-card-source {
+      font-size: 0.65em;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+    }
+    
+    /* Example Images */
+    .example-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: linear-gradient(45deg, #333 25%, transparent 25%), 
+                  linear-gradient(-45deg, #333 25%, transparent 25%), 
+                  linear-gradient(45deg, transparent 75%, #333 75%), 
+                  linear-gradient(-45deg, transparent 75%, #333 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>POS Items - Gallery Layout Options</h1>
+    
+    <h2>Option 1: Large X Placeholder</h2>
+    <div class="gallery-group">
+      <div class="gallery-group-header">
+        <h5>PETS-69200-STD-30LB</h5>
+        <div class="gallery-controls">
+          <input type="checkbox" title="Skip this item">
+          <button class="btn btn-sm btn-outline-secondary">🔄 Add New Images</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL1</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <!-- Placeholder for failed URL1 image -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-x">
+                    <div class="x-icon">✕</div>
+                    <div class="x-text">Image Not Found</div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL1</div>
+                  <div class="gallery-card-source">Failed to load</div>
+                </div>
+              </div>
+              <!-- Google Images results -->
+              <div class="gallery-card selected">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 2</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 3</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL2</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <!-- Successful URL2 image -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL2</div>
+                  <div class="gallery-card-source">Direct URL</div>
+                </div>
+              </div>
+              <!-- Google Images results -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 2</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Option 2: Broken Image Icon Placeholder</h2>
+    <div class="gallery-group">
+      <div class="gallery-group-header">
+        <h5>PETS-5298853-STD-30LB</h5>
+        <div class="gallery-controls">
+          <input type="checkbox" title="Skip this item">
+          <button class="btn btn-sm btn-outline-secondary">🔄 Add New Images</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL1</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-broken">
+                    <div class="broken-icon">🖼️</div>
+                    <div class="broken-text">Image Failed to Load</div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL1</div>
+                  <div class="gallery-card-source">Failed</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL2</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-broken">
+                    <div class="broken-icon">🖼️</div>
+                    <div class="broken-text">Image Failed to Load</div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL2</div>
+                  <div class="gallery-card-source">Failed</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Option 3: Image Not Found with Icon</h2>
+    <div class="gallery-group">
+      <div class="gallery-group-header">
+        <h5>PETS-5304505-STD-30LB</h5>
+        <div class="gallery-controls">
+          <input type="checkbox" title="Skip this item">
+          <button class="btn btn-sm btn-outline-secondary">🔄 Add New Images</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL1</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-notfound">
+                    <div class="notfound-icon"><i class="fas fa-image"></i></div>
+                    <div class="notfound-text">Image<br>Not Found</div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL1</div>
+                  <div class="gallery-card-source">Failed</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL2</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL2</div>
+                  <div class="gallery-card-source">Direct URL</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Option 4: Minimal Placeholder</h2>
+    <div class="gallery-group">
+      <div class="gallery-group-header">
+        <h5>PETS-5020331-STD-3.5OZ</h5>
+        <div class="gallery-controls">
+          <input type="checkbox" title="Skip this item">
+          <button class="btn btn-sm btn-outline-secondary">🔄 Add New Images</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL1</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-minimal">
+                    <div class="minimal-content">
+                      <div class="minimal-icon">⚠️</div>
+                      <div>No Image</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL1</div>
+                  <div class="gallery-card-source">Failed</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL2</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-minimal">
+                    <div class="minimal-content">
+                      <div class="minimal-icon">⚠️</div>
+                      <div>No Image</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL2</div>
+                  <div class="gallery-card-source">Failed</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+    </div>
+    
+    <h2>Option 5: Recommended - Clean X with Gradient</h2>
+    <div class="gallery-group">
+      <div class="gallery-group-header">
+        <h5>PETS-5014873-RED-SML</h5>
+        <div class="gallery-controls">
+          <input type="checkbox" title="Skip this item">
+          <button class="btn btn-sm btn-outline-secondary">🔄 Add New Images</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL1</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <!-- Recommended placeholder -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="placeholder-x" style="border-color: var(--danger);">
+                    <div class="x-icon" style="color: var(--danger);">✕</div>
+                    <div class="x-text">Image Not Found</div>
+                  </div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL1</div>
+                  <div class="gallery-card-source" style="color: var(--danger);">Failed to load</div>
+                </div>
+              </div>
+              <!-- Google Images results -->
+              <div class="gallery-card selected">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 2</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 3</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+      
+      <div class="url-row-container">
+        <div class="url-row-label">URL2</div>
+        <div class="variant-slider">
+          <button class="slider-nav-btn" disabled>&#8249;</button>
+          <div class="slider-viewport">
+            <div class="slider-track">
+              <!-- Successful URL2 image -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">URL2</div>
+                  <div class="gallery-card-source" style="color: var(--success);">Direct URL</div>
+                </div>
+              </div>
+              <!-- Google Images results -->
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 1</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+              <div class="gallery-card">
+                <div class="gallery-card-image">
+                  <div class="example-image"></div>
+                </div>
+                <div class="gallery-card-body">
+                  <div class="gallery-card-title">Variant 2</div>
+                  <div class="gallery-card-source">Google Images</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="slider-nav-btn">&#8250;</button>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 3rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border);">
+      <h3 style="color: var(--text); margin-top: 0;">Design Notes:</h3>
+      <ul style="color: var(--text-secondary); line-height: 1.8;">
+        <li><strong>Option 1 (Large X):</strong> Very clear and obvious, but might be visually heavy</li>
+        <li><strong>Option 2 (Broken Icon):</strong> Uses emoji which may not render consistently</li>
+        <li><strong>Option 3 (Image Not Found):</strong> Uses Font Awesome icon, clean and professional</li>
+        <li><strong>Option 4 (Minimal):</strong> Subtle but might be less noticeable</li>
+        <li><strong>Option 5 (Recommended):</strong> Clean X with gradient background, clear error indication, aligns perfectly with other cards</li>
+      </ul>
+      <p style="color: var(--text-secondary); margin-top: 1rem;">
+        <strong>Recommendation:</strong> Option 5 provides the best balance of clarity and visual consistency. The large X is immediately recognizable, the gradient background matches the card aesthetic, and it maintains the same dimensions as successful image cards for perfect alignment.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+
