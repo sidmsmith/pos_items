@@ -2119,79 +2119,8 @@
           alert(`Error loading file: ${error.message || 'Failed to parse file. Please ensure the file is a valid CSV or Excel file.'}`);
         }
       });
-
-      const existingListBtn = document.getElementById('existingListLoadBtn');
-      if (existingListBtn) {
-        existingListBtn.addEventListener('click', () => {
-          document.getElementById('items_file').click();
-        });
-      }
-
-      document.getElementById('items_file').addEventListener('change', async (e) => {
-        if (!e.target.files.length) {
-          const existingListInput = document.getElementById('existing_list');
-          existingListInput.value = '';
-          existingListInput.removeAttribute('title');
-          updateFileInputShading(existingListInput, true);
-          setExistingListStatus('');
-          localStorage.removeItem('item_gen_existing_list_filename');
-          return;
-        }
-        const file = e.target.files[0];
-        
-        // Validate file format before loading
-        const validation = await validateExistingListFile(file);
-        
-        if (!validation.valid) {
-          // Show error message
-          setExistingListStatus('');
-          const existingListInput = document.getElementById('existing_list');
-          existingListInput.value = '';
-          existingListInput.removeAttribute('title');
-          // Restore red shading to indicate file needs to be loaded
-          updateFileInputShading(existingListInput, true);
-          // Clear current item list data to force user to reload
-          currentItemList = [];
-          posItemsData = []; // Clear structured data
-          setItemList([], 'No items loaded', false);
-          localStorage.removeItem('item_gen_existing_list_filename');
-          e.target.value = '';
-          alert(`Invalid file format: ${validation.error}`);
-          return;
-        }
-
-        // File is valid, update display and load items
-        // Display only filename (browsers don't provide full path for security)
-        const existingListInput = document.getElementById('existing_list');
-        const fileName = file.name;
-        // Try to get folder path - browsers don't expose full path, but we can show folder\filename format
-        let displayPath = fileName;
-        if (file.webkitRelativePath) {
-          // If file has relative path, use it
-          const pathParts = file.webkitRelativePath.split('/');
-          if (pathParts.length > 1) {
-            displayPath = pathParts.slice(0, -1).join('\\') + '\\' + pathParts[pathParts.length - 1];
-          }
-        } else {
-          // Try to extract folder from file path if available (limited browser support)
-          // For now, show just filename - user can see full path in tooltip
-          displayPath = fileName;
-        }
-        
-        existingListInput.value = displayPath;
-        existingListInput.title = fileName; // Tooltip shows filename on hover
-        // Remove red shading when file is loaded
-        updateFileInputShading(existingListInput, false);
-        // Store structured data for gallery use
-        if (validation.structuredData) {
-          posItemsData = validation.structuredData;
-        }
-        // Auto-apply when loading from file - no warnings, display in white
-        setItemList(validation.items, `${validation.count} items loaded from ${file.name}`, true);
-        setExistingListStatus(`${validation.count} items loaded`);
-        
-        e.target.value = '';
-      });
+      
+      // NOTE: Existing Item List Load button and file change handler are now in registerEventHandlers()
 
       // Add event listener to textarea to detect changes
       const itemListTextarea = document.getElementById('itemListTextarea');
@@ -5146,6 +5075,103 @@
     }
 
     function registerEventHandlers() {
+      logToConsole('[REGISTER] Starting registerEventHandlers()...', 'info');
+      
+      // Existing Item List Load button
+      logToConsole('[REGISTER] Setting up existing list Load button...', 'info');
+      const existingListBtn = document.getElementById('existingListLoadBtn');
+      if (existingListBtn) {
+        logToConsole('[REGISTER] Found existingListLoadBtn, adding event listener', 'info');
+        existingListBtn.addEventListener('click', () => {
+          logToConsole('[REGISTER] Load button clicked, triggering file input', 'info');
+          const itemsFileInput = document.getElementById('items_file');
+          if (itemsFileInput) {
+            itemsFileInput.click();
+          } else {
+            logToConsole('[REGISTER] ERROR: items_file input not found', 'error');
+          }
+        });
+        logToConsole('[REGISTER] ✓ existingListLoadBtn event listener added', 'success');
+      } else {
+        logToConsole('[REGISTER] ERROR: existingListLoadBtn not found', 'error');
+      }
+
+      // Existing Item List file change handler
+      logToConsole('[REGISTER] Setting up items_file change event listener...', 'info');
+      const itemsFileInput = document.getElementById('items_file');
+      if (itemsFileInput) {
+        itemsFileInput.addEventListener('change', async (e) => {
+          logToConsole('[REGISTER] items_file change event fired', 'info');
+          if (!e.target.files.length) {
+            const existingListInput = document.getElementById('existing_list');
+            existingListInput.value = '';
+            existingListInput.removeAttribute('title');
+            updateFileInputShading(existingListInput, true);
+            setExistingListStatus('');
+            localStorage.removeItem('item_gen_existing_list_filename');
+            posItemsData = []; // Clear structured data
+            return;
+          }
+          const file = e.target.files[0];
+          
+          // Validate file format before loading
+          const validation = await validateExistingListFile(file);
+          
+          if (!validation.valid) {
+            // Show error message
+            setExistingListStatus('');
+            const existingListInput = document.getElementById('existing_list');
+            existingListInput.value = '';
+            existingListInput.removeAttribute('title');
+            // Restore red shading to indicate file needs to be loaded
+            updateFileInputShading(existingListInput, true);
+            // Clear current item list data to force user to reload
+            currentItemList = [];
+            posItemsData = []; // Clear structured data
+            setItemList([], 'No items loaded', false);
+            localStorage.removeItem('item_gen_existing_list_filename');
+            e.target.value = '';
+            alert(`Invalid file format: ${validation.error}`);
+            return;
+          }
+
+          // File is valid, update display and load items
+          // Display only filename (browsers don't provide full path for security)
+          const existingListInput = document.getElementById('existing_list');
+          const fileName = file.name;
+          // Try to get folder path - browsers don't expose full path, but we can show folder\filename format
+          let displayPath = fileName;
+          if (file.webkitRelativePath) {
+            // If file has relative path, use it
+            const pathParts = file.webkitRelativePath.split('/');
+            if (pathParts.length > 1) {
+              displayPath = pathParts.slice(0, -1).join('\\') + '\\' + pathParts[pathParts.length - 1];
+            }
+          } else {
+            // Try to extract folder from file path if available (limited browser support)
+            // For now, show just filename - user can see full path in tooltip
+            displayPath = fileName;
+          }
+          
+          existingListInput.value = displayPath;
+          existingListInput.title = fileName; // Tooltip shows filename on hover
+          // Remove red shading when file is loaded
+          updateFileInputShading(existingListInput, false);
+          // Store structured data for gallery use
+          if (validation.structuredData) {
+            posItemsData = validation.structuredData;
+          }
+          // Auto-apply when loading from file - no warnings, display in white
+          setItemList(validation.items, `${validation.count} items loaded from ${file.name}`, true);
+          setExistingListStatus(`${validation.count} items loaded`);
+          
+          e.target.value = '';
+        });
+        logToConsole('[REGISTER] ✓ items_file change event listener added', 'success');
+      } else {
+        logToConsole('[REGISTER] ERROR: items_file input not found', 'error');
+      }
+      
       const genBtn = document.getElementById('genBtn');
       if (genBtn) genBtn.addEventListener('click', handleGenerateClick);
 
