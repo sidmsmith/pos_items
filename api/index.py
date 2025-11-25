@@ -257,6 +257,90 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
 
     return variants, last_error
 
+def download_image_from_url(image_url, item_id, url_type="URL1"):
+    """Download an image from a URL and return variant metadata
+    
+    Args:
+        image_url: URL of the image to download
+        item_id: Item identifier
+        url_type: Type of URL (URL1 or URL2) for labeling
+    
+    Returns:
+        tuple: (variant_dict or None, error_message or None)
+        If successful, returns variant dict. If failed, returns None and error message.
+    """
+    if not image_url or not image_url.strip():
+        return None, "Empty URL"
+    
+    try:
+        # Try to download the image to verify it's accessible
+        r = requests.get(image_url, timeout=10, stream=True)
+        r.raise_for_status()
+        
+        # Check if it's actually an image
+        content_type = r.headers.get("content-type", "").lower()
+        if not content_type.startswith("image/"):
+            return None, f"URL does not point to an image (content-type: {content_type})"
+        
+        # Get file extension from content-type or URL
+        extension = get_extension_from_headers(content_type, ".jpg")
+        
+        # Create filename
+        filename_base = re.sub(r'[\\/:*?"<>|]', "", item_id)
+        file_name = f"{filename_base}_{url_type.lower()}{extension}"
+        
+        # Parse source from URL
+        parsed_source = ""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(image_url)
+            parsed_source = parsed.netloc.lower().replace("www.", "")
+        except:
+            parsed_source = "Direct URL"
+        
+        variant = {
+            "fileName": file_name,
+            "originalUrl": image_url,
+            "previewUrl": image_url,  # Use same URL for preview
+            "source": parsed_source,
+            "shortDescription": f"{url_type} Image",
+            "description": f"{url_type} Image from {parsed_source}",
+            "itemId": item_id,
+            "isPlaceholder": False
+        }
+        
+        return variant, None
+    except requests.exceptions.Timeout:
+        return None, "Timeout downloading image"
+    except requests.exceptions.RequestException as e:
+        return None, f"Failed to download: {str(e)[:80]}"
+    except Exception as e:
+        return None, f"Error: {str(e)[:80]}"
+
+def create_placeholder_variant(item_id, url_type="URL1"):
+    """Create a placeholder variant for failed image downloads
+    
+    Args:
+        item_id: Item identifier
+        url_type: Type of URL (URL1 or URL2) for labeling
+    
+    Returns:
+        dict: Placeholder variant metadata
+    """
+    filename_base = re.sub(r'[\\/:*?"<>|]', "", item_id)
+    file_name = f"{filename_base}_{url_type.lower()}_placeholder"
+    
+    return {
+        "fileName": file_name,
+        "originalUrl": "",
+        "previewUrl": "",
+        "source": "Failed",
+        "shortDescription": f"{url_type} Image",
+        "description": f"{url_type} Image - Failed to load",
+        "itemId": item_id,
+        "isPlaceholder": True
+    }
+
 # =============================================================================
 # API ROUTES
 # =============================================================================
@@ -586,17 +670,23 @@ def download_images():
 def gallery_generate():
     """Generate gallery metadata for stateless image selection
     
-    Supports pagination via 'start_index' parameter for "Add New Images" functionality.
-    If start_index is provided, it will fetch images starting from that position.
+    Supports both legacy format (products array) and new POS items format (posItems array).
+    For POS items, downloads ImageURL1 and ImageURL2, then searches Google Images using ShortDescription.
     """
     data = request.json
-    products = data.get('products', [])
+    pos_items = data.get('posItems', [])  # New POS items format
+    products = data.get('products', [])  # Legacy format
     item_numbers = data.get('item_numbers', [])
     sites_str = data.get('sites', DEFAULT_SITES)
     images_per_item = int(data.get('images_per_item', DEFAULT_IMAGES_PER_ITEM))
     filter_str = data.get('image_filters', '').strip()
     start_index = int(data.get('start_index', 1))  # For pagination (1-based)
 
+    # Check if using new POS items format
+    if pos_items:
+        return handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, start_index)
+    
+    # Legacy format handling
     if not products:
         return jsonify({"success": False, "error": "No product names were provided."}), 400
 
@@ -687,38 +777,188 @@ def gallery_generate():
         log_to_console(f"Gallery generate failed: {str(e)}", "[ERROR]")
         return jsonify({"success": False, "error": str(e)}), 500
 
+def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, start_index):
+    """Handle gallery generation for POS items format
+    
+    For each POS item:
+    1. Download ImageURL1 (or create placeholder if failed)
+    2. Download ImageURL2 (or create placeholder if failed)
+    3. Search Google Images using ShortDescription
+    4. Build url1Variants and url2Variants arrays
+    """
+    filters, filter_error = parse_image_filters(filter_str)
+    if filter_error:
+        return jsonify({"success": False, "error": filter_error}), 400
+
+    images_per_item = max(1, images_per_item)
+    sites = clean_sites(sites_str)
+
+    items_payload = []
+    missing_items = []
+
+    try:
+        for pos_item in pos_items:
+            item_id = pos_item.get('itemId', '')
+            image_url1 = pos_item.get('imageURL1', '').strip()
+            image_url2 = pos_item.get('imageURL2', '').strip()
+            short_description = pos_item.get('shortDescription', item_id).strip()
+
+            if not item_id:
+                missing_items.append({
+                    "itemId": item_id or "Unknown",
+                    "productName": short_description,
+                    "reason": "Missing ItemID"
+                })
+                continue
+
+            # Download ImageURL1
+            url1_variants = []
+            if image_url1:
+                variant, error = download_image_from_url(image_url1, item_id, "URL1")
+                if variant:
+                    url1_variants.append(variant)
+                else:
+                    # Create placeholder for failed URL1
+                    url1_variants.append(create_placeholder_variant(item_id, "URL1"))
+                    log_to_console(f"URL1 failed for {item_id}: {error}", "[WARNING]")
+            else:
+                # Create placeholder for empty URL1
+                url1_variants.append(create_placeholder_variant(item_id, "URL1"))
+                log_to_console(f"URL1 empty for {item_id}", "[WARNING]")
+
+            # Download ImageURL2
+            url2_variants = []
+            if image_url2:
+                variant, error = download_image_from_url(image_url2, item_id, "URL2")
+                if variant:
+                    url2_variants.append(variant)
+                else:
+                    # Create placeholder for failed URL2
+                    url2_variants.append(create_placeholder_variant(item_id, "URL2"))
+                    log_to_console(f"URL2 failed for {item_id}: {error}", "[WARNING]")
+            else:
+                # Create placeholder for empty URL2
+                url2_variants.append(create_placeholder_variant(item_id, "URL2"))
+                log_to_console(f"URL2 empty for {item_id}", "[WARNING]")
+
+            # Search Google Images using ShortDescription
+            google_variants = []
+            if short_description:
+                # Fetch Google Images variants
+                if images_per_item <= 10:
+                    variants, last_error = fetch_image_variants(short_description, item_id, sites, images_per_item, filters, start=start_index)
+                    google_variants = variants
+                else:
+                    # Multiple API calls with pagination
+                    remaining = images_per_item
+                    current_start = start_index
+                    last_error = None
+                    all_google_variants = []
+                    
+                    while remaining > 0 and len(all_google_variants) < images_per_item:
+                        batch_size = min(10, remaining)
+                        variants, batch_error = fetch_image_variants(short_description, item_id, sites, batch_size, filters, start=current_start)
+                        
+                        if batch_error:
+                            last_error = batch_error
+                            if not variants:
+                                break
+                        
+                        all_google_variants.extend(variants)
+                        remaining -= len(variants)
+                        current_start += len(variants)
+                        
+                        if len(variants) < batch_size:
+                            break
+                    
+                    google_variants = all_google_variants[:images_per_item]
+                
+                if not google_variants:
+                    log_to_console(f"No Google Images found for {item_id} (search: {short_description})", "[WARNING]")
+            else:
+                log_to_console(f"No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
+
+            # Combine URL1 image with Google Images for URL1 row
+            url1_variants.extend(google_variants)
+
+            # Combine URL2 image with Google Images for URL2 row
+            url2_variants.extend(google_variants)
+
+            # Build item payload
+            items_payload.append({
+                "itemId": item_id,
+                "url1Variants": [
+                    {
+                        "fileName": v["fileName"],
+                        "previewUrl": v["previewUrl"],
+                        "originalUrl": v["originalUrl"],
+                        "source": v["source"],
+                        "shortDescription": v["shortDescription"],
+                        "description": v["description"],
+                        "isPlaceholder": v.get("isPlaceholder", False)
+                    }
+                    for v in url1_variants
+                ],
+                "url2Variants": [
+                    {
+                        "fileName": v["fileName"],
+                        "previewUrl": v["previewUrl"],
+                        "originalUrl": v["originalUrl"],
+                        "source": v["source"],
+                        "shortDescription": v["shortDescription"],
+                        "description": v["description"],
+                        "isPlaceholder": v.get("isPlaceholder", False)
+                    }
+                    for v in url2_variants
+                ]
+            })
+
+        return jsonify({
+            "success": True,
+            "items": items_payload,
+            "missingItems": missing_items
+        })
+    except Exception as e:
+        log_to_console(f"POS items gallery generate failed: {str(e)}", "[ERROR]")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route('/api/gallery_finalize', methods=['POST'])
 def gallery_finalize():
-    """Finalize gallery selections by re-downloading selected images and building CSV/ZIP"""
+    """Finalize gallery selections by re-downloading selected images and building ZIP
+    
+    NOTE: CSV generation is currently commented out for testing purposes.
+    The code is preserved but disabled to avoid requiring Reference Items CSV updates.
+    """
     data = request.json
     selections = data.get('selections', [])
     prefix = ensure_prefix_url(data.get('prefix', '').strip())
-    reference_items = data.get('reference_items', [])
-    required_items = data.get('required_items', [])
+    # reference_items = data.get('reference_items', [])  # Commented out - not needed for testing
+    # required_items = data.get('required_items', [])  # Commented out - not needed for testing
 
     if not selections:
         return jsonify({"success": False, "error": "No selections were provided."}), 400
 
     selection_map = {s.get('itemId'): s for s in selections if s.get('itemId')}
 
-    if required_items:
-        missing_required = [item for item in required_items if item not in selection_map]
-        if missing_required:
-            return jsonify({"success": False, "error": f"Missing selections for: {', '.join(missing_required)}"}), 400
+    # Commented out - CSV validation not needed for testing
+    # if required_items:
+    #     missing_required = [item for item in required_items if item not in selection_map]
+    #     if missing_required:
+    #         return jsonify({"success": False, "error": f"Missing selections for: {', '.join(missing_required)}"}), 400
 
     temp_dir = tempfile.mkdtemp(prefix="gallery_finalize_")
-    csv_rows = []
+    # csv_rows = []  # Commented out - CSV generation disabled
     image_files = []
 
     try:
         for item_id, selection in selection_map.items():
             original_url = selection.get('originalUrl')
             file_name = selection.get('fileName') or item_id
-            short_desc = selection.get('shortDescription') or item_id
-            description = selection.get('description') or short_desc
-            source = selection.get('source') or ""
-            product_name = selection.get('productName') or item_id
-            reference_id = selection.get('referenceId')
+            # short_desc = selection.get('shortDescription') or item_id  # Commented out - CSV only
+            # description = selection.get('description') or short_desc  # Commented out - CSV only
+            # source = selection.get('source') or ""  # Commented out - CSV only
+            # product_name = selection.get('productName') or item_id  # Commented out - CSV only
+            # reference_id = selection.get('referenceId')  # Commented out - CSV only
 
             if not original_url:
                 raise ValueError(f"No image URL provided for {item_id}")
@@ -731,61 +971,65 @@ def gallery_finalize():
                 file_name = re.sub(r'\.[^.]+$', '', file_name)
                 file_name = f"{file_name}{extension}"
 
-            base_slug_source = product_name or short_desc or item_id
-            base_slug = re.sub(r'[^A-Za-z0-9]+', '_', base_slug_source).strip('_')
-            if not base_slug:
-                base_slug = "image"
-            name_without_ext = os.path.splitext(file_name)[0]
-            match_suffix = re.search(r'(_v\d+)$', name_without_ext, re.IGNORECASE)
-            variant_suffix = match_suffix.group(1) if match_suffix else ''
-            safe_base = re.sub(r'[^A-Za-z0-9_-]', '_', base_slug) + variant_suffix
-            safe_name = f"{safe_base}{extension}"
+            # base_slug_source = product_name or short_desc or item_id  # Commented out - CSV only
+            # base_slug = re.sub(r'[^A-Za-z0-9]+', '_', base_slug_source).strip('_')  # Commented out - CSV only
+            # if not base_slug:  # Commented out - CSV only
+            #     base_slug = "image"  # Commented out - CSV only
+            # name_without_ext = os.path.splitext(file_name)[0]  # Commented out - CSV only
+            # match_suffix = re.search(r'(_v\d+)$', name_without_ext, re.IGNORECASE)  # Commented out - CSV only
+            # variant_suffix = match_suffix.group(1) if match_suffix else ''  # Commented out - CSV only
+            # safe_base = re.sub(r'[^A-Za-z0-9_-]', '_', base_slug) + variant_suffix  # Commented out - CSV only
+            # safe_name = f"{safe_base}{extension}"  # Commented out - CSV only
+            safe_name = file_name  # Use file_name directly for ZIP
             file_path = os.path.join(temp_dir, safe_name)
             with open(file_path, "wb") as f:
                 f.write(img_r.content)
 
             image_files.append(file_path)
 
-            csv_row = [""] * 16
-            csv_row[0] = reference_id or item_id
-            csv_row[1] = short_desc
-            csv_row[2] = description
-            csv_row[3] = f"{prefix}{safe_name}" if prefix else safe_name
-            csv_row[15] = source
-            csv_rows.append(csv_row)
+            # CSV row generation commented out - not needed for testing
+            # csv_row = [""] * 16
+            # csv_row[0] = reference_id or item_id
+            # csv_row[1] = short_desc
+            # csv_row[2] = description
+            # csv_row[3] = f"{prefix}{safe_name}" if prefix else safe_name
+            # csv_row[15] = source
+            # csv_rows.append(csv_row)
 
-        if reference_items:
-            replicated_rows = []
-            source_rows = [row for row in csv_rows if any(row)]
-            if not source_rows:
-                source_rows = [[""] * 16]
-            idx = 0
-            for ref in reference_items:
-                template = source_rows[idx % len(source_rows)]
-                new_row = list(template)
-                new_row[0] = ref
-                replicated_rows.append(new_row)
-                idx += 1
-            csv_rows = replicated_rows
+        # CSV replication logic commented out - not needed for testing
+        # if reference_items:
+        #     replicated_rows = []
+        #     source_rows = [row for row in csv_rows if any(row)]
+        #     if not source_rows:
+        #         source_rows = [[""] * 16]
+        #     idx = 0
+        #     for ref in reference_items:
+        #         template = source_rows[idx % len(source_rows)]
+        #         new_row = list(template)
+        #         new_row[0] = ref
+        #         replicated_rows.append(new_row)
+        #         idx += 1
+        #     csv_rows = replicated_rows
 
-        headers = [
-            "ItemId", "ShortDescription", "Description", "ImageUrl",
-            "", "", "", "", "", "", "", "", "", "", "", "Source"
-        ]
+        # CSV generation commented out - not needed for testing
+        # headers = [
+        #     "ItemId", "ShortDescription", "Description", "ImageUrl",
+        #     "", "", "", "", "", "", "", "", "", "", "", "Source"
+        # ]
+        # csv_buffer = io.StringIO()
+        # writer = csv.writer(csv_buffer)
+        # writer.writerow(headers)
+        # writer.writerows(csv_rows)
+        # csv_content = csv_buffer.getvalue()
+        # csv_buffer.close()
+        # csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
+        # from datetime import datetime
+        # timestamp = datetime.now().strftime('%y%m%d-%H%M')
+        # csv_filename = f"imagedownload_{timestamp}.csv"
 
-        csv_buffer = io.StringIO()
-        writer = csv.writer(csv_buffer)
-        writer.writerow(headers)
-        writer.writerows(csv_rows)
-        csv_content = csv_buffer.getvalue()
-        csv_buffer.close()
-
-        csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
-        # Generate timestamp in YYMMDD-HHMM format (matching Items_xxx.txt format)
+        # Generate timestamp for ZIP filename
         from datetime import datetime
         timestamp = datetime.now().strftime('%y%m%d-%H%M')
-        csv_filename = f"imagedownload_{timestamp}.csv"
-
         zip_filename = f"downloaded_items_{timestamp}.zip"
         zip_path = os.path.join(temp_dir, zip_filename)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -795,15 +1039,16 @@ def gallery_finalize():
         with open(zip_path, "rb") as zip_file:
             zip_base64 = base64.b64encode(zip_file.read()).decode("utf-8")
 
-        log_to_console(f"Gallery finalize complete for {len(selection_map)} items", "[API]")
+        log_to_console(f"Gallery finalize complete for {len(selection_map)} items (ZIP only, CSV disabled)", "[API]")
 
         return jsonify({
             "success": True,
-            "csv_content": csv_base64,
-            "csv_filename": csv_filename,
+            # "csv_content": csv_base64,  # Commented out - CSV generation disabled
+            # "csv_filename": csv_filename,  # Commented out - CSV generation disabled
             "zip_content": zip_base64,
             "zip_filename": zip_filename,
-            "row_count": len(csv_rows)
+            # "row_count": len(csv_rows)  # Commented out - CSV generation disabled
+            "image_count": len(image_files)
         })
     except Exception as e:
         log_to_console(f"Gallery finalize failed: {str(e)}", "[ERROR]")
