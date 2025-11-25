@@ -2872,21 +2872,25 @@
     }
 
     async function handleDownloadClick() {
-      try {
-        logToConsole('=== Download Images Button Clicked ===', 'info');
-        
-        // Check if POS items data is loaded
-        logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
-        if (!posItemsData || posItemsData.length === 0) {
-          logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
-          alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
-          return;
-        }
-        logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
+      logToConsole('=== Download Images Button Clicked ===', 'info');
+      
+      // Check if POS items data is loaded
+      logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
+      if (!posItemsData || posItemsData.length === 0) {
+        logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
+        alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
+        return;
+      }
+      logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
 
       logToConsole('Calling saveConfig()...', 'info');
-      saveConfig();
-      logToConsole('✓ saveConfig() completed', 'success');
+      try {
+        saveConfig();
+        logToConsole('✓ saveConfig() completed', 'success');
+      } catch (error) {
+        logToConsole(`WARNING: saveConfig() failed: ${error.message}`, 'warning');
+        // Continue anyway - config save is not critical
+      }
       
       logToConsole('Getting sites input...', 'info');
       const sitesInput = document.getElementById('sites');
@@ -3018,9 +3022,12 @@
       } catch (error) {
         logToConsole(`EXCEPTION in handleDownloadClick: ${error.message}`, 'error');
         logToConsole(`Stack trace: ${error.stack}`, 'error');
-        dlBtn.disabled = false;
-        dlProgress.style.display = 'none';
-        dlStatus.textContent = `Error: ${error.message}`;
+        const dlBtn = document.getElementById('dlBtn');
+        const dlProgress = document.getElementById('dlProgress');
+        const dlStatus = document.getElementById('dlStatus');
+        if (dlBtn) dlBtn.disabled = false;
+        if (dlProgress) dlProgress.style.display = 'none';
+        if (dlStatus) dlStatus.textContent = `Error: ${error.message}`;
       }
     }
 
