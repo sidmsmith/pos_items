@@ -2123,6 +2123,7 @@
       // NOTE: Existing Item List Load button and file change handler are now in registerEventHandlers()
 
       // Add event listener to textarea to detect changes
+      logToConsole('[INIT] Setting up item list textarea and buttons...', 'info');
       const itemListTextarea = document.getElementById('itemListTextarea');
       if (itemListTextarea) {
         itemListTextarea.addEventListener('input', checkForUnappliedChanges);
@@ -2130,17 +2131,28 @@
           // Delay check to allow paste to complete
           setTimeout(checkForUnappliedChanges, 10);
         });
+        logToConsole('[INIT] ✓ itemListTextarea event listeners added', 'success');
+      } else {
+        logToConsole('[INIT] WARNING: itemListTextarea not found', 'warning');
       }
 
-      document.getElementById('itemListApplyBtn').addEventListener('click', () => {
-        const result = validateItemsFromTextarea();
-        if (!result.success) {
-          alert(`Invalid item list format: ${result.error}`);
-        }
-        // Visual indicators are cleared in setItemList -> updateItemListTextarea -> checkForUnappliedChanges
-      });
+      const itemListApplyBtn = document.getElementById('itemListApplyBtn');
+      if (itemListApplyBtn) {
+        itemListApplyBtn.addEventListener('click', () => {
+          const result = validateItemsFromTextarea();
+          if (!result.success) {
+            alert(`Invalid item list format: ${result.error}`);
+          }
+          // Visual indicators are cleared in setItemList -> updateItemListTextarea -> checkForUnappliedChanges
+        });
+        logToConsole('[INIT] ✓ itemListApplyBtn event listener added', 'success');
+      } else {
+        logToConsole('[INIT] WARNING: itemListApplyBtn not found', 'warning');
+      }
 
-      document.getElementById('itemListSaveBtn').addEventListener('click', () => {
+      const itemListSaveBtn = document.getElementById('itemListSaveBtn');
+      if (itemListSaveBtn) {
+        itemListSaveBtn.addEventListener('click', () => {
         // Validate before saving (same validations as Validate List button)
         const result = validateItemsFromTextarea();
         if (!result.success) {
