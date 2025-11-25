@@ -2699,24 +2699,12 @@
 
     async function handleGenerateClick() {
       saveConfig();
-      const company = document.getElementById('company').value.trim();
-      if (!company) {
-        alert('Company is required');
-        return;
-      }
-      const website = document.getElementById('website').value.trim();
-      // Validate Item Count - check raw input before applying defaults
-      const countInput = document.getElementById('count').value.trim();
-      if (!countInput || countInput === '') {
-        alert('Item Count is required and must be greater than 0');
-        return;
-      }
-      const count = parseInt(countInput);
-      if (isNaN(count) || count <= 0) {
-        alert('Item Count must be greater than 0');
-        return;
-      }
-      const extra_prompt = document.getElementById('extra_prompt').value.trim();
+      // Note: Company, Website, Item Count, and Extra Prompt fields have been removed
+      // Generate Items functionality may need to be updated or disabled
+      const company = '';
+      const website = '';
+      const count = 0;
+      const extra_prompt = '';
 
       const genBtn = document.getElementById('genBtn');
       const genProgress = document.getElementById('genProgress');
