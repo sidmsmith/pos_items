@@ -2180,7 +2180,10 @@
         
         downloadTextFile(content, fileName);
         logToConsole(`Item List saved to file ${fileName}`, 'success');
-      });
+        });
+      } else {
+        logToConsole('[INIT] WARNING: itemListSaveBtn not found', 'warning');
+      }
 
       document.getElementById('itemListClearBtn').addEventListener('click', () => {
         setItemList([], 'Item list cleared');
