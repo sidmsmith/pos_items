@@ -2777,27 +2777,53 @@
       const endpointDisplayName = endpoint === 'update_wm' ? 'Update WM' : 
                                   endpoint === 'app_opened' ? 'App Opened' :
                                   endpoint === 'auth' ? 'Auth' :
-                                  endpoint === 'generate_items' ? 'Generate Items' : endpoint;
+                                  endpoint === 'generate_items' ? 'Generate Items' : 
+                                  endpoint === 'gallery_generate' ? 'Gallery Generate' : endpoint;
       
       try {
-        logToConsole(`Calling ${endpointDisplayName}...`, 'info');
-        const response = await fetch(`/api/${endpoint}`, {
+        logToConsole(`[API] Calling ${endpointDisplayName}...`, 'info');
+        logToConsole(`[API] Endpoint: /api/${endpoint}`, 'info');
+        logToConsole(`[API] Payload size: ${JSON.stringify(data).length} bytes`, 'info');
+        
+        const url = `/api/${endpoint}`;
+        const requestOptions = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
-        });
+        };
+        
+        logToConsole(`[API] Making fetch request to ${url}...`, 'info');
+        const response = await fetch(url, requestOptions);
+        
+        logToConsole(`[API] Response status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        logToConsole(`[API] Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'info');
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          logToConsole(`[API] Error response body: ${errorText}`, 'error');
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
         const result = await response.json();
+        logToConsole(`[API] Response parsed successfully`, 'success');
+        logToConsole(`[API] Response keys: ${Object.keys(result).join(', ')}`, 'info');
+        
         if (result.success) {
           // Don't log generic success for update_wm - handleWmUpdate will log detailed summary
           if (endpoint !== 'update_wm') {
-            logToConsole(`${endpointDisplayName} Succeeded`, 'success');
+            logToConsole(`[API] ${endpointDisplayName} Succeeded`, 'success');
           }
         } else {
-          logToConsole(`${endpointDisplayName} failed: ${result.error}`, 'error');
+          logToConsole(`[API] ${endpointDisplayName} failed: ${result.error}`, 'error');
+          if (result.error) {
+            logToConsole(`[API] Error details: ${JSON.stringify(result.error, null, 2)}`, 'error');
+          }
         }
+        
         return result;
       } catch (error) {
-        logToConsole(`${endpointDisplayName} error: ${error.message}`, 'error');
+        logToConsole(`[API] ${endpointDisplayName} exception: ${error.message}`, 'error');
+        logToConsole(`[API] Error stack: ${error.stack}`, 'error');
         return { success: false, error: error.message };
       }
     }
@@ -2881,27 +2907,44 @@
     }
 
     async function handleDownloadClick() {
+      logToConsole('=== Download Images Button Clicked ===', 'info');
+      
       // Check if POS items data is loaded
+      logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
       if (!posItemsData || posItemsData.length === 0) {
+        logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
         alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
         return;
       }
+      logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
 
       saveConfig();
       const sites = document.getElementById('sites').value.trim() || DEFAULTS.sites;
+      logToConsole(`Sites: ${sites}`, 'info');
+      
       // Validate Images Per Item - check raw input before applying defaults
       const imagesPerItemInput = document.getElementById('images_per_item').value.trim();
+      logToConsole(`Images Per Item input: "${imagesPerItemInput}"`, 'info');
       if (!imagesPerItemInput || imagesPerItemInput === '') {
+        logToConsole('ERROR: Images Per Item is required', 'error');
         alert('Images Per Item is required and must be greater than 0');
         return;
       }
       const images_per_item = parseInt(imagesPerItemInput);
       if (isNaN(images_per_item) || images_per_item <= 0) {
+        logToConsole(`ERROR: Invalid Images Per Item value: ${imagesPerItemInput}`, 'error');
         alert('Images Per Item must be greater than 0');
         return;
       }
+      logToConsole(`✓ Images Per Item: ${images_per_item}`, 'success');
+      
       const prefix = document.getElementById('prefix').value.trim();
       const filter_str = document.getElementById('image_filters').value.trim();
+      logToConsole(`Prefix: ${prefix || '(empty)'}`, 'info');
+      logToConsole(`Image Filters: ${filter_str || '(empty)'}`, 'info');
+
+      // Log sample of POS items data
+      logToConsole(`Sample POS item (first): ${JSON.stringify(posItemsData[0], null, 2)}`, 'info');
 
       // Prepare payload with POS items data
       lastGalleryPayload = {
@@ -2912,37 +2955,96 @@
         image_filters: filter_str
       };
 
+      logToConsole(`Prepared payload: ${JSON.stringify({
+        posItemsCount: lastGalleryPayload.posItems.length,
+        sites: lastGalleryPayload.sites,
+        images_per_item: lastGalleryPayload.images_per_item,
+        prefix: lastGalleryPayload.prefix,
+        image_filters: lastGalleryPayload.image_filters
+      }, null, 2)}`, 'info');
+
       const dlBtn = document.getElementById('dlBtn');
       const dlProgress = document.getElementById('dlProgress');
       const dlStatus = document.getElementById('dlStatus');
 
-      dlBtn.disabled = true;
-      dlProgress.style.display = 'block';
-      dlStatus.textContent = 'Preparing gallery...';
-
-      const result = await apiCall('gallery_generate', lastGalleryPayload);
-
-      dlBtn.disabled = false;
-      dlProgress.style.display = 'none';
-
-      if (!result.success) {
-        dlStatus.textContent = `Error: ${result.error || 'Unable to generate gallery'}`;
+      if (!dlBtn || !dlProgress || !dlStatus) {
+        logToConsole('ERROR: Required DOM elements not found (dlBtn, dlProgress, or dlStatus)', 'error');
         return;
       }
 
-      galleryItems = result.items || [];
-      gallerySelections = {};
-      gallerySkippedItems.clear(); // Clear skipped items for new gallery
-      galleryNewImages.clear(); // Clear new images tracking for new gallery
-      galleryMissingItems = result.missingItems || [];
-      dlStatus.textContent = 'Gallery ready. Review and select one image per item.';
-      openGalleryModal();
+      dlBtn.disabled = true;
+      dlProgress.style.display = 'block';
+      dlStatus.textContent = 'Preparing gallery...';
+      logToConsole('Calling API: gallery_generate...', 'info');
+
+      try {
+        const result = await apiCall('gallery_generate', lastGalleryPayload);
+        
+        logToConsole(`API call completed. Success: ${result.success}`, result.success ? 'success' : 'error');
+        
+        if (result.error) {
+          logToConsole(`API Error: ${result.error}`, 'error');
+        }
+        
+        if (result.items) {
+          logToConsole(`API returned ${result.items.length} items`, 'success');
+          if (result.items.length > 0) {
+            logToConsole(`Sample item structure: ${JSON.stringify({
+              itemId: result.items[0].itemId,
+              url1VariantsCount: result.items[0].url1Variants?.length || 0,
+              url2VariantsCount: result.items[0].url2Variants?.length || 0
+            }, null, 2)}`, 'info');
+          }
+        }
+        
+        if (result.missingItems && result.missingItems.length > 0) {
+          logToConsole(`Missing items: ${JSON.stringify(result.missingItems, null, 2)}`, 'warning');
+        }
+
+        dlBtn.disabled = false;
+        dlProgress.style.display = 'none';
+
+        if (!result.success) {
+          logToConsole(`ERROR: Gallery generation failed - ${result.error || 'Unknown error'}`, 'error');
+          dlStatus.textContent = `Error: ${result.error || 'Unable to generate gallery'}`;
+          return;
+        }
+
+        galleryItems = result.items || [];
+        logToConsole(`Gallery items set: ${galleryItems.length} items`, 'success');
+        
+        gallerySelections = {};
+        gallerySkippedItems.clear(); // Clear skipped items for new gallery
+        galleryNewImages.clear(); // Clear new images tracking for new gallery
+        galleryMissingItems = result.missingItems || [];
+        
+        logToConsole(`Opening gallery modal with ${galleryItems.length} items...`, 'info');
+        dlStatus.textContent = 'Gallery ready. Review and select one image per item.';
+        openGalleryModal();
+        logToConsole('✓ Gallery modal opened successfully', 'success');
+      } catch (error) {
+        logToConsole(`EXCEPTION in handleDownloadClick: ${error.message}`, 'error');
+        logToConsole(`Stack trace: ${error.stack}`, 'error');
+        dlBtn.disabled = false;
+        dlProgress.style.display = 'none';
+        dlStatus.textContent = `Error: ${error.message}`;
+      }
     }
 
     function openGalleryModal() {
-      document.getElementById('galleryModal').classList.add('show');
+      logToConsole('[GALLERY] Opening gallery modal...', 'info');
+      const galleryModal = document.getElementById('galleryModal');
+      if (!galleryModal) {
+        logToConsole('[GALLERY] ERROR: galleryModal element not found', 'error');
+        return;
+      }
+      galleryModal.classList.add('show');
+      logToConsole('[GALLERY] Modal class "show" added', 'success');
+      logToConsole('[GALLERY] Rendering gallery...', 'info');
       renderGallery();
+      logToConsole('[GALLERY] Gallery rendered', 'success');
       setGalleryStatus('Select one image per item, then click Download Selected Items.');
+      logToConsole('[GALLERY] Gallery modal opened successfully', 'success');
     }
 
     function closeGalleryModal() {
@@ -3037,23 +3139,31 @@
 
         // Check if this is a POS item with URL1/URL2 structure
         const hasURLRows = item.url1Variants !== undefined || item.url2Variants !== undefined;
+        logToConsole(`[GALLERY] Item ${item.itemId}: hasURLRows=${hasURLRows}, url1Variants=${item.url1Variants?.length || 0}, url2Variants=${item.url2Variants?.length || 0}`, 'info');
         
         if (hasURLRows) {
           // Render URL1 row
           if (item.url1Variants && item.url1Variants.length > 0) {
+            logToConsole(`[GALLERY] Rendering URL1 row with ${item.url1Variants.length} variants`, 'info');
             const url1Row = renderURLRow(itemIndex, item, 'URL1', item.url1Variants, uniqueKey);
             group.appendChild(url1Row);
+          } else {
+            logToConsole(`[GALLERY] Item ${item.itemId}: URL1 row is empty`, 'warning');
           }
           
           // Render URL2 row
           if (item.url2Variants && item.url2Variants.length > 0) {
+            logToConsole(`[GALLERY] Rendering URL2 row with ${item.url2Variants.length} variants`, 'info');
             const url2Row = renderURLRow(itemIndex, item, 'URL2', item.url2Variants, uniqueKey);
             group.appendChild(url2Row);
+          } else {
+            logToConsole(`[GALLERY] Item ${item.itemId}: URL2 row is empty`, 'warning');
           }
           
           // If both rows are empty, show empty message
           if ((!item.url1Variants || item.url1Variants.length === 0) && 
               (!item.url2Variants || item.url2Variants.length === 0)) {
+            logToConsole(`[GALLERY] Item ${item.itemId}: Both URL rows empty, showing empty message`, 'warning');
             const empty = document.createElement('div');
             empty.className = 'gallery-empty';
             empty.textContent = 'No images returned for this item.';
@@ -3061,6 +3171,7 @@
           }
           
           grid.appendChild(group);
+          logToConsole(`[GALLERY] Item ${item.itemId} added to grid`, 'success');
           return;
         }
 
@@ -3327,9 +3438,11 @@
         grid.appendChild(group);
       });
 
+      logToConsole(`[GALLERY] All items rendered. Updating warnings, toolbar, and summary...`, 'info');
       updateGalleryWarnings();
       updateGalleryToolbar();
       updateGallerySummary();
+      logToConsole(`[GALLERY] renderGallery() completed successfully`, 'success');
     }
 
     function updateGalleryToolbar() {
