@@ -2918,12 +2918,27 @@
       }
       logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
 
+      logToConsole('Calling saveConfig()...', 'info');
       saveConfig();
-      const sites = document.getElementById('sites').value.trim() || DEFAULTS.sites;
+      logToConsole('✓ saveConfig() completed', 'success');
+      
+      logToConsole('Getting sites input...', 'info');
+      const sitesInput = document.getElementById('sites');
+      if (!sitesInput) {
+        logToConsole('ERROR: sites input element not found', 'error');
+        return;
+      }
+      const sites = sitesInput.value.trim() || DEFAULTS.sites;
       logToConsole(`Sites: ${sites}`, 'info');
       
       // Validate Images Per Item - check raw input before applying defaults
-      const imagesPerItemInput = document.getElementById('images_per_item').value.trim();
+      logToConsole('Getting images_per_item input...', 'info');
+      const imagesPerItemInputEl = document.getElementById('images_per_item');
+      if (!imagesPerItemInputEl) {
+        logToConsole('ERROR: images_per_item input element not found', 'error');
+        return;
+      }
+      const imagesPerItemInput = imagesPerItemInputEl.value.trim();
       logToConsole(`Images Per Item input: "${imagesPerItemInput}"`, 'info');
       if (!imagesPerItemInput || imagesPerItemInput === '') {
         logToConsole('ERROR: Images Per Item is required', 'error');
@@ -2938,14 +2953,24 @@
       }
       logToConsole(`✓ Images Per Item: ${images_per_item}`, 'success');
       
-      const prefix = document.getElementById('prefix').value.trim();
-      const filter_str = document.getElementById('image_filters').value.trim();
+      logToConsole('Getting prefix input...', 'info');
+      const prefixInput = document.getElementById('prefix');
+      const prefix = prefixInput ? prefixInput.value.trim() : '';
       logToConsole(`Prefix: ${prefix || '(empty)'}`, 'info');
+      
+      logToConsole('Getting image_filters input...', 'info');
+      const filterInput = document.getElementById('image_filters');
+      const filter_str = filterInput ? filterInput.value.trim() : '';
       logToConsole(`Image Filters: ${filter_str || '(empty)'}`, 'info');
 
       // Log sample of POS items data
-      logToConsole(`Sample POS item (first): ${JSON.stringify(posItemsData[0], null, 2)}`, 'info');
+      if (posItemsData.length > 0) {
+        logToConsole(`Sample POS item (first): ${JSON.stringify(posItemsData[0], null, 2)}`, 'info');
+      } else {
+        logToConsole('WARNING: posItemsData is empty', 'warning');
+      }
 
+      logToConsole('Preparing payload with POS items data...', 'info');
       // Prepare payload with POS items data
       lastGalleryPayload = {
         posItems: posItemsData, // Send structured POS items data
@@ -2955,13 +2980,15 @@
         image_filters: filter_str
       };
 
-      logToConsole(`Prepared payload: ${JSON.stringify({
+      logToConsole(`Prepared payload summary: ${JSON.stringify({
         posItemsCount: lastGalleryPayload.posItems.length,
         sites: lastGalleryPayload.sites,
         images_per_item: lastGalleryPayload.images_per_item,
         prefix: lastGalleryPayload.prefix,
         image_filters: lastGalleryPayload.image_filters
       }, null, 2)}`, 'info');
+      
+      logToConsole('Getting DOM elements (dlBtn, dlProgress, dlStatus)...', 'info');
 
       const dlBtn = document.getElementById('dlBtn');
       const dlProgress = document.getElementById('dlProgress');
