@@ -3463,8 +3463,18 @@
 
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
+      // Helper to check if item has any variants (support both old and new structure)
+      const hasVariants = (item) => {
+        if (item.variants && Array.isArray(item.variants)) {
+          return item.variants.length > 0;
+        }
+        // New structure: check url1Variants and url2Variants
+        const url1Count = (item.url1Variants && Array.isArray(item.url1Variants)) ? item.url1Variants.length : 0;
+        const url2Count = (item.url2Variants && Array.isArray(item.url2Variants)) ? item.url2Variants.length : 0;
+        return url1Count > 0 || url2Count > 0;
+      };
       // Get all items with variants (items that need selection or skip)
-      const itemsWithVariants = galleryItems.filter(item => item.variants.length > 0);
+      const itemsWithVariants = galleryItems.filter(item => hasVariants(item));
       
       // If no items with variants, disable button (nothing to download)
       if (itemsWithVariants.length === 0) {
@@ -3534,13 +3544,25 @@
     function updateGalleryWarnings() {
       const warningsContainer = document.getElementById('galleryWarnings');
       const instructionEl = document.getElementById('galleryInstructionMessage');
+      
+      // Helper to check if item has any variants (support both old and new structure)
+      const hasVariants = (item) => {
+        if (item.variants && Array.isArray(item.variants)) {
+          return item.variants.length > 0;
+        }
+        // New structure: check url1Variants and url2Variants
+        const url1Count = (item.url1Variants && Array.isArray(item.url1Variants)) ? item.url1Variants.length : 0;
+        const url2Count = (item.url2Variants && Array.isArray(item.url2Variants)) ? item.url2Variants.length : 0;
+        return url1Count > 0 || url2Count > 0;
+      };
+      
       const groupsWithoutImages = galleryItems
-        .filter(item => item.variants.length === 0)
+        .filter(item => !hasVariants(item))
         .map(item => getItemDisplayLabel(item.itemId));
       const groupsMissingSelections = galleryItems
         .filter((item, itemIndex) => {
           const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-          return item.variants.length > 0 && 
+          return hasVariants(item) && 
                  !gallerySkippedItems.has(uniqueKey) && 
                  !gallerySelections[uniqueKey];
         })
