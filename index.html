@@ -1031,21 +1031,32 @@
     }
 
     function saveConfig() {
-      const config = {
-        company: document.getElementById('company').value,
-        website: document.getElementById('website').value,
-        count: document.getElementById('count').value,
-        sites: document.getElementById('sites').value,
-        images_per_item: document.getElementById('images_per_item').value,
-        prefix: document.getElementById('prefix').value,
-        upload_folder: document.getElementById('upload_folder').value,
-        upload_profile: document.getElementById('upload_profile').value,
-        extra_prompt: document.getElementById('extra_prompt').value,
-        image_filters: document.getElementById('image_filters').value,
-        existing_list: document.getElementById('existing_list').value,
-        csv_out: document.getElementById('csv_out').value,
-        save_dir: document.getElementById('save_dir').value
+      const config = {};
+      
+      // Only save config for elements that exist (some were removed for POS items)
+      const configMap = {
+        company: 'company',
+        website: 'website',
+        count: 'count',
+        sites: 'sites',
+        images_per_item: 'images_per_item',
+        prefix: 'prefix',
+        upload_folder: 'upload_folder',
+        upload_profile: 'upload_profile',
+        extra_prompt: 'extra_prompt',
+        image_filters: 'image_filters',
+        existing_list: 'existing_list',
+        csv_out: 'csv_out',
+        save_dir: 'save_dir'
       };
+
+      for (const key in configMap) {
+        const elementId = configMap[key];
+        const element = document.getElementById(elementId);
+        if (element) {
+          config[key] = element.value;
+        }
+      }
 
       for (const key in config) {
         if (config[key]) {
