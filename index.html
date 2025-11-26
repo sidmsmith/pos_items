@@ -2256,13 +2256,8 @@
     }
 
     function setExistingListStatus(text) {
-      // Don't display in Current Items section - only show in status area
-      document.getElementById('existingListStatus').textContent = '';
-      // Display in genStatus (same location as commit messages)
-      const genStatusEl = document.getElementById('genStatus');
-      if (genStatusEl) {
-        genStatusEl.textContent = text || '';
-      }
+      // Display green text in the existingListStatus span (like other load textboxes)
+      document.getElementById('existingListStatus').textContent = text || '';
     }
 
     function setCsvOutStatus(text) {
@@ -2600,7 +2595,8 @@
           valid: true, 
           items: items, 
           count: items.length,
-          structuredData: structuredData // Return structured data for use in gallery
+          structuredData: structuredData, // Return structured data for use in gallery
+          headerDetected: headerRow !== null // Return whether header row was detected
         };
       } catch (error) {
         logToConsole(`[VALIDATE] EXCEPTION: ${error.message}`, 'error');
@@ -6171,7 +6167,16 @@
             // Auto-apply when loading from file - no warnings, display in white
             logToConsole(`[REGISTER] Calling setItemList with ${validation.items.length} items...`, 'info');
             setItemList(validation.items, `${validation.count} items loaded from ${file.name}`, true);
-            setExistingListStatus(`${validation.count} items loaded`);
+            
+            // Display green text with item count and header detection info
+            const headerDetected = validation.headerDetected || false;
+            const statusMessage = validation.count > 0
+              ? headerDetected
+                ? `${validation.count} items loaded (header row detected and skipped)`
+                : `${validation.count} items loaded`
+              : 'No items loaded';
+            setExistingListStatus(statusMessage);
+            
             logToConsole(`[REGISTER] ✓ File loaded successfully: ${validation.count} items`, 'success');
             
             e.target.value = '';
