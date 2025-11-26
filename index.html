@@ -4603,22 +4603,29 @@
           // Preserve the old URL1's positionLabel (it might be "Variant X" if it was swapped)
           const oldUrl1Label = oldUrl1.positionLabel;
           
-          // Find if old URL1 is in googleVariants and remove it, or add it
-          const googleIndex = item.googleVariants.findIndex(v => 
+          // Find where the original URL1 image currently is (might be in googleVariants if it was swapped)
+          const originalUrl1InGoogle = item.googleVariants.findIndex(v => 
+            v.originalUrl === item.originalUrl1.originalUrl || 
+            v.fileName === item.originalUrl1.fileName
+          );
+          
+          // If original URL1 is in googleVariants, remove it (we're moving it back to URL1 position)
+          if (originalUrl1InGoogle !== -1) {
+            item.googleVariants.splice(originalUrl1InGoogle, 1);
+            logToConsole(`[RESET] Removed original URL1 from googleVariants at index ${originalUrl1InGoogle}`, 'info');
+          }
+          
+          // Find if old URL1 (currently in URL1 position) is in googleVariants
+          const oldUrl1InGoogle = item.googleVariants.findIndex(v => 
             v.originalUrl === oldUrl1.originalUrl || v.fileName === oldUrl1.fileName
           );
-          if (googleIndex === -1) {
-            // Add old URL1 to googleVariants, preserving its label
+          if (oldUrl1InGoogle === -1 && oldUrl1.originalUrl !== item.originalUrl1.originalUrl) {
+            // Add old URL1 to googleVariants only if it's different from original, preserving its label
             item.googleVariants.push({
               ...oldUrl1,
               positionLabel: oldUrl1Label // Preserve the label it had
             });
-          } else {
-            // Update existing variant in googleVariants to preserve its label
-            item.googleVariants[googleIndex] = {
-              ...item.googleVariants[googleIndex],
-              positionLabel: oldUrl1Label // Preserve the label
-            };
+            logToConsole(`[RESET] Added old URL1 to googleVariants with label: ${oldUrl1Label}`, 'info');
           }
           
           // Restore original URL1 with permanent 'URL1' label
@@ -4626,6 +4633,7 @@
             ...item.originalUrl1,
             positionLabel: 'URL1' // Permanent label for URL1 position
           };
+          logToConsole(`[RESET] Restored original URL1: ${item.originalUrl1.originalUrl}`, 'info');
         }
 
         // Restore original URL2
@@ -4634,22 +4642,29 @@
           // Preserve the old URL2's positionLabel (it might be "Variant X" if it was swapped)
           const oldUrl2Label = oldUrl2.positionLabel;
           
-          // Find if old URL2 is in googleVariants and remove it, or add it
-          const googleIndex = item.googleVariants.findIndex(v => 
+          // Find where the original URL2 image currently is (might be in googleVariants if it was swapped)
+          const originalUrl2InGoogle = item.googleVariants.findIndex(v => 
+            v.originalUrl === item.originalUrl2.originalUrl || 
+            v.fileName === item.originalUrl2.fileName
+          );
+          
+          // If original URL2 is in googleVariants, remove it (we're moving it back to URL2 position)
+          if (originalUrl2InGoogle !== -1) {
+            item.googleVariants.splice(originalUrl2InGoogle, 1);
+            logToConsole(`[RESET] Removed original URL2 from googleVariants at index ${originalUrl2InGoogle}`, 'info');
+          }
+          
+          // Find if old URL2 (currently in URL2 position) is in googleVariants
+          const oldUrl2InGoogle = item.googleVariants.findIndex(v => 
             v.originalUrl === oldUrl2.originalUrl || v.fileName === oldUrl2.fileName
           );
-          if (googleIndex === -1) {
-            // Add old URL2 to googleVariants, preserving its label
+          if (oldUrl2InGoogle === -1 && oldUrl2.originalUrl !== item.originalUrl2.originalUrl) {
+            // Add old URL2 to googleVariants only if it's different from original, preserving its label
             item.googleVariants.push({
               ...oldUrl2,
               positionLabel: oldUrl2Label // Preserve the label it had
             });
-          } else {
-            // Update existing variant in googleVariants to preserve its label
-            item.googleVariants[googleIndex] = {
-              ...item.googleVariants[googleIndex],
-              positionLabel: oldUrl2Label // Preserve the label
-            };
+            logToConsole(`[RESET] Added old URL2 to googleVariants with label: ${oldUrl2Label}`, 'info');
           }
           
           // Restore original URL2 with permanent 'URL2' label
@@ -4657,6 +4672,7 @@
             ...item.originalUrl2,
             positionLabel: 'URL2' // Permanent label for URL2 position
           };
+          logToConsole(`[RESET] Restored original URL2: ${item.originalUrl2.originalUrl}`, 'info');
         }
 
         logToConsole(`[RESET] Reset URL1 and URL2 to original images for ${itemId}`, 'success');
