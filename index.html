@@ -4449,11 +4449,16 @@
         } else {
           // Swap: Replace URL variant with dragged Google variant
           const currentUrlVariant = { ...targetArray[0] };
-          // Preserve isOriginal flag when moving to gallery
-          const preservedIsOriginal = currentUrlVariant.isOriginal || false;
+          // Check if this is the original URL image by comparing with originalUrl1/originalUrl2
+          const originalUrl = targetPosition === 'url1' ? item.originalUrl1 : item.originalUrl2;
+          const isOriginalImage = originalUrl && currentUrlVariant.originalUrl === originalUrl.originalUrl;
+          // Preserve isOriginal flag - use the check if flag is not set
+          const preservedIsOriginal = currentUrlVariant.isOriginal !== undefined 
+            ? currentUrlVariant.isOriginal 
+            : isOriginalImage;
           const preservedPositionLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
           
-          logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
+          logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, isOriginalImage: ${isOriginalImage}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
           
           targetArray[0] = { ...item.googleVariants[googleIndex] };
           
