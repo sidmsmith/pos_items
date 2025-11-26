@@ -489,10 +489,11 @@
                 <span>Option 4: Right-Click Context Menu</span>
             </div>
             <p class="option-description">
-                Right-click on URL1/URL2 to see "Replace this image" option, or right-click any image to see "Use for URL1" and "Use for URL2" options.
+                <strong>How to use:</strong> Right-click (or long-press on mobile) on any image card to see a context menu. 
+                Right-click on URL1/URL2 positions shows "Replace this image". Right-click on Google images shows "Use for URL1" and "Use for URL2" options.
             </p>
             <div class="behavior-note">
-                <strong>Behavior:</strong> Old image stays in place but marked as not selected (Option D)
+                <strong>Behavior:</strong> Old image stays in place but marked as not selected (Option D) - The replaced image becomes dimmed (50% opacity) and loses its badge.
             </div>
             <div class="gallery-demo" id="demo4">
                 <div class="item-header">
@@ -770,7 +771,14 @@
         // Option 4: Right-Click Context Menu - Behavior D: Old image stays but marked as not selected
         function handleOption4Context(event, type, element) {
             event.preventDefault();
+            event.stopPropagation();
+            
             const popup = document.getElementById('popup4');
+            if (!popup) {
+                console.error('Popup element not found!');
+                return;
+            }
+            
             popup.innerHTML = '';
             
             if (type === 'url1' || type === 'url2') {
@@ -810,9 +818,19 @@
             cancelBtn.onclick = () => closePopup(4);
             popup.appendChild(cancelBtn);
             
-            popup.style.left = event.pageX + 'px';
-            popup.style.top = event.pageY + 'px';
+            // Position popup at cursor location
+            const x = event.clientX || event.pageX;
+            const y = event.clientY || event.pageY;
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+            popup.style.position = 'fixed';
+            popup.style.zIndex = '10000';
+            
+            // Make sure popup is visible
             popup.classList.add('show');
+            
+            // Debug log
+            console.log('Context menu opened at:', x, y, 'Type:', type);
         }
 
         function handleOption4Replace(position, element) {
@@ -940,6 +958,14 @@
             if (e.key === 'Escape') {
                 document.querySelectorAll('.popup-menu').forEach(popup => popup.classList.remove('show'));
                 currentClickedImage = null;
+            }
+        });
+
+        // Also handle contextmenu event on document to close other popups
+        document.addEventListener('contextmenu', (e) => {
+            // Close other popups when opening a new one
+            if (!e.target.closest('#demo4')) {
+                document.querySelectorAll('.popup-menu').forEach(popup => popup.classList.remove('show'));
             }
         });
 
