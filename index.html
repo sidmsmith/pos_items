@@ -3524,13 +3524,15 @@
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
       
-      // Check if every row has images in positions 1 and 2 (or is skipped)
+      // Check if every non-skipped row has images in positions 1 and 2
       const incompleteItems = galleryItems.filter((item, itemIndex) => {
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
         const isSkipped = gallerySkippedItems.has(uniqueKey);
         
         // If skipped, it's complete (doesn't need positions 1 and 2)
-        if (isSkipped) return false;
+        if (isSkipped) {
+          return false; // Not incomplete - skipped items don't need images
+        }
         
         // Check if position 1 (URL1) has an image (not a placeholder)
         const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
@@ -3544,9 +3546,22 @@
         return !hasUrl1 || !hasUrl2;
       });
       
-      saveBtn.disabled = incompleteItems.length > 0 || galleryLoading;
-      document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
-      document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
+      const isDisabled = incompleteItems.length > 0 || galleryLoading;
+      
+      // Update download button
+      if (saveBtn) {
+        saveBtn.disabled = isDisabled;
+        logToConsole(`[TOOLBAR] Incomplete items: ${incompleteItems.length}, skipped items: ${gallerySkippedItems.size}, Download button disabled: ${isDisabled}`, 'info');
+      }
+      
+      const selectFirstBtn = document.getElementById('gallerySelectFirstBtn');
+      const refreshBtn = document.getElementById('galleryRefreshBtn');
+      if (selectFirstBtn) {
+        selectFirstBtn.disabled = galleryItems.length === 0 || galleryLoading;
+      }
+      if (refreshBtn) {
+        refreshBtn.disabled = galleryLoading;
+      }
     }
 
     function updateGallerySummary() {
@@ -4292,6 +4307,20 @@
       const newSlider = renderSingleRow(itemIndex, item, combinedVariants, uniqueKey, disableAnimations);
       group.appendChild(newSlider);
       
+      // Apply/remove skipped class based on current state
+      const isSkipped = gallerySkippedItems.has(uniqueKey);
+      if (isSkipped) {
+        group.classList.add('skipped');
+      } else {
+        group.classList.remove('skipped');
+      }
+      
+      // Update skip checkbox state
+      const skipCheckbox = group.querySelector('.skip-checkbox');
+      if (skipCheckbox) {
+        skipCheckbox.checked = isSkipped;
+      }
+      
       // Restore scroll position
       grid.scrollTop = savedScrollTop;
       grid.scrollLeft = savedScrollLeft;
@@ -4305,7 +4334,7 @@
         }
       });
       
-      logToConsole(`[UPDATE ROW] Successfully updated row ${itemIndex} (${item.itemId})`, 'info');
+      logToConsole(`[UPDATE ROW] Successfully updated row ${itemIndex} (${item.itemId}), skipped: ${isSkipped}`, 'info');
     }
 
     // Handle image swap when dragging onto URL1/URL2
