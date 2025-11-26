@@ -3843,33 +3843,110 @@
             });
           }
           
-          // Keep click handler for preview
           if (!isPlaceholder) {
             const previewBtn = card.querySelector('.gallery-preview-btn');
             if (previewBtn) {
               previewBtn.addEventListener('click', (ev) => {
                 ev.stopPropagation();
-                const tempItem = { ...item, variants: variants.filter(v => !v.isPlaceholder) };
-                const carouselIndex = variants.slice(0, idx).filter(v => !v.isPlaceholder).length;
-                openVariantCarousel(tempItem, carouselIndex);
+                const tempItem = { ...item, variants: fixedVariants.filter(v => !v.isPlaceholder) };
+                openVariantCarousel(tempItem, idx);
               });
             }
           }
         
-        if (!isPlaceholder) {
-          const previewBtn = card.querySelector('.gallery-preview-btn');
-          if (previewBtn) {
-            previewBtn.addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              const tempItem = { ...item, variants: variants.filter(v => !v.isPlaceholder) };
-              const carouselIndex = variants.slice(0, idx).filter(v => !v.isPlaceholder).length;
-              openVariantCarousel(tempItem, carouselIndex);
+        fixedContainer.appendChild(card);
+      });
+      
+      // Only create scrollable slider if there are Google images
+      if (scrollableVariants.length > 0) {
+        // Render scrollable variants (Google images) in track
+        scrollableVariants.forEach((variant, idx) => {
+          const actualIdx = idx + 2; // Offset by 2 for URL1/URL2
+          const card = document.createElement('div');
+          card.className = 'gallery-card';
+          const currentFileName = variant.fileName;
+          const isSelected = gallerySelections[uniqueKey] === currentFileName;
+          if (isSelected) card.classList.add('selected');
+          
+          const isPlaceholder = variant.isPlaceholder || false;
+          const isUrlImage = variant.isUrlImage || false;
+          const isOriginal = variant.isOriginal || false;
+          const positionLabel = variant.positionLabel || `Variant ${actualIdx + 1}`;
+          
+          // Make cards draggable
+          if (!isPlaceholder && !isUrlImage) {
+            card.draggable = true;
+            card.dataset.variantIndex = actualIdx;
+            card.dataset.itemId = item.itemId;
+          }
+          
+          let cardContent = '';
+          if (isPlaceholder) {
+            cardContent = `
+              <div class="gallery-card-image" style="position: relative;">
+                <div class="placeholder-x">
+                  <div class="x-icon">✕</div>
+                  <div class="x-text">Image Not Found</div>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="gallery-card-title">${positionLabel}</div>
+                <div class="gallery-card-source" style="color: var(--danger);">Failed to load</div>
+              </div>
+            `;
+          } else {
+            const isNewImage = galleryNewImages.has(item.itemId) && 
+                               galleryNewImages.get(item.itemId).has(variant.originalUrl);
+            const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
+            // Red badge for original images in lower right (even in gallery)
+            const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${variant.positionLabel || 'ORIG'}</div>` : '';
+            cardContent = `
+              <div class="gallery-card-image" style="position: relative;">
+                <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
+                ${originalBadgeHtml}
+                ${newBadgeHtml}
+              </div>
+              <div class="gallery-card-body">
+                <div class="gallery-card-title">${positionLabel}</div>
+                <div class="gallery-card-source">${variant.source || 'Unknown'}</div>
+              </div>
+              <button class="gallery-preview-btn" type="button">Preview</button>
+            `;
+          }
+          
+          card.innerHTML = cardContent;
+          
+          // Add drag handlers for Google images
+          if (!isPlaceholder && !isUrlImage) {
+            card.addEventListener('dragstart', (e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', JSON.stringify({
+                itemId: item.itemId,
+                variantIndex: actualIdx,
+                variant: variant
+              }));
+              card.classList.add('dragging');
+            });
+            card.addEventListener('dragend', () => {
+              card.classList.remove('dragging');
             });
           }
-        }
-        
-        track.appendChild(card);
-      });
+          
+          if (!isPlaceholder) {
+            const previewBtn = card.querySelector('.gallery-preview-btn');
+            if (previewBtn) {
+              previewBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const tempItem = { ...item, variants: scrollableVariants.filter(v => !v.isPlaceholder) };
+                const carouselIndex = scrollableVariants.slice(0, idx).filter(v => !v.isPlaceholder).length;
+                openVariantCarousel(tempItem, carouselIndex);
+              });
+            }
+          }
+          
+          track.appendChild(card);
+        });
+      }
       
       viewport.appendChild(track);
       rowContainer.appendChild(prevBtn);
