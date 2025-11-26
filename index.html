@@ -867,7 +867,9 @@
             <label for="updateWmAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
           </div>
         </div>
-        <button id="dlBtn" class="btn btn-success" style="width: 200px;">Download Items</button>
+        <div style="flex: 1; display: flex; justify-content: center;">
+          <button id="dlBtn" class="btn btn-success" style="width: 200px;">Download Items</button>
+        </div>
       </div>
 
       <div class="progress mt-2" id="genProgress" style="display: none;">
@@ -2422,6 +2424,11 @@
 
     function setExistingListStatus(text) {
       document.getElementById('existingListStatus').textContent = text || '';
+      // Also display in genStatus (same location as commit messages)
+      const genStatusEl = document.getElementById('genStatus');
+      if (genStatusEl) {
+        genStatusEl.textContent = text || '';
+      }
     }
 
     function setCsvOutStatus(text) {
