@@ -3281,9 +3281,13 @@
             item.googleVariants.forEach((variant, idx) => {
               // Check if this Google image was originally a URL1/URL2 image (has isOriginal flag)
               const isOriginal = variant.isOriginal || false;
+              const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
+              
+              logToConsole(`[RENDER] Google variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, originalUrl=${variant.originalUrl}`, 'info');
+              
               combinedVariants.push({
                 ...variant,
-                positionLabel: `Variant ${idx + 1}`,
+                positionLabel: positionLabel, // Use preserved positionLabel if it exists (URL1/URL2), otherwise use Variant X
                 isUrlImage: false,
                 isOriginal: isOriginal // Preserve isOriginal flag for red badge
               });
@@ -4423,6 +4427,8 @@
           const preservedIsOriginal = currentUrlVariant.isOriginal || false;
           const preservedPositionLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
           
+          logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
+          
           targetArray[0] = { ...item.googleVariants[googleIndex] };
           
           // Replace Google variant with old URL variant, preserving isOriginal flag and positionLabel
@@ -4431,6 +4437,8 @@
             isOriginal: preservedIsOriginal,
             positionLabel: preservedPositionLabel // Preserve the position label for the badge
           };
+          
+          logToConsole(`[SWAP] After swap - item.googleVariants[${googleIndex}].isOriginal: ${item.googleVariants[googleIndex].isOriginal}, positionLabel: ${item.googleVariants[googleIndex].positionLabel}`, 'info');
           logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
         }
         
