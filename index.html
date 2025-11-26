@@ -502,14 +502,23 @@
       margin: 3px; /* Add margin to ensure halo is fully visible */
     }
 
+    .url-positions-fixed {
+      background: rgba(40, 167, 69, 0.15); /* Light green background around positions 1-2 */
+      border: 2px solid #28a745; /* Bright green border matching Download Selected Items button */
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+
     .gallery-card.url-position-card {
-      background: #28a745; /* Bright green matching Download Selected Items button */
-      border: 1px solid #218838;
+      /* Keep same styling as regular gallery cards */
+      background: #080b14;
+      border: 1px solid #242b44;
     }
 
     .gallery-card.url-position-card:hover {
-      border-color: #1e7e34;
-      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
+      border-color: #3a3f5a;
+      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2);
     }
 
     .gallery-card-image {
@@ -4410,11 +4419,16 @@
           const currentUrlVariant = { ...targetArray[0] };
           // Preserve isOriginal flag when moving to gallery
           const preservedIsOriginal = currentUrlVariant.isOriginal || false;
+          const preservedPositionLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
           
           targetArray[0] = { ...item.googleVariants[googleIndex] };
           
-          // Replace Google variant with old URL variant, preserving isOriginal flag
-          item.googleVariants[googleIndex] = { ...currentUrlVariant, isOriginal: preservedIsOriginal };
+          // Replace Google variant with old URL variant, preserving isOriginal flag and positionLabel
+          item.googleVariants[googleIndex] = { 
+            ...currentUrlVariant, 
+            isOriginal: preservedIsOriginal,
+            positionLabel: preservedPositionLabel // Preserve the position label for the badge
+          };
           logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
         }
         
