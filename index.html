@@ -3781,13 +3781,12 @@
         }
         track.style.transform = `translateX(${offset}px)`;
         
-        // Re-enable transition after a brief moment if animations were disabled
+        // Re-enable transition after render is complete if animations were disabled
+        // Use a longer delay to ensure all updates are done before re-enabling
         if (disableAnimations) {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              track.style.transition = '';
-            }, 50);
-          });
+          // Don't re-enable immediately - let it stay disabled during the refresh
+          // It will be re-enabled on the next user interaction (next/prev button clicks)
+          // This ensures no visible transitions during refresh
         }
         const trackWidth = track.scrollWidth;
         const viewportClientWidth = viewport.clientWidth;
