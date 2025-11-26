@@ -4551,24 +4551,34 @@
           // This label should NEVER change - it's the permanent identity of the image
           const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
           
-          // Preserve the URL variant's original positionLabel - this is its permanent identity
-          // If it doesn't have one yet, assign it based on position (first time only)
-          const urlVariantOriginalLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
+          // Extract the Variant number from the dragged variant's label to preserve position in sorted gallery
+          // When URL variant goes to gallery, it should maintain the same sorted position as the dragged variant
+          let urlVariantPositionLabel = preservedPositionLabel; // Default: keep original label (URL1/URL2)
+          
+          // Extract Variant number from dragged variant (e.g., "Variant 4" -> 4)
+          const draggedVariantMatch = draggedVariantOriginalLabel.match(/^Variant (\d+)$/);
+          if (draggedVariantMatch) {
+            const variantNumber = draggedVariantMatch[1];
+            // Assign URL variant a "Variant X" label matching the swapped position so it sorts correctly
+            // This preserves the visual position in the sorted gallery
+            urlVariantPositionLabel = `Variant ${variantNumber}`;
+            logToConsole(`[SWAP] Assigning URL variant label "${urlVariantPositionLabel}" to maintain position in sorted gallery`, 'info');
+          }
           
           // Move Google variant to URL position, preserving its ORIGINAL positionLabel (never changes)
           targetArray[0] = { 
             ...item.googleVariants[googleIndex],
-            positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 1") - NEVER change
+            positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 4") - NEVER change
           };
           
-          // Replace Google variant with old URL variant, preserving isOriginal flag and ORIGINAL positionLabel
+          // Replace Google variant with old URL variant, using position label that maintains sorted position
           item.googleVariants[googleIndex] = { 
             ...currentUrlVariant, 
             isOriginal: preservedIsOriginal,
-            positionLabel: urlVariantOriginalLabel // Preserve the ORIGINAL position label (URL1/URL2) - NEVER change
+            positionLabel: urlVariantPositionLabel // Use label that preserves position in sorted gallery
           };
           
-          logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant keeps: "${urlVariantOriginalLabel}"`, 'info');
+          logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant gets: "${urlVariantPositionLabel}" (to maintain position)`, 'info');
           
           logToConsole(`[SWAP] After swap - item.googleVariants[${googleIndex}].isOriginal: ${item.googleVariants[googleIndex].isOriginal}, positionLabel: ${item.googleVariants[googleIndex].positionLabel}`, 'info');
           logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
