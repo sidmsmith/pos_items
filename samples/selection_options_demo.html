@@ -302,6 +302,34 @@
             background: #4a5568;
             color: #e0e4f0;
         }
+
+        .selected-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(74, 222, 128, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            z-index: 3;
+        }
+
+        .not-selected {
+            opacity: 0.5;
+            border-color: #3a3f5a !important;
+        }
+
+        .behavior-note {
+            background: #2a2d42;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #9aa4d3;
+            border-left: 3px solid #fbbf24;
+        }
     </style>
 </head>
 <body>
@@ -319,6 +347,9 @@
                 Click on URL1 or URL2 position to enter "replace mode" for that position. The active position will pulse. 
                 Then click any image to replace it. Click the same position again or press Escape to cancel.
             </p>
+            <div class="behavior-note">
+                <strong>Behavior:</strong> Old image disappears/removed when replaced (Option A)
+            </div>
             <div class="gallery-demo" id="demo1">
                 <div class="item-header">
                     <div class="item-title">Item: DEMO-001</div>
@@ -334,16 +365,16 @@
                         <span class="position-badge url2">URL2</span>
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img1" onclick="handleOption1Replace(this)">
+                    <div class="image-card" data-image="img1" data-gradient="#4facfe,#00f2fe" onclick="handleOption1Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img2" onclick="handleOption1Replace(this)">
+                    <div class="image-card" data-image="img2" data-gradient="#43e97b,#38f9d7" onclick="handleOption1Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img3" onclick="handleOption1Replace(this)">
+                    <div class="image-card" data-image="img3" data-gradient="#fa709a,#fee140" onclick="handleOption1Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img4" onclick="handleOption1Replace(this)">
+                    <div class="image-card" data-image="img4" data-gradient="#30cfd0,#330867" onclick="handleOption1Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
                     </div>
                 </div>
@@ -361,6 +392,9 @@
             <p class="option-description">
                 Click any image to see a popup menu with "Replace URL1" and "Replace URL2" options. Choose which position to replace.
             </p>
+            <div class="behavior-note">
+                <strong>Behavior:</strong> Old image moves to Google images section when replaced (Option B)
+            </div>
             <div class="gallery-demo" id="demo2">
                 <div class="item-header">
                     <div class="item-title">Item: DEMO-002</div>
@@ -375,16 +409,16 @@
                         <span class="position-badge url2">URL2</span>
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img1" onclick="handleOption2Click(event, this)">
+                    <div class="image-card" data-image="img1" data-gradient="#4facfe,#00f2fe" onclick="handleOption2Click(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img2" onclick="handleOption2Click(event, this)">
+                    <div class="image-card" data-image="img2" data-gradient="#43e97b,#38f9d7" onclick="handleOption2Click(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img3" onclick="handleOption2Click(event, this)">
+                    <div class="image-card" data-image="img3" data-gradient="#fa709a,#fee140" onclick="handleOption2Click(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img4" onclick="handleOption2Click(event, this)">
+                    <div class="image-card" data-image="img4" data-gradient="#30cfd0,#330867" onclick="handleOption2Click(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
                     </div>
                 </div>
@@ -407,6 +441,9 @@
             <p class="option-description">
                 Drag any image and drop it onto the URL1 or URL2 position to replace it. The drop target will highlight when you drag over it.
             </p>
+            <div class="behavior-note">
+                <strong>Behavior:</strong> Images swap positions when replaced (Option C)
+            </div>
             <div class="gallery-demo" id="demo3">
                 <div class="item-header">
                     <div class="item-title">Item: DEMO-003</div>
@@ -427,16 +464,16 @@
                         <span class="position-badge url2">URL2</span>
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img1" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                    <div class="image-card" data-image="img1" data-gradient="#4facfe,#00f2fe" draggable="true" ondragstart="handleOption3DragStart(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img2" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                    <div class="image-card" data-image="img2" data-gradient="#43e97b,#38f9d7" draggable="true" ondragstart="handleOption3DragStart(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img3" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                    <div class="image-card" data-image="img3" data-gradient="#fa709a,#fee140" draggable="true" ondragstart="handleOption3DragStart(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img4" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                    <div class="image-card" data-image="img4" data-gradient="#30cfd0,#330867" draggable="true" ondragstart="handleOption3DragStart(event, this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
                     </div>
                 </div>
@@ -454,6 +491,9 @@
             <p class="option-description">
                 Right-click on URL1/URL2 to see "Replace this image" option, or right-click any image to see "Use for URL1" and "Use for URL2" options.
             </p>
+            <div class="behavior-note">
+                <strong>Behavior:</strong> Old image stays in place but marked as not selected (Option D)
+            </div>
             <div class="gallery-demo" id="demo4">
                 <div class="item-header">
                     <div class="item-title">Item: DEMO-004</div>
@@ -468,16 +508,16 @@
                         <span class="position-badge url2">URL2</span>
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img1" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                    <div class="image-card" data-image="img1" data-gradient="#4facfe,#00f2fe" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img2" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                    <div class="image-card" data-image="img2" data-gradient="#43e97b,#38f9d7" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img3" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                    <div class="image-card" data-image="img3" data-gradient="#fa709a,#fee140" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img4" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                    <div class="image-card" data-image="img4" data-gradient="#30cfd0,#330867" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
                     </div>
                 </div>
@@ -496,6 +536,9 @@
             <p class="option-description">
                 Use the toggle buttons to select which position you want to replace (URL1 or URL2). The active mode is highlighted. Then click any image to replace that position.
             </p>
+            <div class="behavior-note">
+                <strong>Behavior:</strong> Old image disappears/removed when replaced (Option A)
+            </div>
             <div class="gallery-demo" id="demo5">
                 <div class="item-header">
                     <div class="item-title">Item: DEMO-005</div>
@@ -517,16 +560,16 @@
                         <span class="position-badge url2">URL2</span>
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img1" onclick="handleOption5Replace(this)">
+                    <div class="image-card" data-image="img1" data-gradient="#4facfe,#00f2fe" onclick="handleOption5Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img2" onclick="handleOption5Replace(this)">
+                    <div class="image-card" data-image="img2" data-gradient="#43e97b,#38f9d7" onclick="handleOption5Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img3" onclick="handleOption5Replace(this)">
+                    <div class="image-card" data-image="img3" data-gradient="#fa709a,#fee140" onclick="handleOption5Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
                     </div>
-                    <div class="image-card" data-image="img4" onclick="handleOption5Replace(this)">
+                    <div class="image-card" data-image="img4" data-gradient="#30cfd0,#330867" onclick="handleOption5Replace(this)">
                         <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
                     </div>
                 </div>
@@ -538,16 +581,41 @@
     </div>
 
     <script>
-        // Demo state
-        const demoState = {
-            1: { replacing: null, url1: 'original', url2: 'original' },
-            2: { url1: 'original', url2: 'original', clickedImage: null },
-            3: { url1: 'original', url2: 'original', draggedImage: null },
-            4: { url1: 'original', url2: 'original' },
-            5: { mode: 'url1', url1: 'original', url2: 'original' }
+        // Image data storage
+        const imageData = {
+            'original-url1': { gradient: '#667eea,#764ba2', name: 'Original URL1' },
+            'original-url2': { gradient: '#f093fb,#f5576c', name: 'Original URL2' },
+            'img1': { gradient: '#4facfe,#00f2fe', name: 'Blue Gradient' },
+            'img2': { gradient: '#43e97b,#38f9d7', name: 'Green Gradient' },
+            'img3': { gradient: '#fa709a,#fee140', name: 'Pink-Yellow Gradient' },
+            'img4': { gradient: '#30cfd0,#330867', name: 'Cyan-Purple Gradient' }
         };
 
-        // Option 1: Click-to-Replace
+        // Demo state - store actual image IDs and original positions
+        const demoState = {
+            1: { replacing: null, url1: 'original-url1', url2: 'original-url2', originalUrl1: 'original-url1', originalUrl2: 'original-url2' },
+            2: { url1: 'original-url1', url2: 'original-url2', clickedImage: null, originalUrl1: 'original-url1', originalUrl2: 'original-url2' },
+            3: { url1: 'original-url1', url2: 'original-url2', draggedImage: null, originalUrl1: 'original-url1', originalUrl2: 'original-url2' },
+            4: { url1: 'original-url1', url2: 'original-url2', originalUrl1: 'original-url1', originalUrl2: 'original-url2' },
+            5: { mode: 'url1', url1: 'original-url1', url2: 'original-url2', originalUrl1: 'original-url1', originalUrl2: 'original-url2' }
+        };
+
+        // Helper function to get gradient colors
+        function getGradient(imageId) {
+            const data = imageData[imageId];
+            if (!data) return '#667eea,#764ba2';
+            return data.gradient;
+        }
+
+        // Helper function to render image card
+        function renderImageCard(imageId, position = null, showBadge = false) {
+            const colors = getGradient(imageId).split(',');
+            const badge = position ? `<span class="position-badge ${position}">${position.toUpperCase()}</span>` : '';
+            const selectedBadge = showBadge ? `<span class="selected-badge">${position ? position.toUpperCase() : 'SELECTED'}</span>` : '';
+            return `${badge}${selectedBadge}<div style="width: 100%; height: 100%; background: linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%);"></div>`;
+        }
+
+        // Option 1: Click-to-Replace - Behavior A: Old image disappears
         function handleOption1Click(position, element) {
             const state = demoState[1];
             if (state.replacing === position) {
@@ -573,11 +641,26 @@
             if (!state.replacing) return;
             
             const imageId = element.dataset.image;
+            const oldImageId = state[state.replacing];
             state[state.replacing] = imageId;
             
-            // Update visual
+            // Update URL1/URL2 position with new image
             const urlCard = document.querySelector(`#demo1 .${state.replacing}-card`);
-            urlCard.innerHTML = `<span class="position-badge ${state.replacing}">${state.replacing.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            urlCard.innerHTML = renderImageCard(imageId, state.replacing);
+            
+            // Behavior A: Remove old image from gallery (if it was a Google image)
+            if (oldImageId && oldImageId !== 'original-url1' && oldImageId !== 'original-url2') {
+                const oldCard = document.querySelector(`#demo1 .image-card[data-image="${oldImageId}"]`);
+                if (oldCard) {
+                    oldCard.remove();
+                }
+            }
+            
+            // Add selected badge to the new image if it's still in gallery
+            const newCard = document.querySelector(`#demo1 .image-card[data-image="${imageId}"]`);
+            if (newCard && imageId !== 'original-url1' && imageId !== 'original-url2') {
+                newCard.innerHTML = `<span class="selected-badge">${state.replacing.toUpperCase()}</span>${newCard.querySelector('div').outerHTML}`;
+            }
             
             // Reset mode
             state.replacing = null;
@@ -588,7 +671,7 @@
             updateSummary(1);
         }
 
-        // Option 2: Two-Button Selection
+        // Option 2: Two-Button Selection - Behavior B: Old image moves to Google images section
         let currentClickedImage = null;
 
         function handleOption2Click(event, element) {
@@ -606,10 +689,29 @@
             if (!currentClickedImage) return;
             
             const imageId = currentClickedImage.dataset.image;
+            const oldImageId = state[position];
             state[position] = imageId;
             
+            // Update URL1/URL2 position with new image
             const urlCard = document.querySelector(`#demo2 .${position}-card`);
-            urlCard.innerHTML = `<span class="position-badge ${position}">${position.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            urlCard.innerHTML = renderImageCard(imageId, position);
+            
+            // Behavior B: Move old image to Google images section (if it was original)
+            if (oldImageId === 'original-url1' || oldImageId === 'original-url2') {
+                const imageRow = document.querySelector('#demo2 .image-row');
+                const newCard = document.createElement('div');
+                newCard.className = 'image-card';
+                newCard.dataset.image = oldImageId;
+                newCard.dataset.gradient = getGradient(oldImageId);
+                newCard.onclick = (e) => handleOption2Click(e, newCard);
+                newCard.innerHTML = `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, ${getGradient(oldImageId).split(',')[0]} 0%, ${getGradient(oldImageId).split(',')[1]} 100%);"></div>`;
+                imageRow.appendChild(newCard);
+            }
+            
+            // Add selected badge to the new image
+            if (currentClickedImage) {
+                currentClickedImage.innerHTML = `<span class="selected-badge">${position.toUpperCase()}</span>${currentClickedImage.querySelector('div').outerHTML}`;
+            }
             
             closePopup(2);
             updateSummary(2);
@@ -620,7 +722,7 @@
             currentClickedImage = null;
         }
 
-        // Option 3: Drag and Drop
+        // Option 3: Drag and Drop - Behavior C: Images swap positions
         function handleOption3DragStart(event, element) {
             demoState[3].draggedImage = element;
             event.dataTransfer.effectAllowed = 'move';
@@ -644,17 +746,30 @@
             if (!state.draggedImage) return;
             
             const imageId = state.draggedImage.dataset.image;
+            const oldImageId = state[position];
             state[position] = imageId;
             
+            // Update URL1/URL2 position with new image
             const urlCard = document.querySelector(`#demo3 .${position}-card`);
-            urlCard.innerHTML = `<span class="position-badge ${position}">${position.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            urlCard.innerHTML = renderImageCard(imageId, position);
+            
+            // Behavior C: Swap - old image moves to where dragged image was
+            if (state.draggedImage && oldImageId) {
+                const oldColors = getGradient(oldImageId).split(',');
+                state.draggedImage.innerHTML = `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, ${oldColors[0]} 0%, ${oldColors[1]} 100%);"></div>`;
+                state.draggedImage.dataset.image = oldImageId;
+            }
+            
+            // Add selected badge to the new image in URL position
+            urlCard.innerHTML += `<span class="selected-badge">SELECTED</span>`;
             
             state.draggedImage = null;
             updateSummary(3);
         }
 
-        // Option 4: Right-Click Context Menu
+        // Option 4: Right-Click Context Menu - Behavior D: Old image stays but marked as not selected
         function handleOption4Context(event, type, element) {
+            event.preventDefault();
             const popup = document.getElementById('popup4');
             popup.innerHTML = '';
             
@@ -662,8 +777,14 @@
                 const btn = document.createElement('button');
                 btn.textContent = 'Replace this image';
                 btn.onclick = () => {
-                    // In real implementation, would show image picker
-                    alert(`Would show image picker to replace ${type.toUpperCase()}`);
+                    // Show all available images for selection
+                    const imageRow = document.querySelector('#demo4 .image-row');
+                    const availableImages = Array.from(imageRow.querySelectorAll('.image-card[data-image]'));
+                    if (availableImages.length > 0) {
+                        // For demo, just use first available image
+                        const firstImage = availableImages[0];
+                        handleOption4Replace(type, firstImage);
+                    }
                     closePopup(4);
                 };
                 popup.appendChild(btn);
@@ -671,21 +792,13 @@
                 const btn1 = document.createElement('button');
                 btn1.textContent = 'Use for URL1';
                 btn1.onclick = () => {
-                    const state = demoState[4];
-                    state.url1 = element.dataset.image;
-                    const urlCard = document.querySelector('#demo4 .url1-card');
-                    urlCard.innerHTML = `<span class="position-badge url1">URL1</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
-                    updateSummary(4);
+                    handleOption4Replace('url1', element);
                     closePopup(4);
                 };
                 const btn2 = document.createElement('button');
                 btn2.textContent = 'Use for URL2';
                 btn2.onclick = () => {
-                    const state = demoState[4];
-                    state.url2 = element.dataset.image;
-                    const urlCard = document.querySelector('#demo4 .url2-card');
-                    urlCard.innerHTML = `<span class="position-badge url2">URL2</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
-                    updateSummary(4);
+                    handleOption4Replace('url2', element);
                     closePopup(4);
                 };
                 popup.appendChild(btn1);
@@ -702,7 +815,37 @@
             popup.classList.add('show');
         }
 
-        // Option 5: Toggle Mode Buttons
+        function handleOption4Replace(position, element) {
+            const state = demoState[4];
+            const imageId = element.dataset.image;
+            const oldImageId = state[position];
+            state[position] = imageId;
+            
+            // Update URL1/URL2 position with new image
+            const urlCard = document.querySelector(`#demo4 .${position}-card`);
+            urlCard.innerHTML = renderImageCard(imageId, position);
+            
+            // Behavior D: Old image stays but marked as not selected
+            if (oldImageId && oldImageId !== 'original-url1' && oldImageId !== 'original-url2') {
+                const oldCard = document.querySelector(`#demo4 .image-card[data-image="${oldImageId}"]`);
+                if (oldCard) {
+                    oldCard.classList.add('not-selected');
+                    // Remove any selected badges
+                    const badge = oldCard.querySelector('.selected-badge');
+                    if (badge) badge.remove();
+                }
+            }
+            
+            // Mark new image as selected
+            if (element) {
+                element.classList.remove('not-selected');
+                element.innerHTML = `<span class="selected-badge">${position.toUpperCase()}</span>${element.querySelector('div').outerHTML}`;
+            }
+            
+            updateSummary(4);
+        }
+
+        // Option 5: Toggle Mode Buttons - Behavior A: Old image disappears
         function setReplaceMode(position) {
             demoState[5].mode = position;
             document.getElementById('mode-url1').classList.toggle('active', position === 'url1');
@@ -714,10 +857,26 @@
         function handleOption5Replace(element) {
             const state = demoState[5];
             const imageId = element.dataset.image;
+            const oldImageId = state[state.mode];
             state[state.mode] = imageId;
             
+            // Update URL1/URL2 position with new image
             const urlCard = document.querySelector(`#demo5 .${state.mode}-card`);
-            urlCard.innerHTML = `<span class="position-badge ${state.mode}">${state.mode.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            urlCard.innerHTML = renderImageCard(imageId, state.mode);
+            
+            // Behavior A: Remove old image from gallery (if it was a Google image)
+            if (oldImageId && oldImageId !== 'original-url1' && oldImageId !== 'original-url2') {
+                const oldCard = document.querySelector(`#demo5 .image-card[data-image="${oldImageId}"]`);
+                if (oldCard) {
+                    oldCard.remove();
+                }
+            }
+            
+            // Add selected badge to the new image if it's still in gallery
+            const newCard = document.querySelector(`#demo5 .image-card[data-image="${imageId}"]`);
+            if (newCard && imageId !== 'original-url1' && imageId !== 'original-url2') {
+                newCard.innerHTML = `<span class="selected-badge">${state.mode.toUpperCase()}</span>${newCard.querySelector('div').outerHTML}`;
+            }
             
             updateSummary(5);
         }
@@ -725,16 +884,17 @@
         // Utility functions
         function updateSummary(demoNum) {
             const state = demoState[demoNum];
-            const url1Text = state.url1 === 'original' ? 'Original' : 'Replaced';
-            const url2Text = state.url2 === 'original' ? 'Original' : 'Replaced';
+            const url1Name = imageData[state.url1] ? imageData[state.url1].name : 'Original';
+            const url2Name = imageData[state.url2] ? imageData[state.url2].name : 'Original';
             document.getElementById(`summary${demoNum}`).innerHTML = 
-                `<strong>Selected:</strong> URL1: ${url1Text} | URL2: ${url2Text}`;
+                `<strong>Selected:</strong> URL1: ${url1Name} | URL2: ${url2Name}`;
         }
 
         function resetDemo(demoNum) {
             const state = demoState[demoNum];
-            state.url1 = 'original';
-            state.url2 = 'original';
+            state.url1 = state.originalUrl1;
+            state.url2 = state.originalUrl2;
+            
             if (demoNum === 1) {
                 state.replacing = null;
                 document.querySelectorAll('#demo1 .image-card').forEach(card => card.classList.remove('replacing'));
@@ -749,8 +909,20 @@
             // Reset visual cards
             const url1Card = document.querySelector(`#demo${demoNum} .url1-card`);
             const url2Card = document.querySelector(`#demo${demoNum} .url2-card`);
-            url1Card.innerHTML = '<span class="position-badge url1">URL1</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>';
-            url2Card.innerHTML = '<span class="position-badge url2">URL2</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>';
+            url1Card.innerHTML = renderImageCard('original-url1', 'url1');
+            url2Card.innerHTML = renderImageCard('original-url2', 'url2');
+            
+            // Reset all image cards and remove badges
+            document.querySelectorAll(`#demo${demoNum} .image-card`).forEach(card => {
+                card.classList.remove('not-selected', 'selected');
+                const badge = card.querySelector('.selected-badge');
+                if (badge) badge.remove();
+                const imageId = card.dataset.image;
+                if (imageId && imageId !== 'original-url1' && imageId !== 'original-url2') {
+                    const colors = getGradient(imageId).split(',');
+                    card.innerHTML = `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%);"></div>`;
+                }
+            });
             
             updateSummary(demoNum);
         }
@@ -759,6 +931,15 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.popup-menu') && !e.target.closest('.image-card[data-image]')) {
                 document.querySelectorAll('.popup-menu').forEach(popup => popup.classList.remove('show'));
+                currentClickedImage = null;
+            }
+        });
+
+        // Close popup on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.popup-menu').forEach(popup => popup.classList.remove('show'));
+                currentClickedImage = null;
             }
         });
 
