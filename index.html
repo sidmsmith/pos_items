@@ -855,8 +855,17 @@
         <small>Options: large, photo, png, red, etc.</small>
       </div>
 
-      <div class="btn-row">
+      <div class="btn-row" style="display: flex; justify-content: flex-start; align-items: center; gap: 1rem; flex-wrap: wrap;">
         <button id="genBtn" class="btn btn-success" style="width: 200px;">Generate Items</button>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="uploadAfterDownload" style="margin: 0; cursor: pointer;">
+          <label for="uploadAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="updateWmAfterDownload" style="margin: 0; cursor: pointer;">
+          <label for="updateWmAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
+        </div>
+        <button id="dlBtn" class="btn btn-success" style="width: 200px;">Download Items</button>
       </div>
 
       <div class="progress mt-2" id="genProgress" style="display: none;">
@@ -877,25 +886,10 @@
           <i class="fas fa-exclamation-triangle" style="margin-right: 0.25rem;"></i>
           <span id="unappliedChangesCount">0</span> unvalidated change(s) - Click "Validate List" or they will be auto-validated on Download
         </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="uploadAfterDownload" style="margin: 0; cursor: pointer;">
-            <label for="uploadAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
-          </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <input type="checkbox" id="updateWmAfterDownload" style="margin: 0; cursor: pointer;">
-            <label for="updateWmAfterDownload" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
-          </div>
-        </div>
-        <div style="display: flex; justify-content: center; flex: 1;">
-          <button id="dlBtn" class="btn btn-success" style="width: 200px;">Download Items</button>
-        </div>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Validate List</button>
-          <button id="itemListSaveBtn" class="btn btn-outline-light btn-sm">Save List</button>
-          <button id="itemListClearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
-        </div>
+      <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+        <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Validate List</button>
+        <button id="itemListSaveBtn" class="btn btn-outline-light btn-sm">Save List</button>
+        <button id="itemListClearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
       </div>
       <div class="status-label" id="itemListStatus"></div>
       <div class="progress mt-2" id="dlProgress" style="display: none;">
