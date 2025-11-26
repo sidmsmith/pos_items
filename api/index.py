@@ -941,6 +941,7 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
             # Build item payload with separate arrays
             items_payload.append({
                 "itemId": item_id,
+                "ShortDescription": pos_item.get("shortDescription", ""),  # Preserve ShortDescription from input
                 "url1Variants": [
                     {
                         "fileName": v["fileName"],
