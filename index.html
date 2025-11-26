@@ -3732,8 +3732,17 @@
       
       const rowKey = uniqueKey;
       
-      // Render variants
-      variants.forEach((variant, idx) => {
+      // Split variants: positions 0-1 (URL1/URL2) are fixed, positions 2+ are scrollable
+      const fixedVariants = variants.slice(0, 2); // URL1 and URL2
+      const scrollableVariants = variants.slice(2); // Google images
+      
+      // Create fixed container for URL1/URL2
+      const fixedContainer = document.createElement('div');
+      fixedContainer.className = 'url-positions-fixed';
+      fixedContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; flex-shrink: 0;';
+      
+      // Render fixed positions (URL1/URL2)
+      fixedVariants.forEach((variant, idx) => {
         const card = document.createElement('div');
         card.className = 'gallery-card';
         const currentFileName = variant.fileName;
@@ -3867,7 +3876,10 @@
       rowContainer.appendChild(viewport);
       rowContainer.appendChild(nextBtn);
       
-      // Slider navigation logic
+      // Add fixed container before the slider
+      rowContainer.insertBefore(fixedContainer, prevBtn);
+      
+      // Slider navigation logic - only for scrollable variants (positions 3+)
       const savedIndex = gallerySliderPositions[rowKey] || 0;
       const sliderState = { index: savedIndex, visible: 4, cardWidth: 210 };
       
@@ -3884,7 +3896,8 @@
         const viewportWidth = viewport.getBoundingClientRect().width;
         const spacePerCard = sliderState.cardWidth + gap;
         sliderState.visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
-        const lastPageBoundary = Math.floor((variants.length - 1) / sliderState.visible) * sliderState.visible;
+        // Only calculate pagination for scrollable variants (positions 3+)
+        const lastPageBoundary = Math.floor((scrollableVariants.length - 1) / sliderState.visible) * sliderState.visible;
         const maxIndex = Math.max(0, lastPageBoundary);
         sliderState.index = Math.min(sliderState.index, maxIndex);
         sliderState.index = Math.floor(sliderState.index / sliderState.visible) * sliderState.visible;
