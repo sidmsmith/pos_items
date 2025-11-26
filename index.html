@@ -783,7 +783,7 @@
           <input type="checkbox" id="updateWmAfterDownloadGallery" style="margin: 0; cursor: pointer;">
           <label for="updateWmAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Update WM after download</label>
         </div>
-        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled title="">Download Selected Items</button>
+        <button id="gallerySaveBtn" class="btn btn-success btn-sm" disabled>Download Selected Items</button>
       </div>
     </div>
   </div>
@@ -3791,11 +3791,7 @@
         warningsHtml += `<div class="gallery-warning hidden-warning">Gallery API could not find images for: ${summarizeList(detailList)}</div>`;
       }
       warningsContainer.innerHTML = warningsHtml;
-      const saveBtn = document.getElementById('gallerySaveBtn');
-      if (saveBtn) {
-        const tooltipText = warningsHtml ? warningsContainer.textContent.trim() : '';
-        saveBtn.title = tooltipText || '';
-      }
+      // Tooltip removed per user request
     }
 
     // Helper function to create unique key from item index and itemId
@@ -5306,11 +5302,12 @@
 
       galleryLoading = true;
       updateGalleryToolbar();
-      setGalleryStatus('Downloading images from positions 1 and 2...');
+      setGalleryStatus('Creating zip file with images from positions 1 and 2...');
 
       try {
-        // Download images from positions 1 and 2 for each item
-        const downloadPromises = [];
+        // Create a zip file with images from positions 1 and 2 for each item
+        const zip = new JSZip();
+        const imagePromises = [];
         
         galleryItems.forEach((item, itemIndex) => {
           const uniqueKey = getUniqueKey(itemIndex, item.itemId);
@@ -5323,27 +5320,90 @@
           const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
           if (url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename1 = `${item.itemId}_1`;
-            downloadPromises.push(downloadImage(url1Variant.originalUrl, filename1));
-            logToConsole(`[DOWNLOAD] Queued download for ${item.itemId} position 1: ${filename1}`, 'info');
+            // Get file extension from URL or default to .jpg
+            const urlExt = url1Variant.originalUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+            const ext = urlExt ? urlExt[1] : 'jpg';
+            const fullFilename1 = `${filename1}.${ext}`;
+            
+            imagePromises.push(
+              fetch(url1Variant.originalUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                  zip.file(fullFilename1, blob);
+                  logToConsole(`[ZIP] Added ${item.itemId} position 1: ${fullFilename1}`, 'info');
+                })
+                .catch(error => {
+                  logToConsole(`[ZIP] Error fetching ${item.itemId} position 1: ${error.message}`, 'error');
+                })
+            );
           }
           
           // Download position 2 (URL2) image
           const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
           if (url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename2 = `${item.itemId}_2`;
-            downloadPromises.push(downloadImage(url2Variant.originalUrl, filename2));
-            logToConsole(`[DOWNLOAD] Queued download for ${item.itemId} position 2: ${filename2}`, 'info');
+            // Get file extension from URL or default to .jpg
+            const urlExt = url2Variant.originalUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+            const ext = urlExt ? urlExt[1] : 'jpg';
+            const fullFilename2 = `${filename2}.${ext}`;
+            
+            imagePromises.push(
+              fetch(url2Variant.originalUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                  zip.file(fullFilename2, blob);
+                  logToConsole(`[ZIP] Added ${item.itemId} position 2: ${fullFilename2}`, 'info');
+                })
+                .catch(error => {
+                  logToConsole(`[ZIP] Error fetching ${item.itemId} position 2: ${error.message}`, 'error');
+                })
+            );
           }
         });
         
-        // Wait for all downloads to complete
-        await Promise.all(downloadPromises);
+        // Wait for all images to be added to zip
+        await Promise.all(imagePromises);
         
-        const totalDownloads = downloadPromises.length;
-        logToConsole(`[DOWNLOAD] Successfully downloaded ${totalDownloads} images`, 'success');
-        setGalleryStatus(`Downloaded ${totalDownloads} images from positions 1 and 2.`);
+        // Generate zip file
+        logToConsole(`[ZIP] Generating zip file with ${imagePromises.length} images...`, 'info');
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
         
-        document.getElementById('dlStatus').textContent = `Downloaded ${totalDownloads} images from positions 1 and 2.`;
+        // Generate timestamp in YYMMDD-HHMM format for filename
+        const now = new Date();
+        const year = now.getFullYear().toString().slice(-2);
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const timestamp = `${year}${month}${day}-${hours}${minutes}`;
+        const zipFilename = `downloaded_items_${timestamp}.zip`;
+        
+        // Download the zip file
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = zipFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(link.href), 100);
+        
+        logToConsole(`[ZIP] Successfully created and downloaded: ${zipFilename}`, 'success');
+        setGalleryStatus(`Downloaded ${zipFilename} with ${imagePromises.length} images.`);
+        
+        // Check if upload to Cloudinary is enabled
+        const uploadAfterDownload = document.getElementById('uploadAfterDownloadGallery');
+        if (uploadAfterDownload && uploadAfterDownload.checked) {
+          try {
+            logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
+            setGalleryStatus('Extracting zip and uploading to Cloudinary...');
+            await uploadFromZipContent(zipBlob);
+          } catch (uploadError) {
+            logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
+            setGalleryStatus(`Upload failed: ${uploadError.message || 'Unknown error'}`);
+          }
+        }
+        
+        document.getElementById('dlStatus').textContent = `Downloaded ${zipFilename} with ${imagePromises.length} images.`;
         closeGalleryModal();
       } catch (error) {
         logToConsole(`Error in finalizeGallerySelections: ${error.message || 'Unknown error'}`, 'error');
@@ -5360,19 +5420,25 @@
     }
 
     // Function to upload images from zip content
-    async function uploadFromZipContent(base64ZipContent) {
+    // Accepts either a Blob or base64 string
+    async function uploadFromZipContent(zipContent) {
       try {
         logToConsole('Extracting zip file...', 'info');
         
-        // Convert base64 to binary
-        const binaryString = atob(base64ZipContent);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        let zip;
+        // Handle both Blob and base64 string
+        if (zipContent instanceof Blob) {
+          // Load zip directly from blob
+          zip = await JSZip.loadAsync(zipContent);
+        } else {
+          // Convert base64 to binary (legacy support)
+          const binaryString = atob(zipContent);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          zip = await JSZip.loadAsync(bytes);
         }
-        
-        // Load zip with JSZip
-        const zip = await JSZip.loadAsync(bytes);
         logToConsole(`Zip extracted. Found ${Object.keys(zip.files).length} files.`, 'info');
         
         // Filter for image files and convert to File objects
