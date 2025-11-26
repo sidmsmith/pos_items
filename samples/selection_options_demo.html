@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Selection Options Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1d2e;
+            color: #e0e4f0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #6c7ae0;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #9aa4d3;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .option-section {
+            background: #252940;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+            border: 1px solid #3a3f5a;
+        }
+
+        .option-title {
+            color: #6c7ae0;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .option-badge {
+            background: #6c7ae0;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .option-description {
+            color: #9aa4d3;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+
+        .gallery-demo {
+            background: #1e2134;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3a3f5a;
+        }
+
+        .item-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #e0e4f0;
+        }
+
+        .status-indicator {
+            font-size: 0.85rem;
+            color: #9aa4d3;
+            padding: 5px 12px;
+            background: #2a2d42;
+            border-radius: 6px;
+        }
+
+        .status-indicator.active {
+            background: #6c7ae0;
+            color: white;
+        }
+
+        .image-row {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 10px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #3a3f5a #1e2134;
+        }
+
+        .image-row::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .image-row::-webkit-scrollbar-track {
+            background: #1e2134;
+        }
+
+        .image-row::-webkit-scrollbar-thumb {
+            background: #3a3f5a;
+            border-radius: 4px;
+        }
+
+        .image-card {
+            position: relative;
+            min-width: 180px;
+            width: 180px;
+            height: 180px;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            background: #2a2d42;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .image-card:hover {
+            border-color: #6c7ae0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108, 122, 224, 0.3);
+        }
+
+        .image-card.selected {
+            border-color: #4ade80;
+            box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.3);
+        }
+
+        .image-card.replacing {
+            border-color: #fbbf24;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.5);
+            }
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .position-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 2;
+        }
+
+        .position-badge.url1 {
+            background: #3b82f6;
+        }
+
+        .position-badge.url2 {
+            background: #8b5cf6;
+        }
+
+        .selection-summary {
+            margin-top: 15px;
+            padding: 12px;
+            background: #2a2d42;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #9aa4d3;
+        }
+
+        .selection-summary strong {
+            color: #e0e4f0;
+        }
+
+        .popup-menu {
+            position: fixed;
+            background: #252940;
+            border: 1px solid #3a3f5a;
+            border-radius: 8px;
+            padding: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .popup-menu.show {
+            display: block;
+        }
+
+        .popup-menu button {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            color: #e0e4f0;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .popup-menu button:hover {
+            background: #3a3f5a;
+        }
+
+        .popup-menu button:not(:last-child) {
+            margin-bottom: 4px;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            background: #2a2d42;
+            border: 1px solid #3a3f5a;
+            color: #9aa4d3;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background: #6c7ae0;
+            border-color: #6c7ae0;
+            color: white;
+        }
+
+        .mode-btn:hover:not(.active) {
+            border-color: #6c7ae0;
+            color: #6c7ae0;
+        }
+
+        .drag-over {
+            border-color: #4ade80 !important;
+            background: rgba(74, 222, 128, 0.1) !important;
+        }
+
+        .instructions {
+            background: #2a2d42;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #9aa4d3;
+            border-left: 3px solid #6c7ae0;
+        }
+
+        .reset-btn {
+            padding: 6px 12px;
+            background: #3a3f5a;
+            border: 1px solid #4a5568;
+            color: #9aa4d3;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: #4a5568;
+            color: #e0e4f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Selection Options Demo</h1>
+        <p class="subtitle">Interactive demonstrations of different selection methods for replacing URL1 and URL2 images</p>
+
+        <!-- Option 1: Click-to-Replace with Visual Mode Indicator -->
+        <div class="option-section">
+            <div class="option-title">
+                <span>Option 1: Click-to-Replace with Visual Mode</span>
+                <span class="option-badge">RECOMMENDED</span>
+            </div>
+            <p class="option-description">
+                Click on URL1 or URL2 position to enter "replace mode" for that position. The active position will pulse. 
+                Then click any image to replace it. Click the same position again or press Escape to cancel.
+            </p>
+            <div class="gallery-demo" id="demo1">
+                <div class="item-header">
+                    <div class="item-title">Item: DEMO-001</div>
+                    <div class="status-indicator" id="status1">Ready - Click URL1 or URL2 to replace</div>
+                    <button class="reset-btn" onclick="resetDemo(1)">Reset</button>
+                </div>
+                <div class="image-row">
+                    <div class="image-card url1-card" data-position="url1" onclick="handleOption1Click('url1', this)">
+                        <span class="position-badge url1">URL1</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    </div>
+                    <div class="image-card url2-card" data-position="url2" onclick="handleOption1Click('url2', this)">
+                        <span class="position-badge url2">URL2</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img1" onclick="handleOption1Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img2" onclick="handleOption1Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img3" onclick="handleOption1Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img4" onclick="handleOption1Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+                    </div>
+                </div>
+                <div class="selection-summary" id="summary1">
+                    <strong>Selected:</strong> URL1: Original | URL2: Original
+                </div>
+            </div>
+        </div>
+
+        <!-- Option 2: Two-Button Selection -->
+        <div class="option-section">
+            <div class="option-title">
+                <span>Option 2: Two-Button Selection</span>
+            </div>
+            <p class="option-description">
+                Click any image to see a popup menu with "Replace URL1" and "Replace URL2" options. Choose which position to replace.
+            </p>
+            <div class="gallery-demo" id="demo2">
+                <div class="item-header">
+                    <div class="item-title">Item: DEMO-002</div>
+                    <button class="reset-btn" onclick="resetDemo(2)">Reset</button>
+                </div>
+                <div class="image-row">
+                    <div class="image-card url1-card" data-position="url1">
+                        <span class="position-badge url1">URL1</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    </div>
+                    <div class="image-card url2-card" data-position="url2">
+                        <span class="position-badge url2">URL2</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img1" onclick="handleOption2Click(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img2" onclick="handleOption2Click(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img3" onclick="handleOption2Click(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img4" onclick="handleOption2Click(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+                    </div>
+                </div>
+                <div class="popup-menu" id="popup2">
+                    <button onclick="handleOption2Replace('url1')">Replace URL1</button>
+                    <button onclick="handleOption2Replace('url2')">Replace URL2</button>
+                    <button onclick="closePopup(2)">Cancel</button>
+                </div>
+                <div class="selection-summary" id="summary2">
+                    <strong>Selected:</strong> URL1: Original | URL2: Original
+                </div>
+            </div>
+        </div>
+
+        <!-- Option 3: Drag and Drop -->
+        <div class="option-section">
+            <div class="option-title">
+                <span>Option 3: Drag and Drop</span>
+            </div>
+            <p class="option-description">
+                Drag any image and drop it onto the URL1 or URL2 position to replace it. The drop target will highlight when you drag over it.
+            </p>
+            <div class="gallery-demo" id="demo3">
+                <div class="item-header">
+                    <div class="item-title">Item: DEMO-003</div>
+                    <button class="reset-btn" onclick="resetDemo(3)">Reset</button>
+                </div>
+                <div class="image-row">
+                    <div class="image-card url1-card" data-position="url1" 
+                         ondrop="handleOption3Drop(event, 'url1')" 
+                         ondragover="handleOption3DragOver(event)" 
+                         ondragleave="handleOption3DragLeave(event)">
+                        <span class="position-badge url1">URL1</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    </div>
+                    <div class="image-card url2-card" data-position="url2"
+                         ondrop="handleOption3Drop(event, 'url2')" 
+                         ondragover="handleOption3DragOver(event)" 
+                         ondragleave="handleOption3DragLeave(event)">
+                        <span class="position-badge url2">URL2</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img1" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img2" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img3" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img4" draggable="true" ondragstart="handleOption3DragStart(event, this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+                    </div>
+                </div>
+                <div class="selection-summary" id="summary3">
+                    <strong>Selected:</strong> URL1: Original | URL2: Original
+                </div>
+            </div>
+        </div>
+
+        <!-- Option 4: Right-Click Context Menu -->
+        <div class="option-section">
+            <div class="option-title">
+                <span>Option 4: Right-Click Context Menu</span>
+            </div>
+            <p class="option-description">
+                Right-click on URL1/URL2 to see "Replace this image" option, or right-click any image to see "Use for URL1" and "Use for URL2" options.
+            </p>
+            <div class="gallery-demo" id="demo4">
+                <div class="item-header">
+                    <div class="item-title">Item: DEMO-004</div>
+                    <button class="reset-btn" onclick="resetDemo(4)">Reset</button>
+                </div>
+                <div class="image-row">
+                    <div class="image-card url1-card" data-position="url1" oncontextmenu="handleOption4Context(event, 'url1', this); return false;">
+                        <span class="position-badge url1">URL1</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    </div>
+                    <div class="image-card url2-card" data-position="url2" oncontextmenu="handleOption4Context(event, 'url2', this); return false;">
+                        <span class="position-badge url2">URL2</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img1" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img2" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img3" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img4" oncontextmenu="handleOption4Context(event, 'image', this); return false;">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+                    </div>
+                </div>
+                <div class="popup-menu" id="popup4"></div>
+                <div class="selection-summary" id="summary4">
+                    <strong>Selected:</strong> URL1: Original | URL2: Original
+                </div>
+            </div>
+        </div>
+
+        <!-- Option 5: Toggle Mode Buttons -->
+        <div class="option-section">
+            <div class="option-title">
+                <span>Option 5: Toggle Mode Buttons</span>
+            </div>
+            <p class="option-description">
+                Use the toggle buttons to select which position you want to replace (URL1 or URL2). The active mode is highlighted. Then click any image to replace that position.
+            </p>
+            <div class="gallery-demo" id="demo5">
+                <div class="item-header">
+                    <div class="item-title">Item: DEMO-005</div>
+                    <button class="reset-btn" onclick="resetDemo(5)">Reset</button>
+                </div>
+                <div class="mode-toggle">
+                    <button class="mode-btn active" id="mode-url1" onclick="setReplaceMode('url1')">Replace URL1</button>
+                    <button class="mode-btn" id="mode-url2" onclick="setReplaceMode('url2')">Replace URL2</button>
+                </div>
+                <div class="instructions" id="instructions5">
+                    Mode: <strong>Replace URL1</strong> - Click any image below to replace URL1
+                </div>
+                <div class="image-row">
+                    <div class="image-card url1-card" data-position="url1">
+                        <span class="position-badge url1">URL1</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    </div>
+                    <div class="image-card url2-card" data-position="url2">
+                        <span class="position-badge url2">URL2</span>
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img1" onclick="handleOption5Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img2" onclick="handleOption5Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img3" onclick="handleOption5Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+                    </div>
+                    <div class="image-card" data-image="img4" onclick="handleOption5Replace(this)">
+                        <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+                    </div>
+                </div>
+                <div class="selection-summary" id="summary5">
+                    <strong>Selected:</strong> URL1: Original | URL2: Original
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo state
+        const demoState = {
+            1: { replacing: null, url1: 'original', url2: 'original' },
+            2: { url1: 'original', url2: 'original', clickedImage: null },
+            3: { url1: 'original', url2: 'original', draggedImage: null },
+            4: { url1: 'original', url2: 'original' },
+            5: { mode: 'url1', url1: 'original', url2: 'original' }
+        };
+
+        // Option 1: Click-to-Replace
+        function handleOption1Click(position, element) {
+            const state = demoState[1];
+            if (state.replacing === position) {
+                // Cancel mode
+                state.replacing = null;
+                element.classList.remove('replacing');
+                document.getElementById('status1').textContent = 'Ready - Click URL1 or URL2 to replace';
+                document.getElementById('status1').classList.remove('active');
+            } else {
+                // Enter replace mode
+                state.replacing = position;
+                document.querySelectorAll('#demo1 .image-card').forEach(card => {
+                    card.classList.remove('replacing');
+                });
+                element.classList.add('replacing');
+                document.getElementById('status1').textContent = `Replacing ${position.toUpperCase()} - Click an image to replace`;
+                document.getElementById('status1').classList.add('active');
+            }
+        }
+
+        function handleOption1Replace(element) {
+            const state = demoState[1];
+            if (!state.replacing) return;
+            
+            const imageId = element.dataset.image;
+            state[state.replacing] = imageId;
+            
+            // Update visual
+            const urlCard = document.querySelector(`#demo1 .${state.replacing}-card`);
+            urlCard.innerHTML = `<span class="position-badge ${state.replacing}">${state.replacing.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            
+            // Reset mode
+            state.replacing = null;
+            urlCard.classList.remove('replacing');
+            document.getElementById('status1').textContent = 'Ready - Click URL1 or URL2 to replace';
+            document.getElementById('status1').classList.remove('active');
+            
+            updateSummary(1);
+        }
+
+        // Option 2: Two-Button Selection
+        let currentClickedImage = null;
+
+        function handleOption2Click(event, element) {
+            event.stopPropagation();
+            currentClickedImage = element;
+            const popup = document.getElementById('popup2');
+            const rect = element.getBoundingClientRect();
+            popup.style.left = rect.right + 'px';
+            popup.style.top = rect.top + 'px';
+            popup.classList.add('show');
+        }
+
+        function handleOption2Replace(position) {
+            const state = demoState[2];
+            if (!currentClickedImage) return;
+            
+            const imageId = currentClickedImage.dataset.image;
+            state[position] = imageId;
+            
+            const urlCard = document.querySelector(`#demo2 .${position}-card`);
+            urlCard.innerHTML = `<span class="position-badge ${position}">${position.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            
+            closePopup(2);
+            updateSummary(2);
+        }
+
+        function closePopup(demoNum) {
+            document.getElementById(`popup${demoNum}`).classList.remove('show');
+            currentClickedImage = null;
+        }
+
+        // Option 3: Drag and Drop
+        function handleOption3DragStart(event, element) {
+            demoState[3].draggedImage = element;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleOption3DragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleOption3DragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleOption3Drop(event, position) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            
+            const state = demoState[3];
+            if (!state.draggedImage) return;
+            
+            const imageId = state.draggedImage.dataset.image;
+            state[position] = imageId;
+            
+            const urlCard = document.querySelector(`#demo3 .${position}-card`);
+            urlCard.innerHTML = `<span class="position-badge ${position}">${position.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            
+            state.draggedImage = null;
+            updateSummary(3);
+        }
+
+        // Option 4: Right-Click Context Menu
+        function handleOption4Context(event, type, element) {
+            const popup = document.getElementById('popup4');
+            popup.innerHTML = '';
+            
+            if (type === 'url1' || type === 'url2') {
+                const btn = document.createElement('button');
+                btn.textContent = 'Replace this image';
+                btn.onclick = () => {
+                    // In real implementation, would show image picker
+                    alert(`Would show image picker to replace ${type.toUpperCase()}`);
+                    closePopup(4);
+                };
+                popup.appendChild(btn);
+            } else {
+                const btn1 = document.createElement('button');
+                btn1.textContent = 'Use for URL1';
+                btn1.onclick = () => {
+                    const state = demoState[4];
+                    state.url1 = element.dataset.image;
+                    const urlCard = document.querySelector('#demo4 .url1-card');
+                    urlCard.innerHTML = `<span class="position-badge url1">URL1</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+                    updateSummary(4);
+                    closePopup(4);
+                };
+                const btn2 = document.createElement('button');
+                btn2.textContent = 'Use for URL2';
+                btn2.onclick = () => {
+                    const state = demoState[4];
+                    state.url2 = element.dataset.image;
+                    const urlCard = document.querySelector('#demo4 .url2-card');
+                    urlCard.innerHTML = `<span class="position-badge url2">URL2</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+                    updateSummary(4);
+                    closePopup(4);
+                };
+                popup.appendChild(btn1);
+                popup.appendChild(btn2);
+            }
+            
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = () => closePopup(4);
+            popup.appendChild(cancelBtn);
+            
+            popup.style.left = event.pageX + 'px';
+            popup.style.top = event.pageY + 'px';
+            popup.classList.add('show');
+        }
+
+        // Option 5: Toggle Mode Buttons
+        function setReplaceMode(position) {
+            demoState[5].mode = position;
+            document.getElementById('mode-url1').classList.toggle('active', position === 'url1');
+            document.getElementById('mode-url2').classList.toggle('active', position === 'url2');
+            document.getElementById('instructions5').innerHTML = 
+                `Mode: <strong>Replace ${position.toUpperCase()}</strong> - Click any image below to replace ${position.toUpperCase()}`;
+        }
+
+        function handleOption5Replace(element) {
+            const state = demoState[5];
+            const imageId = element.dataset.image;
+            state[state.mode] = imageId;
+            
+            const urlCard = document.querySelector(`#demo5 .${state.mode}-card`);
+            urlCard.innerHTML = `<span class="position-badge ${state.mode}">${state.mode.toUpperCase()}</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>`;
+            
+            updateSummary(5);
+        }
+
+        // Utility functions
+        function updateSummary(demoNum) {
+            const state = demoState[demoNum];
+            const url1Text = state.url1 === 'original' ? 'Original' : 'Replaced';
+            const url2Text = state.url2 === 'original' ? 'Original' : 'Replaced';
+            document.getElementById(`summary${demoNum}`).innerHTML = 
+                `<strong>Selected:</strong> URL1: ${url1Text} | URL2: ${url2Text}`;
+        }
+
+        function resetDemo(demoNum) {
+            const state = demoState[demoNum];
+            state.url1 = 'original';
+            state.url2 = 'original';
+            if (demoNum === 1) {
+                state.replacing = null;
+                document.querySelectorAll('#demo1 .image-card').forEach(card => card.classList.remove('replacing'));
+                document.getElementById('status1').textContent = 'Ready - Click URL1 or URL2 to replace';
+                document.getElementById('status1').classList.remove('active');
+            }
+            if (demoNum === 5) {
+                state.mode = 'url1';
+                setReplaceMode('url1');
+            }
+            
+            // Reset visual cards
+            const url1Card = document.querySelector(`#demo${demoNum} .url1-card`);
+            const url2Card = document.querySelector(`#demo${demoNum} .url2-card`);
+            url1Card.innerHTML = '<span class="position-badge url1">URL1</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>';
+            url2Card.innerHTML = '<span class="position-badge url2">URL2</span><div style="width: 100%; height: 100%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>';
+            
+            updateSummary(demoNum);
+        }
+
+        // Close popups when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.popup-menu') && !e.target.closest('.image-card[data-image]')) {
+                document.querySelectorAll('.popup-menu').forEach(popup => popup.classList.remove('show'));
+            }
+        });
+
+        // Escape key to cancel Option 1 mode
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && demoState[1].replacing) {
+                const state = demoState[1];
+                const urlCard = document.querySelector(`#demo1 .${state.replacing}-card`);
+                urlCard.classList.remove('replacing');
+                state.replacing = null;
+                document.getElementById('status1').textContent = 'Ready - Click URL1 or URL2 to replace';
+                document.getElementById('status1').classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
