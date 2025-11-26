@@ -4528,14 +4528,42 @@
           }
         }
         
-        // Find the dragged variant in googleVariants
-        const googleIndex = item.googleVariants.findIndex(v => 
+        // Find the dragged variant - it could be in googleVariants, url1Variants, or url2Variants
+        let sourceArray = null;
+        let sourceIndex = -1;
+        
+        // Check googleVariants first
+        sourceIndex = item.googleVariants.findIndex(v => 
           v.originalUrl === draggedVariant.originalUrl || 
           v.fileName === draggedVariant.fileName
         );
+        if (sourceIndex !== -1) {
+          sourceArray = item.googleVariants;
+          logToConsole(`[SWAP] Found dragged variant in googleVariants at index ${sourceIndex}`, 'info');
+        } else {
+          // Check url1Variants
+          sourceIndex = item.url1Variants.findIndex(v => 
+            v.originalUrl === draggedVariant.originalUrl || 
+            v.fileName === draggedVariant.fileName
+          );
+          if (sourceIndex !== -1) {
+            sourceArray = item.url1Variants;
+            logToConsole(`[SWAP] Found dragged variant in url1Variants at index ${sourceIndex}`, 'info');
+          } else {
+            // Check url2Variants
+            sourceIndex = item.url2Variants.findIndex(v => 
+              v.originalUrl === draggedVariant.originalUrl || 
+              v.fileName === draggedVariant.fileName
+            );
+            if (sourceIndex !== -1) {
+              sourceArray = item.url2Variants;
+              logToConsole(`[SWAP] Found dragged variant in url2Variants at index ${sourceIndex}`, 'info');
+            }
+          }
+        }
         
-        if (googleIndex === -1) {
-          logToConsole(`[SWAP] Dragged variant not found in googleVariants`, 'warning');
+        if (sourceIndex === -1 || !sourceArray) {
+          logToConsole(`[SWAP] Dragged variant not found in any array`, 'warning');
           return;
         }
 
