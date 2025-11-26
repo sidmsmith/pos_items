@@ -3085,6 +3085,10 @@
     function renderGallery(disableAnimations = false) {
       const grid = document.getElementById('galleryGrid');
       
+      // Save scroll position to prevent auto-scroll
+      const scrollTop = grid ? grid.scrollTop : 0;
+      const scrollLeft = grid ? grid.scrollLeft : 0;
+      
       // If disabling animations, temporarily disable transitions on all existing tracks before clearing
       if (disableAnimations) {
         const existingTracks = grid.querySelectorAll('.slider-track');
@@ -3094,6 +3098,12 @@
       }
       
       grid.innerHTML = '';
+      
+      // Restore scroll position after clearing
+      if (grid) {
+        grid.scrollTop = scrollTop;
+        grid.scrollLeft = scrollLeft;
+      }
 
       galleryItems.forEach((item, itemIndex) => {
         const group = document.createElement('div');
@@ -3201,10 +3211,12 @@
           
           // Position 1: URL1
           if (item.url1Variants && item.url1Variants.length > 0) {
+            const url1Variant = item.url1Variants[0];
             combinedVariants.push({
-              ...item.url1Variants[0],
+              ...url1Variant,
               positionLabel: 'URL1',
-              isUrlImage: true
+              isUrlImage: true,
+              isOriginal: item.originalUrl1 && url1Variant.originalUrl === item.originalUrl1.originalUrl
             });
           } else {
             // Placeholder for URL1
@@ -3775,37 +3787,37 @@
           card.innerHTML = cardContent;
           
           // Add drag and drop handlers
-          if (!isPlaceholder) {
-            if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
-              // Drop target handlers for URL1/URL2
-              card.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                card.classList.add('drag-over');
-              });
-              card.addEventListener('dragleave', () => {
-                card.classList.remove('drag-over');
-              });
-              card.addEventListener('drop', (e) => {
-                e.preventDefault();
-                card.classList.remove('drag-over');
-                handleImageSwap(e, item.itemId, positionLabel.toLowerCase(), idx);
-              });
-            } else if (!isUrlImage) {
-              // Draggable handlers for Google images
-              card.addEventListener('dragstart', (e) => {
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', JSON.stringify({
-                  itemId: item.itemId,
-                  variantIndex: idx,
-                  variant: variant
-                }));
-                card.classList.add('dragging');
-              });
-              card.addEventListener('dragend', () => {
-                card.classList.remove('dragging');
-              });
-            }
+          // Make URL1/URL2 positions (including placeholders) drop targets
+          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
+            // Drop target handlers for URL1/URL2 (including placeholders)
+            card.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              card.classList.add('drag-over');
+            });
+            card.addEventListener('dragleave', () => {
+              card.classList.remove('drag-over');
+            });
+            card.addEventListener('drop', (e) => {
+              e.preventDefault();
+              card.classList.remove('drag-over');
+              handleImageSwap(e, item.itemId, positionLabel.toLowerCase(), idx, isPlaceholder);
+            });
+          } else if (!isUrlImage && !isPlaceholder) {
+            // Draggable handlers for Google images (not placeholders)
+            card.draggable = true;
+            card.addEventListener('dragstart', (e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', JSON.stringify({
+                itemId: item.itemId,
+                variantIndex: idx,
+                variant: variant
+              }));
+              card.classList.add('dragging');
+            });
+            card.addEventListener('dragend', () => {
+              card.classList.remove('dragging');
+            });
           }
           
           // Keep click handler for preview
