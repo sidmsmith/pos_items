@@ -3026,6 +3026,20 @@
         galleryItems = result.items || [];
         logToConsole(`Gallery items set: ${galleryItems.length} items`, 'success');
         
+        // Store original URL1/URL2 for each item (for reset functionality and red badges)
+        galleryItems.forEach(item => {
+          if (!item.originalUrl1) {
+            item.originalUrl1 = item.url1Variants && item.url1Variants.length > 0 
+              ? { ...item.url1Variants[0] } 
+              : null;
+          }
+          if (!item.originalUrl2) {
+            item.originalUrl2 = item.url2Variants && item.url2Variants.length > 0 
+              ? { ...item.url2Variants[0] } 
+              : null;
+          }
+        });
+        
         gallerySelections = {};
         gallerySkippedItems.clear(); // Clear skipped items for new gallery
         galleryNewImages.clear(); // Clear new images tracking for new gallery
@@ -3194,10 +3208,12 @@
           
           // Position 2: URL2
           if (item.url2Variants && item.url2Variants.length > 0) {
+            const url2Variant = item.url2Variants[0];
             combinedVariants.push({
-              ...item.url2Variants[0],
+              ...url2Variant,
               positionLabel: 'URL2',
-              isUrlImage: true
+              isUrlImage: true,
+              isOriginal: item.originalUrl2 && url2Variant.originalUrl === item.originalUrl2.originalUrl
             });
           } else {
             // Placeholder for URL2
@@ -3684,51 +3700,111 @@
         const isSelected = gallerySelections[uniqueKey] === currentFileName;
         if (isSelected) card.classList.add('selected');
         
-        const isPlaceholder = variant.isPlaceholder || false;
-        const isUrlImage = variant.isUrlImage || false;
-        const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
-        
-        let cardContent = '';
-        if (isPlaceholder) {
-          // Render placeholder
-          cardContent = `
-            <div class="gallery-card-image" style="position: relative;">
-              <div class="placeholder-x">
-                <div class="x-icon">✕</div>
-                <div class="x-text">Image Not Found</div>
-              </div>
-            </div>
-            <div class="gallery-card-body">
-              <div class="gallery-card-title">${positionLabel}</div>
-              <div class="gallery-card-source" style="color: var(--danger);">Failed to load</div>
-            </div>
-          `;
-        } else {
-          // Render normal image
-          const isNewImage = galleryNewImages.has(item.itemId) && 
-                             galleryNewImages.get(item.itemId).has(variant.originalUrl);
-          const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
-          const urlBadgeHtml = isUrlImage ? `<div class="url-badge" style="position: absolute; top: 4px; left: 4px; background: rgba(13, 110, 253, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
-          cardContent = `
-            <div class="gallery-card-image" style="position: relative;">
-              <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
-              ${urlBadgeHtml}
-              ${newBadgeHtml}
-            </div>
-            <div class="gallery-card-body">
-              <div class="gallery-card-title">${positionLabel}</div>
-              <div class="gallery-card-source">${variant.source || 'Unknown'}</div>
-            </div>
-            <button class="gallery-preview-btn" type="button">Preview</button>
-          `;
-        }
-        
-        card.innerHTML = cardContent;
-        card.addEventListener('click', () => {
-          if (!isPlaceholder) {
-            toggleGallerySelection(uniqueKey, currentFileName, item.itemId);
+          const isPlaceholder = variant.isPlaceholder || false;
+          const isUrlImage = variant.isUrlImage || false;
+          const isOriginal = variant.isOriginal || false;
+          const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
+          
+          // Make cards draggable (except placeholders and URL positions)
+          if (!isPlaceholder && !isUrlImage) {
+            card.draggable = true;
+            card.dataset.variantIndex = idx;
+            card.dataset.itemId = item.itemId;
           }
-        });
+          
+          // Make URL1/URL2 positions drop targets
+          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
+            card.dataset.dropTarget = positionLabel.toLowerCase();
+            card.dataset.itemId = item.itemId;
+            card.dataset.variantIndex = idx;
+          }
+          
+          let cardContent = '';
+          if (isPlaceholder) {
+            // Render placeholder
+            cardContent = `
+              <div class="gallery-card-image" style="position: relative;">
+                <div class="placeholder-x">
+                  <div class="x-icon">✕</div>
+                  <div class="x-text">Image Not Found</div>
+                </div>
+              </div>
+              <div class="gallery-card-body">
+                <div class="gallery-card-title">${positionLabel}</div>
+                <div class="gallery-card-source" style="color: var(--danger);">Failed to load</div>
+              </div>
+            `;
+          } else {
+            // Render normal image
+            const isNewImage = galleryNewImages.has(item.itemId) && 
+                               galleryNewImages.get(item.itemId).has(variant.originalUrl);
+            const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
+            const urlBadgeHtml = isUrlImage ? `<div class="url-badge" style="position: absolute; top: 4px; left: 4px; background: rgba(13, 110, 253, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
+            // Red badge for original images in lower right
+            const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
+            cardContent = `
+              <div class="gallery-card-image" style="position: relative;">
+                <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
+                ${urlBadgeHtml}
+                ${originalBadgeHtml}
+                ${newBadgeHtml}
+              </div>
+              <div class="gallery-card-body">
+                <div class="gallery-card-title">${positionLabel}</div>
+                <div class="gallery-card-source">${variant.source || 'Unknown'}</div>
+              </div>
+              <button class="gallery-preview-btn" type="button">Preview</button>
+            `;
+          }
+          
+          card.innerHTML = cardContent;
+          
+          // Add drag and drop handlers
+          if (!isPlaceholder) {
+            if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
+              // Drop target handlers for URL1/URL2
+              card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                card.classList.add('drag-over');
+              });
+              card.addEventListener('dragleave', () => {
+                card.classList.remove('drag-over');
+              });
+              card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                card.classList.remove('drag-over');
+                handleImageSwap(e, item.itemId, positionLabel.toLowerCase(), idx);
+              });
+            } else if (!isUrlImage) {
+              // Draggable handlers for Google images
+              card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                  itemId: item.itemId,
+                  variantIndex: idx,
+                  variant: variant
+                }));
+                card.classList.add('dragging');
+              });
+              card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+              });
+            }
+          }
+          
+          // Keep click handler for preview
+          if (!isPlaceholder) {
+            const previewBtn = card.querySelector('.gallery-preview-btn');
+            if (previewBtn) {
+              previewBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const tempItem = { ...item, variants: variants.filter(v => !v.isPlaceholder) };
+                const carouselIndex = variants.slice(0, idx).filter(v => !v.isPlaceholder).length;
+                openVariantCarousel(tempItem, carouselIndex);
+              });
+            }
+          }
         
         if (!isPlaceholder) {
           const previewBtn = card.querySelector('.gallery-preview-btn');
@@ -4132,6 +4208,113 @@
           h5.textContent = displayTitle;
           h5.appendChild(newCountSpan);
         }
+      }
+    }
+
+    // Handle image swap when dragging onto URL1/URL2
+    function handleImageSwap(event, itemId, targetPosition, targetIndex) {
+      try {
+        const dragData = JSON.parse(event.dataTransfer.getData('text/plain'));
+        if (!dragData || dragData.itemId !== itemId) {
+          logToConsole(`[SWAP] Invalid drag data or different item`, 'warning');
+          return;
+        }
+
+        const item = galleryItems.find(i => i.itemId === itemId);
+        if (!item) {
+          logToConsole(`[SWAP] Item ${itemId} not found`, 'error');
+          return;
+        }
+
+        const draggedVariant = dragData.variant;
+        const targetArray = targetPosition === 'url1' ? item.url1Variants : item.url2Variants;
+        const sourceArray = targetPosition === 'url1' ? item.url2Variants : item.url1Variants;
+        
+        if (!targetArray || targetArray.length === 0) {
+          logToConsole(`[SWAP] Target array is empty`, 'warning');
+          return;
+        }
+
+        // Get the current URL variant
+        const currentUrlVariant = { ...targetArray[0] };
+        
+        // Find the dragged variant in googleVariants
+        const googleIndex = item.googleVariants.findIndex(v => 
+          v.originalUrl === draggedVariant.originalUrl || 
+          v.fileName === draggedVariant.fileName
+        );
+        
+        if (googleIndex === -1) {
+          logToConsole(`[SWAP] Dragged variant not found in googleVariants`, 'warning');
+          return;
+        }
+
+        // Swap: Replace URL variant with dragged Google variant
+        targetArray[0] = { ...item.googleVariants[googleIndex] };
+        
+        // Replace Google variant with old URL variant
+        item.googleVariants[googleIndex] = currentUrlVariant;
+        
+        // Update isOriginal flag
+        targetArray[0].isOriginal = false; // New image is not original
+        
+        logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
+        
+        // Re-render gallery without animations
+        renderGallery(true);
+      } catch (error) {
+        logToConsole(`[SWAP] Error: ${error.message}`, 'error');
+      }
+    }
+
+    // Reset URL1/URL2 to original images
+    function resetItemUrls(itemId) {
+      try {
+        const item = galleryItems.find(i => i.itemId === itemId);
+        if (!item) {
+          logToConsole(`[RESET] Item ${itemId} not found`, 'error');
+          return;
+        }
+
+        if (!item.originalUrl1 || !item.originalUrl2) {
+          logToConsole(`[RESET] Original URLs not found for item ${itemId}`, 'warning');
+          return;
+        }
+
+        // Restore original URL1
+        if (item.url1Variants && item.url1Variants.length > 0) {
+          const oldUrl1 = item.url1Variants[0];
+          // Find if old URL1 is in googleVariants and remove it, or add it
+          const googleIndex = item.googleVariants.findIndex(v => 
+            v.originalUrl === oldUrl1.originalUrl
+          );
+          if (googleIndex === -1) {
+            // Add old URL1 to googleVariants
+            item.googleVariants.push(oldUrl1);
+          }
+          item.url1Variants[0] = { ...item.originalUrl1 };
+        }
+
+        // Restore original URL2
+        if (item.url2Variants && item.url2Variants.length > 0) {
+          const oldUrl2 = item.url2Variants[0];
+          // Find if old URL2 is in googleVariants and remove it, or add it
+          const googleIndex = item.googleVariants.findIndex(v => 
+            v.originalUrl === oldUrl2.originalUrl
+          );
+          if (googleIndex === -1) {
+            // Add old URL2 to googleVariants
+            item.googleVariants.push(oldUrl2);
+          }
+          item.url2Variants[0] = { ...item.originalUrl2 };
+        }
+
+        logToConsole(`[RESET] Reset URL1 and URL2 to original images for ${itemId}`, 'success');
+        
+        // Re-render gallery without animations
+        renderGallery(true);
+      } catch (error) {
+        logToConsole(`[RESET] Error: ${error.message}`, 'error');
       }
     }
 
