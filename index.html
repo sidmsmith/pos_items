@@ -5841,14 +5841,6 @@
       const uploadFolder = document.getElementById('upload_folder').value.trim();
       const uploadPreset = document.getElementById('upload_profile').value.trim();
       
-      // For unsigned client-side uploads, Cloudinary requires a preset
-      // If no preset is provided, fall back to server-side upload (which can use signed uploads)
-      if (!uploadPreset || uploadPreset === '') {
-        logToConsole('[CLOUDINARY] No preset provided, using server-side upload (supports signed uploads)', 'info');
-        // Fall back to original server-side upload method
-        return await uploadImageFilesServer(imageFiles, uploadFolder, uploadPreset);
-      }
-      
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
         
