@@ -766,7 +766,7 @@
       <div class="gallery-instruction" id="galleryInstructionMessage"></div>
       <div class="gallery-toolbar">
         <div class="gallery-toolbar-left">
-          <button id="gallerySelectFirstBtn" class="btn btn-outline-light btn-sm">Select First Image</button>
+          <button id="gallerySelectFirstBtn" class="btn btn-outline-light btn-sm">Auto Select Images</button>
           <button id="galleryRefreshBtn" class="btn btn-outline-light btn-sm">Refresh Gallery</button>
         </div>
       <div class="gallery-toolbar-right">
@@ -2948,7 +2948,7 @@
         galleryMissingItems = result.missingItems || [];
         
         logToConsole(`Opening gallery modal with ${galleryItems.length} items...`, 'info');
-        dlStatus.textContent = 'Gallery ready. Review and select one image per item.';
+        dlStatus.textContent = 'Gallery ready.';
         openGalleryModal();
         logToConsole('✓ Gallery modal opened successfully', 'success');
       } catch (error) {
@@ -2975,7 +2975,7 @@
       logToConsole('[GALLERY] Rendering gallery...', 'info');
       renderGallery();
       logToConsole('[GALLERY] Gallery rendered', 'success');
-      setGalleryStatus('Select one image per item, then click Download Selected Items.');
+      setGalleryStatus('');
       logToConsole('[GALLERY] Gallery modal opened successfully', 'success');
     }
 
@@ -3615,14 +3615,9 @@
         })
         .map(item => getItemDisplayLabel(item.itemId));
 
+      // Instruction message removed per user request
       if (instructionEl) {
-        if (groupsMissingSelections.length > 0) {
-          instructionEl.textContent = `Select one image per item (${groupsMissingSelections.length} remaining).`;
-        } else if (galleryItems.length) {
-          instructionEl.textContent = 'Select one image per item, then click Download Selected Items.';
-      } else {
-          instructionEl.textContent = '';
-        }
+        instructionEl.textContent = '';
       }
 
       const summarizeList = (arr, limit = 12) => {
@@ -4878,19 +4873,26 @@
 
     function refreshGallery() {
       // Save scroll position before refresh
-      const grid = document.getElementById('galleryGrid');
+      const grid = domCache.getGalleryGrid();
       const savedScrollTop = grid ? grid.scrollTop : 0;
       
-      setGalleryStatus('Resetting all rows...');
-      logToConsole('[REFRESH] Refreshing gallery by resetting all rows', 'info');
+      setGalleryStatus('Resetting all rows and clearing skipped items...');
+      logToConsole('[REFRESH] Refreshing gallery by resetting all rows and clearing skipped items', 'info');
+      
+      // Clear all skipped items
+      gallerySkippedItems.clear();
+      logToConsole('[REFRESH] Cleared all skipped items', 'info');
       
       // Reset each item in the gallery
-      galleryItems.forEach(item => {
+      galleryItems.forEach((item, itemIndex) => {
         resetItemUrls(item.itemId);
+        // Update the row to remove skipped styling
+        const uniqueKey = getUniqueKey(itemIndex, item.itemId);
+        updateGalleryRow(uniqueKey);
       });
       
       setGalleryStatus('All rows reset');
-      logToConsole(`[REFRESH] Reset ${galleryItems.length} rows`, 'success');
+      logToConsole(`[REFRESH] Reset ${galleryItems.length} rows and cleared skipped items`, 'success');
       
       // Restore scroll position after render
       if (grid) {
