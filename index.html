@@ -4367,10 +4367,19 @@
           return;
         }
 
-        // Append new variants to existing ones (limit to 3 as requested)
+        // Limit to 3 images (take first 3 unique ones)
         const variantsToAdd = uniqueNewVariants.slice(0, 3);
-        const firstNewImageIndex = item.variants.length; // Index of first new image (0-based)
-        item.variants.push(...variantsToAdd);
+        logToConsole(`[REFRESH] Adding ${variantsToAdd.length} new Google images to item`, 'info');
+        
+        // Add new variants to the item's googleVariants array
+        if (!item.googleVariants) {
+          item.googleVariants = [];
+        }
+        item.googleVariants.push(...variantsToAdd);
+        logToConsole(`[REFRESH] Item now has ${item.googleVariants.length} Google images total`, 'success');
+        
+        // Calculate first new image index in combined array: URL1 (0), URL2 (1), then Google images (2+)
+        const firstNewImageIndex = 2 + currentGoogleCount; // 2 = URL1 + URL2 positions
 
         // Track new images for badge display
         if (!galleryNewImages.has(itemId)) {
@@ -4386,8 +4395,11 @@
         const estimatedVisible = 5;
         const targetIndex = firstNewImageIndex;
         
+        // Calculate total variants count (URL1 + URL2 + Google images)
+        const totalVariants = 2 + item.googleVariants.length; // 2 = URL1 + URL2
+        
         // Calculate maxIndex (last page boundary) for alignment
-        const lastPageBoundary = Math.floor((item.variants.length - 1) / estimatedVisible) * estimatedVisible;
+        const lastPageBoundary = Math.floor((totalVariants - 1) / estimatedVisible) * estimatedVisible;
         const maxIdx = Math.max(0, lastPageBoundary);
         
         // Align target index to page boundary (multiple of visible) to ensure proper page alignment
@@ -4432,12 +4444,15 @@
                   const visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
                   
                   // Recalculate with accurate measurements
+                  // Calculate total variants count (URL1 + URL2 + Google images)
+                  const accurateTotalVariants = 2 + item.googleVariants.length; // 2 = URL1 + URL2
+                  
                   // Calculate maxIndex (last page boundary) for alignment
-                  const lastPageBoundary = Math.floor((item.variants.length - 1) / visible) * visible;
+                  const lastPageBoundary = Math.floor((accurateTotalVariants - 1) / visible) * visible;
                   const accurateMaxIndex = Math.max(0, lastPageBoundary);
                   
                   // Align to page boundary with accurate visible count
-                  let accurateFinalIndex = targetIndex;
+                  let accurateFinalIndex = firstNewImageIndex;
                   // Align to the nearest page boundary (round down to ensure we don't overshoot)
                   accurateFinalIndex = Math.floor(accurateFinalIndex / visible) * visible;
                   // Clamp to maxIndex (which is already a page boundary)
@@ -4477,7 +4492,7 @@
                   
                   // Update page indicator after scrolling to new images
                   const currentPage = Math.floor(accurateFinalIndex / visible) + 1;
-                  const totalPages = needsScrolling ? Math.ceil(item.variants.length / visible) : 1;
+                  const totalPages = needsScrolling ? Math.ceil(accurateTotalVariants / visible) : 1;
                   const pageIndicator = group.querySelector('.gallery-page-indicator');
                   if (pageIndicator) {
                     pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
