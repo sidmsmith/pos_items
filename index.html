@@ -3281,9 +3281,10 @@
             item.googleVariants.forEach((variant, idx) => {
               // Check if this Google image was originally a URL1/URL2 image (has isOriginal flag)
               const isOriginal = variant.isOriginal || false;
+              // Preserve existing positionLabel (URL1/URL2) if it exists, otherwise use Variant X
               const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
               
-              logToConsole(`[RENDER] Google variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, originalUrl=${variant.originalUrl}`, 'info');
+              logToConsole(`[RENDER] Google variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, originalUrl=${variant.originalUrl}, variant.positionLabel=${variant.positionLabel}`, 'info');
               
               combinedVariants.push({
                 ...variant,
