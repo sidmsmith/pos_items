@@ -3068,8 +3068,17 @@
       setGalleryStatus('');
     }
 
-    function renderGallery() {
+    function renderGallery(disableAnimations = false) {
       const grid = document.getElementById('galleryGrid');
+      
+      // If disabling animations, temporarily disable transitions on all existing tracks before clearing
+      if (disableAnimations) {
+        const existingTracks = grid.querySelectorAll('.slider-track');
+        existingTracks.forEach(track => {
+          track.style.transition = 'none';
+        });
+      }
+      
       grid.innerHTML = '';
 
       galleryItems.forEach((item, itemIndex) => {
@@ -3765,7 +3774,21 @@
         sliderState.index = Math.min(sliderState.index, maxIndex);
         gallerySliderPositions[rowKey] = sliderState.index;
         const offset = -spacePerCard * sliderState.index;
+        
+        // Disable transition if animations are disabled (for refresh)
+        if (disableAnimations) {
+          track.style.transition = 'none';
+        }
         track.style.transform = `translateX(${offset}px)`;
+        
+        // Re-enable transition after a brief moment if animations were disabled
+        if (disableAnimations) {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              track.style.transition = '';
+            }, 50);
+          });
+        }
         const trackWidth = track.scrollWidth;
         const viewportClientWidth = viewport.clientWidth;
         const needsScrolling = trackWidth > viewportClientWidth;
