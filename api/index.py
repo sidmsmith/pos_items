@@ -1529,6 +1529,15 @@ def update_wm():
         if r.status_code == 401:
             return jsonify({"success": False, "error": "Token expired", "requires_reauth": True})
 
+@app.route('/api/cloudinary_config', methods=['GET'])
+def cloudinary_config():
+    """Get Cloudinary configuration for client-side uploads (safe to expose)"""
+    return jsonify({
+        "success": True,
+        "cloud_name": CLOUD_NAME,
+        "upload_preset": ""  # User provides this via UI
+    })
+
         try:
             resp_json = r.json()
             success = bool(resp_json.get("success"))
