@@ -1277,40 +1277,60 @@ def upload_cloudinary_stream():
     """Upload images to Cloudinary with Server-Sent Events for real-time progress"""
     def generate():
         try:
+            log_to_console('[CLOUDINARY] ========================================')
+            log_to_console('[CLOUDINARY] upload_cloudinary_stream() called')
+            log_to_console('[CLOUDINARY] ========================================')
+            
             # Configure Cloudinary
+            log_to_console(f'[CLOUDINARY] Configuring Cloudinary: cloud_name={CLOUD_NAME}, api_key={API_KEY_CLOUD[:10] if API_KEY_CLOUD else "N/A"}...')
             cloudinary.config(
                 cloud_name=CLOUD_NAME,
                 api_key=API_KEY_CLOUD,
                 api_secret=API_SECRET_CLOUD
             )
+            log_to_console('[CLOUDINARY] Cloudinary configuration complete')
             
             # Get form data
             upload_folder = request.form.get('folder', '').strip()
             upload_preset = request.form.get('preset', '').strip()
+            log_to_console(f'[CLOUDINARY] Upload parameters: folder="{upload_folder}", preset="{upload_preset}"')
             
             # Get uploaded files
             if 'files' not in request.files:
+                log_to_console('[CLOUDINARY] ERROR: No files in request.files')
                 yield f"data: {json.dumps({'type': 'error', 'message': 'No files provided'})}\n\n"
                 return
             
             files = request.files.getlist('files')
+            log_to_console(f'[CLOUDINARY] Received {len(files)} file(s) from request')
             if not files or files[0].filename == '':
+                log_to_console('[CLOUDINARY] ERROR: No files selected or empty filename')
                 yield f"data: {json.dumps({'type': 'error', 'message': 'No files selected'})}\n\n"
                 return
             
             # Filter image files only
             image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
             image_files = []
+            total_size = 0
             for f in files:
                 filename = f.filename.lower()
                 if any(filename.endswith(ext) for ext in image_extensions):
+                    f.seek(0, 2)  # Seek to end
+                    file_size = f.tell()
+                    f.seek(0)  # Reset to beginning
+                    total_size += file_size
                     image_files.append(f)
+                    log_to_console(f'[CLOUDINARY] Added image file: {f.filename} ({file_size} bytes)')
+            
+            log_to_console(f'[CLOUDINARY] Filtered to {len(image_files)} image file(s). Total size: {total_size} bytes ({total_size / 1024 / 1024:.2f} MB)')
             
             if not image_files:
+                log_to_console('[CLOUDINARY] ERROR: No valid image files found')
                 yield f"data: {json.dumps({'type': 'error', 'message': 'No valid image files found. Supported formats: JPG, PNG, GIF, WebP, BMP'})}\n\n"
                 return
             
             upload_start_time = datetime.now()
+            log_to_console(f'[CLOUDINARY] Starting upload of {len(image_files)} images at {upload_start_time.strftime("%H:%M:%S")}')
             
             # Send start event
             yield f"data: {json.dumps({'type': 'start', 'total': len(image_files), 'folder': upload_folder, 'preset': upload_preset})}\n\n"
@@ -1323,6 +1343,14 @@ def upload_cloudinary_stream():
                 try:
                     filename = img_file.filename
                     filename_only = os.path.basename(filename)
+                    
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Processing: {filename_only}')
+                    
+                    # Get file size
+                    img_file.seek(0, 2)
+                    file_size = img_file.tell()
+                    img_file.seek(0)
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] File size: {file_size} bytes ({file_size / 1024:.2f} KB)')
                     
                     # Send progress event
                     yield f"data: {json.dumps({'type': 'progress', 'index': idx + 1, 'total': len(image_files), 'filename': filename_only, 'status': 'uploading'})}\n\n"
@@ -1338,26 +1366,39 @@ def upload_cloudinary_stream():
                     if upload_preset:
                         upload_options['upload_preset'] = upload_preset
                     
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Upload options: {json.dumps(upload_options)}')
+                    
                     # Read file content
+                    read_start = datetime.now()
                     img_file.seek(0)
                     file_content = img_file.read()
+                    read_duration = (datetime.now() - read_start).total_seconds()
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] File read complete ({read_duration:.3f}s). Content size: {len(file_content)} bytes')
                     
                     # Upload to Cloudinary
+                    upload_api_start = datetime.now()
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Calling cloudinary.uploader.upload()...')
                     result = cloudinary.uploader.upload(
                         file_content,
                         **upload_options
                     )
+                    upload_api_duration = (datetime.now() - upload_api_start).total_seconds()
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Cloudinary API call completed ({upload_api_duration:.3f}s)')
                     
                     file_end_time = datetime.now()
                     duration = (file_end_time - file_start_time).total_seconds()
                     
                     cloudinary_url = result.get('secure_url') or result.get('url', '')
+                    public_id = result.get('public_id', '')
+                    
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Upload SUCCESS: {cloudinary_url} (total duration: {duration:.2f}s)')
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Public ID: {public_id}')
                     
                     uploaded_results.append({
                         "filename": filename,
                         "filename_only": filename_only,
                         "cloudinary_url": cloudinary_url,
-                        "public_id": result.get('public_id', ''),
+                        "public_id": public_id,
                         "success": True,
                         "duration": round(duration, 2),
                         "index": idx + 1,
@@ -1372,6 +1413,11 @@ def upload_cloudinary_stream():
                     duration = (file_end_time - file_start_time).total_seconds()
                     error_msg = str(e)
                     filename_only = os.path.basename(filename) if filename else "unknown"
+                    
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Cloudinary API ERROR: {error_msg}', 'error')
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Error type: {type(e).__name__}', 'error')
+                    import traceback
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Traceback: {traceback.format_exc()}', 'error')
                     
                     failed_uploads.append({
                         "filename": filename,
@@ -1392,6 +1438,11 @@ def upload_cloudinary_stream():
                     error_msg = str(e)
                     filename_only = os.path.basename(filename) if filename else "unknown"
                     
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] EXCEPTION: {error_msg}', 'error')
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Exception type: {type(e).__name__}', 'error')
+                    import traceback
+                    log_to_console(f'[CLOUDINARY] [{idx + 1}/{len(image_files)}] Traceback: {traceback.format_exc()}', 'error')
+                    
                     failed_uploads.append({
                         "filename": filename,
                         "filename_only": filename_only,
@@ -1408,11 +1459,20 @@ def upload_cloudinary_stream():
             upload_end_time = datetime.now()
             total_duration = (upload_end_time - upload_start_time).total_seconds()
             
+            log_to_console(f'[CLOUDINARY] Upload complete: {len(uploaded_results)} successful, {len(failed_uploads)} failed. Total duration: {total_duration:.2f}s')
+            if failed_uploads:
+                log_to_console(f'[CLOUDINARY] Failed uploads: {json.dumps([f["filename_only"] for f in failed_uploads])}', 'error')
+            
             # Send complete event
             yield f"data: {json.dumps({'type': 'complete', 'successful': len(uploaded_results), 'failed': len(failed_uploads), 'total': len(image_files), 'total_duration': round(total_duration, 2), 'uploaded': uploaded_results, 'failed': failed_uploads})}\n\n"
             
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            import traceback
+            error_msg = str(e)
+            error_traceback = traceback.format_exc()
+            log_to_console(f'[CLOUDINARY] FATAL ERROR in generate(): {error_msg}', 'error')
+            log_to_console(f'[CLOUDINARY] Traceback: {error_traceback}', 'error')
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg, 'traceback': error_traceback})}\n\n"
     
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
