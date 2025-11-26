@@ -878,13 +878,8 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
             else:
                 log_to_console(f"No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
 
-            # Combine URL1 image with Google Images for URL1 row
-            url1_variants.extend(google_variants)
-
-            # Combine URL2 image with Google Images for URL2 row
-            url2_variants.extend(google_variants)
-
-            # Build item payload
+            # Keep URL1 and URL2 separate, Google images separate
+            # Build item payload with separate arrays
             items_payload.append({
                 "itemId": item_id,
                 "url1Variants": [
@@ -910,6 +905,18 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
                         "isPlaceholder": v.get("isPlaceholder", False)
                     }
                     for v in url2_variants
+                ],
+                "googleVariants": [
+                    {
+                        "fileName": v["fileName"],
+                        "previewUrl": v["previewUrl"],
+                        "originalUrl": v["originalUrl"],
+                        "source": v["source"],
+                        "shortDescription": v["shortDescription"],
+                        "description": v["description"],
+                        "isPlaceholder": v.get("isPlaceholder", False)
+                    }
+                    for v in google_variants
                 ]
             })
 

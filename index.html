@@ -3155,36 +3155,72 @@
 
         // Check if this is a POS item with URL1/URL2 structure
         const hasURLRows = item.url1Variants !== undefined || item.url2Variants !== undefined;
-        logToConsole(`[GALLERY] Item ${item.itemId}: hasURLRows=${hasURLRows}, url1Variants=${item.url1Variants?.length || 0}, url2Variants=${item.url2Variants?.length || 0}`, 'info');
+        logToConsole(`[GALLERY] Item ${item.itemId}: hasURLRows=${hasURLRows}, url1Variants=${item.url1Variants?.length || 0}, url2Variants=${item.url2Variants?.length || 0}, googleVariants=${item.googleVariants?.length || 0}`, 'info');
         
         if (hasURLRows) {
-          // Render URL1 row
+          // Build combined variants array: URL1 (position 0), URL2 (position 1), then Google images
+          const combinedVariants = [];
+          
+          // Position 1: URL1
           if (item.url1Variants && item.url1Variants.length > 0) {
-            logToConsole(`[GALLERY] Rendering URL1 row with ${item.url1Variants.length} variants`, 'info');
-            const url1Row = renderURLRow(itemIndex, item, 'URL1', item.url1Variants, uniqueKey);
-            group.appendChild(url1Row);
+            combinedVariants.push({
+              ...item.url1Variants[0],
+              positionLabel: 'URL1',
+              isUrlImage: true
+            });
           } else {
-            logToConsole(`[GALLERY] Item ${item.itemId}: URL1 row is empty`, 'warning');
+            // Placeholder for URL1
+            combinedVariants.push({
+              fileName: 'URL1_placeholder',
+              previewUrl: '',
+              originalUrl: '_PLACEHOLDER_',
+              source: 'URL1',
+              shortDescription: '',
+              description: '',
+              isPlaceholder: true,
+              positionLabel: 'URL1',
+              isUrlImage: true
+            });
           }
           
-          // Render URL2 row
+          // Position 2: URL2
           if (item.url2Variants && item.url2Variants.length > 0) {
-            logToConsole(`[GALLERY] Rendering URL2 row with ${item.url2Variants.length} variants`, 'info');
-            const url2Row = renderURLRow(itemIndex, item, 'URL2', item.url2Variants, uniqueKey);
-            group.appendChild(url2Row);
+            combinedVariants.push({
+              ...item.url2Variants[0],
+              positionLabel: 'URL2',
+              isUrlImage: true
+            });
           } else {
-            logToConsole(`[GALLERY] Item ${item.itemId}: URL2 row is empty`, 'warning');
+            // Placeholder for URL2
+            combinedVariants.push({
+              fileName: 'URL2_placeholder',
+              previewUrl: '',
+              originalUrl: '_PLACEHOLDER_',
+              source: 'URL2',
+              shortDescription: '',
+              description: '',
+              isPlaceholder: true,
+              positionLabel: 'URL2',
+              isUrlImage: true
+            });
           }
           
-          // If both rows are empty, show empty message
-          if ((!item.url1Variants || item.url1Variants.length === 0) && 
-              (!item.url2Variants || item.url2Variants.length === 0)) {
-            logToConsole(`[GALLERY] Item ${item.itemId}: Both URL rows empty, showing empty message`, 'warning');
-            const empty = document.createElement('div');
-            empty.className = 'gallery-empty';
-            empty.textContent = 'No images returned for this item.';
-            group.appendChild(empty);
+          // Position 3+: Google images
+          if (item.googleVariants && item.googleVariants.length > 0) {
+            item.googleVariants.forEach((variant, idx) => {
+              combinedVariants.push({
+                ...variant,
+                positionLabel: `Variant ${idx + 1}`,
+                isUrlImage: false
+              });
+            });
           }
+          
+          logToConsole(`[GALLERY] Rendering single row with ${combinedVariants.length} variants (URL1, URL2, ${item.googleVariants?.length || 0} Google images)`, 'info');
+          
+          // Render single row with all variants
+          const singleRow = renderSingleRow(itemIndex, item, combinedVariants, uniqueKey);
+          group.appendChild(singleRow);
           
           grid.appendChild(group);
           logToConsole(`[GALLERY] Item ${item.itemId} added to grid`, 'success');
@@ -3611,7 +3647,176 @@
       return `${itemIndex}_${itemId}`;
     }
 
-    // Helper function to render a URL row (URL1 or URL2) with slider
+    // Helper function to render a single row with URL1, URL2, and Google images
+    function renderSingleRow(itemIndex, item, variants, uniqueKey) {
+      const rowContainer = document.createElement('div');
+      rowContainer.className = 'variant-slider';
+      
+      const prevBtn = document.createElement('button');
+      prevBtn.className = 'slider-nav-btn slider-nav-prev';
+      prevBtn.innerHTML = '&#8249;';
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'slider-nav-btn slider-nav-next';
+      nextBtn.innerHTML = '&#8250;';
+      const viewport = document.createElement('div');
+      viewport.className = 'slider-viewport';
+      const track = document.createElement('div');
+      track.className = 'slider-track';
+      
+      const rowKey = uniqueKey;
+      
+      // Render variants
+      variants.forEach((variant, idx) => {
+        const card = document.createElement('div');
+        card.className = 'gallery-card';
+        const currentFileName = variant.fileName;
+        const isSelected = gallerySelections[uniqueKey] === currentFileName;
+        if (isSelected) card.classList.add('selected');
+        
+        const isPlaceholder = variant.isPlaceholder || false;
+        const isUrlImage = variant.isUrlImage || false;
+        const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
+        
+        let cardContent = '';
+        if (isPlaceholder) {
+          // Render placeholder
+          cardContent = `
+            <div class="gallery-card-image" style="position: relative;">
+              <div class="placeholder-x">
+                <div class="x-icon">✕</div>
+                <div class="x-text">Image Not Found</div>
+              </div>
+            </div>
+            <div class="gallery-card-body">
+              <div class="gallery-card-title">${positionLabel}</div>
+              <div class="gallery-card-source" style="color: var(--danger);">Failed to load</div>
+            </div>
+          `;
+        } else {
+          // Render normal image
+          const isNewImage = galleryNewImages.has(item.itemId) && 
+                             galleryNewImages.get(item.itemId).has(variant.originalUrl);
+          const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
+          const urlBadgeHtml = isUrlImage ? `<div class="url-badge" style="position: absolute; top: 4px; left: 4px; background: rgba(13, 110, 253, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
+          cardContent = `
+            <div class="gallery-card-image" style="position: relative;">
+              <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
+              ${urlBadgeHtml}
+              ${newBadgeHtml}
+            </div>
+            <div class="gallery-card-body">
+              <div class="gallery-card-title">${positionLabel}</div>
+              <div class="gallery-card-source">${variant.source || 'Unknown'}</div>
+            </div>
+            <button class="gallery-preview-btn" type="button">Preview</button>
+          `;
+        }
+        
+        card.innerHTML = cardContent;
+        card.addEventListener('click', () => {
+          if (!isPlaceholder) {
+            toggleGallerySelection(uniqueKey, currentFileName, item.itemId);
+          }
+        });
+        
+        if (!isPlaceholder) {
+          const previewBtn = card.querySelector('.gallery-preview-btn');
+          if (previewBtn) {
+            previewBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const tempItem = { ...item, variants: variants.filter(v => !v.isPlaceholder) };
+              const carouselIndex = variants.slice(0, idx).filter(v => !v.isPlaceholder).length;
+              openVariantCarousel(tempItem, carouselIndex);
+            });
+          }
+        }
+        
+        track.appendChild(card);
+      });
+      
+      viewport.appendChild(track);
+      rowContainer.appendChild(prevBtn);
+      rowContainer.appendChild(viewport);
+      rowContainer.appendChild(nextBtn);
+      
+      // Slider navigation logic
+      const savedIndex = gallerySliderPositions[rowKey] || 0;
+      const sliderState = { index: savedIndex, visible: 4, cardWidth: 210 };
+      
+      const updateSlider = () => {
+        const card = track.querySelector('.gallery-card');
+        if (card) {
+          const cardRect = card.getBoundingClientRect();
+          const cardStyle = window.getComputedStyle(card);
+          const marginLeft = parseFloat(cardStyle.marginLeft) || 0;
+          const marginRight = parseFloat(cardStyle.marginRight) || 0;
+          sliderState.cardWidth = cardRect.width + marginLeft + marginRight;
+        }
+        const gap = 8;
+        const viewportWidth = viewport.getBoundingClientRect().width;
+        const spacePerCard = sliderState.cardWidth + gap;
+        sliderState.visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
+        const lastPageBoundary = Math.floor((variants.length - 1) / sliderState.visible) * sliderState.visible;
+        const maxIndex = Math.max(0, lastPageBoundary);
+        sliderState.index = Math.min(sliderState.index, maxIndex);
+        sliderState.index = Math.floor(sliderState.index / sliderState.visible) * sliderState.visible;
+        sliderState.index = Math.min(sliderState.index, maxIndex);
+        gallerySliderPositions[rowKey] = sliderState.index;
+        const offset = -spacePerCard * sliderState.index;
+        track.style.transform = `translateX(${offset}px)`;
+        const trackWidth = track.scrollWidth;
+        const viewportClientWidth = viewport.clientWidth;
+        const needsScrolling = trackWidth > viewportClientWidth;
+        const isAtStart = sliderState.index === 0;
+        const currentOffset = -(sliderState.cardWidth + gap) * sliderState.index;
+        const maxOffset = viewportClientWidth - trackWidth;
+        const isAtEnd = !needsScrolling || currentOffset <= maxOffset || sliderState.index >= maxIndex;
+        prevBtn.style.display = (isAtStart || !needsScrolling) ? 'none' : 'flex';
+        nextBtn.style.display = (!needsScrolling || isAtEnd) ? 'none' : 'flex';
+        prevBtn.disabled = isAtStart && needsScrolling;
+        nextBtn.disabled = isAtEnd && needsScrolling;
+      };
+      
+      prevBtn.addEventListener('click', () => {
+        const gap = 8;
+        const spacePerCard = sliderState.cardWidth + gap;
+        const viewportWidth = viewport.getBoundingClientRect().width;
+        const visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
+        sliderState.visible = visible;
+        const lastPageBoundary = Math.floor((variants.length - 1) / visible) * visible;
+        const maxIdx = Math.max(0, lastPageBoundary);
+        let newIndex = Math.max(0, sliderState.index - visible);
+        newIndex = Math.floor(newIndex / visible) * visible;
+        newIndex = Math.min(newIndex, maxIdx);
+        sliderState.index = Math.max(0, newIndex);
+        updateSlider();
+      });
+      
+      nextBtn.addEventListener('click', () => {
+        const gap = 8;
+        const spacePerCard = sliderState.cardWidth + gap;
+        const viewportWidth = viewport.getBoundingClientRect().width;
+        const visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
+        sliderState.visible = visible;
+        const lastPageBoundary = Math.floor((variants.length - 1) / visible) * visible;
+        const maxIdx = Math.max(0, lastPageBoundary);
+        let newIndex = sliderState.index + visible;
+        newIndex = Math.floor(newIndex / visible) * visible;
+        newIndex = Math.min(newIndex, maxIdx);
+        sliderState.index = newIndex;
+        updateSlider();
+      });
+      
+      window.addEventListener('resize', updateSlider);
+      requestAnimationFrame(() => {
+        updateSlider();
+        setTimeout(updateSlider, 100);
+      });
+      
+      return rowContainer;
+    }
+
+    // Helper function to render a URL row (URL1 or URL2) with slider (legacy, kept for compatibility)
     function renderURLRow(itemIndex, item, urlType, variants, uniqueKey) {
       const urlRowContainer = document.createElement('div');
       urlRowContainer.className = 'url-row-container';
