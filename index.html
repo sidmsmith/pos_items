@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>POS Items v0.1.3</title>
+  <title>POS Items v0.1.4</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -815,7 +815,7 @@
     </div>
   </div>
   <div class="main-card">
-    <h2>POS Items v0.1.3</h2>
+    <h2>POS Items v0.1.4</h2>
 
     <!-- ============================================================================= -->
     <!-- SECTION 1: GENERATE ITEMS -->
@@ -831,16 +831,6 @@
           <span id="existingListStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
         </div>
         <button class="btn btn-secondary btn-sm" id="existingListLoadBtn" type="button">Load</button>
-      </div>
-
-      <div class="input-row">
-        <label class="form-label">Reference Items File:</label>
-        <div style="flex:1; position: relative;">
-          <input type="file" id="item_numbers_csv" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
-          <input type="text" id="reference_items_display" class="form-control" placeholder="Load or enter a CSV/Excel file path" style="padding-right: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; background-color: rgba(255, 0, 0, 0.1); border-color: rgba(255, 0, 0, 0.3);" readonly />
-          <span id="itemNumbersStatus" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); color: var(--success); font-size: 0.85em; pointer-events: none; white-space: nowrap;"></span>
-      </div>
-        <button class="btn btn-secondary btn-sm" id="referenceItemsLoadBtn" type="button" title="CSV/Excel file with item numbers (one per row, first column)">Load</button>
       </div>
 
       <div class="input-row">
@@ -983,7 +973,7 @@
   </div>
 
   <script>
-    const APP_VERSION = 'v0.1.3';
+    const APP_VERSION = 'v0.1.4';
     const DEFAULTS = {
       company: "Nike",
       website: "nike.com",
@@ -1002,7 +992,6 @@
 
     let generatedProducts = [];
     let generatedOutputText = '';
-    let referenceItems = [];
     let currentItemList = [];
     let galleryItems = [];
     let gallerySelections = {};
@@ -1241,7 +1230,6 @@
         // This happens AFTER all other fields are populated
         const existingListInput = document.getElementById('existing_list');
         const csvOutInput = document.getElementById('csv_out');
-        const referenceItemsDisplay = document.getElementById('reference_items_display');
         const saveDirInput = document.getElementById('save_dir');
         
         // Only clear these 4 specific fields - nothing else
@@ -1252,10 +1240,6 @@
         if (csvOutInput) {
           csvOutInput.value = '';
           updateFileInputShading(csvOutInput, true);
-        }
-        if (referenceItemsDisplay) {
-          referenceItemsDisplay.value = '';
-          updateFileInputShading(referenceItemsDisplay, true);
         }
         if (saveDirInput) {
           saveDirInput.value = '';
@@ -2025,154 +2009,12 @@
         e.target.value = '';
       });
 
-      // Reference Items file picker button
-      const referenceItemsLoadBtn = document.getElementById('referenceItemsLoadBtn');
-      const referenceItemsFileInput = document.getElementById('item_numbers_csv');
-      const referenceItemsDisplayEl = document.getElementById('reference_items_display');
-      
-      if (referenceItemsLoadBtn && referenceItemsFileInput) {
-        referenceItemsLoadBtn.addEventListener('click', () => {
-          referenceItemsFileInput.click();
-        });
-      }
-      
-      referenceItemsFileInput.addEventListener('change', async (e) => {
-        if (!e.target.files.length) {
-          referenceItems = [];
-          setItemNumbersStatus('');
-          if (referenceItemsDisplayEl) {
-            referenceItemsDisplayEl.value = '';
-            updateFileInputShading(referenceItemsDisplayEl, true);
-          }
-          // Clear stored filename
-          localStorage.removeItem('item_gen_reference_items_filename');
-          return;
-        }
-        const file = e.target.files[0];
-        const fileName = file.name;
-        
-        // Validate file format before loading
-        const validation = await validateReferenceItemsFile(file);
-        
-        if (!validation.valid) {
-          // Show error message
-          setItemNumbersStatus('');
-          
-          if (referenceItemsDisplayEl) {
-            referenceItemsDisplayEl.value = '';
-            referenceItemsDisplayEl.removeAttribute('title');
-            // Restore red shading to indicate file needs to be loaded
-            updateFileInputShading(referenceItemsDisplayEl, true);
-          }
-          
-          // Clear reference items data to force user to reload
-          referenceItems = [];
-          localStorage.removeItem('item_gen_reference_items_filename');
-          e.target.value = '';
-          alert(`Invalid file format: ${validation.error}`);
-          return;
-        }
-        
-        // File is valid, parse and store CSV data
-        try {
-          const parseResult = await parseReferenceItemsFile(file);
-          referenceItems = parseResult.items;
-          const headerDetected = parseResult.headerDetected;
-          
-          // Update display textbox - show only filename (full path not available for security)
-          if (referenceItemsDisplayEl) {
-            // Try to get folder path - browsers don't expose full path, but we can show folder\filename format
-            let displayPath = fileName;
-            if (file.webkitRelativePath) {
-              // If file has relative path, use it
-              const pathParts = file.webkitRelativePath.split('/');
-              if (pathParts.length > 1) {
-                displayPath = pathParts.slice(0, -1).join('\\') + '\\' + pathParts[pathParts.length - 1];
-              }
-            }
-            referenceItemsDisplayEl.value = displayPath;
-            referenceItemsDisplayEl.title = fileName; // Tooltip shows filename on hover
-            // Remove red shading when file is loaded
-            updateFileInputShading(referenceItemsDisplayEl, false);
-          }
-          
-          // Store filename only after successful parse
-          localStorage.setItem('item_gen_reference_items_filename', fileName);
-          
-          // Use validation count if available, otherwise use parsed items count
-          const itemCount = validation.itemCount || referenceItems.length;
-          const statusMessage = itemCount > 0
-            ? headerDetected
-              ? `${itemCount} reference items loaded (header row detected and skipped)`
-              : `${itemCount} reference items loaded`
-            : 'No item IDs detected in the first column.';
-          setItemNumbersStatus(statusMessage);
-        } catch (error) {
-          // File parsing failed - show error and restore red shading
-          console.error('Error parsing reference items file:', error);
-          setItemNumbersStatus('');
-          
-          if (referenceItemsDisplayEl) {
-            referenceItemsDisplayEl.value = '';
-            referenceItemsDisplayEl.removeAttribute('title');
-            // Restore red shading to indicate file needs to be loaded
-            updateFileInputShading(referenceItemsDisplayEl, true);
-          }
-          
-          // Clear reference items data to force user to reload
-          referenceItems = [];
-          localStorage.removeItem('item_gen_reference_items_filename');
-          e.target.value = '';
-          alert(`Error loading file: ${error.message || 'Failed to parse file. Please ensure the file is a valid CSV or Excel file.'}`);
-        }
-      });
-      
       // NOTE: Existing Item List Load button and file change handler are now in registerEventHandlers()
 
       // Current Item List section removed - no initialization needed
       setItemList([], 'No items loaded yet.');
     }
 
-    async function parseReferenceItemsFile(file) {
-      const extension = file.name.split('.').pop().toLowerCase();
-      let items = [];
-      let headerDetected = false;
-      let isFirstRow = true;
-      
-      if (extension === 'csv' || extension === 'txt') {
-        const text = await file.text();
-        const lines = text.split(/\r?\n/);
-        lines.forEach((line, index) => {
-          const value = line.split(',')[0].trim();
-          // Check if first row is a header (first cell is "ItemId")
-          if (isFirstRow && value && value.toLowerCase() === 'itemid') {
-            headerDetected = true;
-            isFirstRow = false;
-            return; // Skip header row
-          }
-          isFirstRow = false;
-          if (value) items.push(value);
-        });
-      } else {
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        rows.forEach((row, index) => {
-          const value = row && row[0] ? String(row[0]).trim() : '';
-          // Check if first row is a header (first cell is "ItemId")
-          if (isFirstRow && value && value.toLowerCase() === 'itemid') {
-            headerDetected = true;
-            isFirstRow = false;
-            return; // Skip header row
-          }
-          isFirstRow = false;
-          if (value) items.push(value);
-        });
-      }
-      return { items, headerDetected };
-    }
 
     function normalizeItemList(items) {
       const seen = new Set();
@@ -2256,9 +2098,6 @@
       URL.revokeObjectURL(url);
     }
 
-    function setItemNumbersStatus(text) {
-      document.getElementById('itemNumbersStatus').textContent = text || '';
-    }
 
     function setExistingListStatus(text) {
       // Display green text in the existingListStatus span (like other load textboxes)
@@ -2367,111 +2206,6 @@
       }
     }
 
-    async function validateReferenceItemsFile(file) {
-      if (!file) {
-        return { valid: false, error: 'No file selected' };
-      }
-
-      const extension = file.name.split('.').pop().toLowerCase();
-      if (!['csv', 'txt', 'xls', 'xlsx'].includes(extension)) {
-        return { valid: false, error: 'File must be a CSV, TXT, or Excel file (.csv, .txt, .xls, .xlsx)' };
-      }
-
-      try {
-        let rows = [];
-        
-        if (extension === 'csv' || extension === 'txt') {
-          const text = await file.text();
-          rows = text.split(/\r?\n/).map(line => {
-            // Parse CSV line (handle quoted values)
-            const result = [];
-            let current = '';
-            let inQuotes = false;
-            for (let i = 0; i < line.length; i++) {
-              const char = line[i];
-              if (char === '"') {
-                inQuotes = !inQuotes;
-              } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-              } else {
-                current += char;
-              }
-            }
-            result.push(current.trim());
-            return result;
-          }).filter(row => row.some(cell => cell.length > 0)); // Filter empty rows
-        } else {
-          // Excel file
-          const buffer = await file.arrayBuffer();
-          const workbook = XLSX.read(buffer, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-          rows = rows.map(row => Array.isArray(row) ? row.map(cell => String(cell || '').trim()) : []);
-          rows = rows.filter(row => row.some(cell => cell.length > 0)); // Filter empty rows
-        }
-
-        if (rows.length === 0) {
-          return { valid: false, error: 'File is empty or contains no data rows' };
-        }
-
-        // Validate that first column has item IDs and column E (fifth column) is empty
-        const invalidRows = [];
-        const rowsWithDataInColumnE = [];
-        
-        rows.forEach((row, index) => {
-          const rowNum = index + 1; // 1-based row numbering
-          const firstColumn = row[0] ? String(row[0]).trim() : '';
-          const fifthColumn = row[4] ? String(row[4]).trim() : ''; // Column E (index 4)
-          
-          // Check if first column is empty (invalid - no item ID)
-          if (firstColumn.length === 0) {
-            invalidRows.push(rowNum);
-          }
-          
-          // Check if column E has data (should be empty for reference items file)
-          if (fifthColumn.length > 0) {
-            rowsWithDataInColumnE.push(rowNum);
-          }
-        });
-
-        if (invalidRows.length > 0) {
-          const rowList = invalidRows.length <= 5 
-            ? invalidRows.join(', ')
-            : `${invalidRows.slice(0, 5).join(', ')} and ${invalidRows.length - 5} more`;
-          return { 
-            valid: false, 
-            error: `Invalid file: ${invalidRows.length} row(s) have empty values in the first column (Item ID). Rows with issues: ${rowList}. All rows must have an item ID in the first column.` 
-          };
-        }
-
-        if (rowsWithDataInColumnE.length > 0) {
-          const rowList = rowsWithDataInColumnE.length <= 5 
-            ? rowsWithDataInColumnE.join(', ')
-            : `${rowsWithDataInColumnE.slice(0, 5).join(', ')} and ${rowsWithDataInColumnE.length - 5} more`;
-          return { 
-            valid: false, 
-            error: `Invalid file format: Column E (fifth column) should be empty for Reference Items File. Found data in column E on ${rowsWithDataInColumnE.length} row(s): ${rowList}. This may indicate the wrong spreadsheet was uploaded (e.g., Output CSV file instead of Reference Items File).` 
-          };
-        }
-
-        // Check if first row is a header (first cell is "ItemId")
-        let headerDetected = false;
-        let itemCount = rows.length;
-        if (rows.length > 0) {
-          const firstRowFirstCell = rows[0][0] ? String(rows[0][0]).trim() : '';
-          if (firstRowFirstCell.toLowerCase() === 'itemid') {
-            headerDetected = true;
-            itemCount = rows.length - 1; // Exclude header row from count
-          }
-        }
-
-        return { valid: true, itemCount: itemCount, headerDetected: headerDetected };
-      } catch (error) {
-        return { valid: false, error: `Error reading file: ${error.message}` };
-      }
-    }
 
     // Function to store original CSV data structure
     async function storeOriginalCsvData(file) {
@@ -2775,7 +2509,7 @@
     function getSearchSource() {
       if (currentItemList.length) return currentItemList.slice();
       if (generatedProducts.length) return generatedProducts.slice();
-      return referenceItems.slice();
+      return [];
     }
 
     function validateItemListFormat(items) {
