@@ -4239,8 +4239,13 @@
     }
 
     // Handle image swap when dragging onto URL1/URL2
-    function handleImageSwap(event, itemId, targetPosition, targetIndex) {
+    function handleImageSwap(event, itemId, targetPosition, targetIndex, isPlaceholder) {
       try {
+        // Save current scroll position to prevent auto-scroll
+        const galleryGrid = document.getElementById('galleryGrid');
+        const scrollTop = galleryGrid ? galleryGrid.scrollTop : 0;
+        const scrollLeft = galleryGrid ? galleryGrid.scrollLeft : 0;
+        
         const dragData = JSON.parse(event.dataTransfer.getData('text/plain'));
         if (!dragData || dragData.itemId !== itemId) {
           logToConsole(`[SWAP] Invalid drag data or different item`, 'warning');
@@ -4255,15 +4260,15 @@
 
         const draggedVariant = dragData.variant;
         const targetArray = targetPosition === 'url1' ? item.url1Variants : item.url2Variants;
-        const sourceArray = targetPosition === 'url1' ? item.url2Variants : item.url1Variants;
         
-        if (!targetArray || targetArray.length === 0) {
-          logToConsole(`[SWAP] Target array is empty`, 'warning');
-          return;
+        // Initialize array if it doesn't exist
+        if (!targetArray) {
+          if (targetPosition === 'url1') {
+            item.url1Variants = [];
+          } else {
+            item.url2Variants = [];
+          }
         }
-
-        // Get the current URL variant
-        const currentUrlVariant = { ...targetArray[0] };
         
         // Find the dragged variant in googleVariants
         const googleIndex = item.googleVariants.findIndex(v => 
@@ -4276,19 +4281,39 @@
           return;
         }
 
-        // Swap: Replace URL variant with dragged Google variant
-        targetArray[0] = { ...item.googleVariants[googleIndex] };
-        
-        // Replace Google variant with old URL variant
-        item.googleVariants[googleIndex] = currentUrlVariant;
+        if (isPlaceholder) {
+          // Replace placeholder: just set the new image, don't swap
+          if (targetArray.length === 0) {
+            targetArray.push({ ...item.googleVariants[googleIndex] });
+          } else {
+            targetArray[0] = { ...item.googleVariants[googleIndex] };
+          }
+          // Remove the Google image from googleVariants since we're using it
+          item.googleVariants.splice(googleIndex, 1);
+          logToConsole(`[SWAP] Replaced ${targetPosition.toUpperCase()} placeholder with Google image`, 'success');
+        } else {
+          // Swap: Replace URL variant with dragged Google variant
+          const currentUrlVariant = { ...targetArray[0] };
+          targetArray[0] = { ...item.googleVariants[googleIndex] };
+          
+          // Replace Google variant with old URL variant
+          item.googleVariants[googleIndex] = currentUrlVariant;
+          logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
+        }
         
         // Update isOriginal flag
         targetArray[0].isOriginal = false; // New image is not original
         
-        logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
-        
         // Re-render gallery without animations
         renderGallery(true);
+        
+        // Restore scroll position after a brief delay to ensure DOM is updated
+        setTimeout(() => {
+          if (galleryGrid) {
+            galleryGrid.scrollTop = scrollTop;
+            galleryGrid.scrollLeft = scrollLeft;
+          }
+        }, 10);
       } catch (error) {
         logToConsole(`[SWAP] Error: ${error.message}`, 'error');
       }
