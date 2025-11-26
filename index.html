@@ -3344,19 +3344,32 @@
             });
           }
           
-          // Position 3+: Google images
+          // Position 3+: Google images - sort by Variant number
           if (item.googleVariants && item.googleVariants.length > 0) {
-            item.googleVariants.forEach((variant, idx) => {
+            // Sort googleVariants by Variant number (extract number from positionLabel)
+            const sortedGoogleVariants = [...item.googleVariants].sort((a, b) => {
+              const getVariantNumber = (variant) => {
+                const label = variant.positionLabel || '';
+                // Extract number from "Variant X" or return 0 for URL1/URL2 (shouldn't be in googleVariants but handle it)
+                if (label === 'URL1' || label === 'URL2') return 0;
+                const match = label.match(/^Variant (\d+)$/);
+                return match ? parseInt(match[1], 10) : 0;
+              };
+              return getVariantNumber(a) - getVariantNumber(b);
+            });
+            
+            sortedGoogleVariants.forEach((variant) => {
               // Check if this Google image was originally a URL1/URL2 image (has isOriginal flag)
               const isOriginal = variant.isOriginal || false;
               // Preserve existing positionLabel (URL1/URL2) if it exists, otherwise use Variant X
-              const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
+              // Once assigned, this label should NEVER change
+              const positionLabel = variant.positionLabel || 'Variant 1';
               
-              logToConsole(`[RENDER] Google variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, originalUrl=${variant.originalUrl}, variant.positionLabel=${variant.positionLabel}`, 'info');
+              logToConsole(`[RENDER] Google variant: isOriginal=${isOriginal}, positionLabel=${positionLabel}, originalUrl=${variant.originalUrl}`, 'info');
               
               combinedVariants.push({
                 ...variant,
-                positionLabel: positionLabel, // Use preserved positionLabel if it exists (URL1/URL2), otherwise use Variant X
+                positionLabel: positionLabel, // Preserve existing label or assign Variant X (permanent)
                 isUrlImage: false,
                 isOriginal: isOriginal // Preserve isOriginal flag for red badge
               });
