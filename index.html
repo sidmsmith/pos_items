@@ -3919,8 +3919,14 @@
             const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
             // Red badge for original images in lower right (even in gallery)
             // Use positionLabel if it's URL1/URL2, otherwise use 'ORIG'
-            const badgeLabel = (variant.positionLabel === 'URL1' || variant.positionLabel === 'URL2') ? variant.positionLabel : 'ORIG';
+            const badgeLabel = (positionLabel === 'URL1' || positionLabel === 'URL2') ? positionLabel : 'ORIG';
             const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${badgeLabel}</div>` : '';
+            
+            // Log badge rendering
+            if (isOriginal) {
+              logToConsole(`[RENDER SCROLLABLE] Creating badge for variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, badgeLabel=${badgeLabel}, will render: ${originalBadgeHtml ? 'YES' : 'NO'}`, 'info');
+            }
+            
             cardContent = `
               <div class="gallery-card-image" style="position: relative;">
                 <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
