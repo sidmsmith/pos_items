@@ -4279,125 +4279,91 @@
     }
 
     async function handleRefreshImages(itemId, refreshBtn) {
+      logToConsole(`[REFRESH] handleRefreshImages called for itemId: ${itemId}`, 'info');
+      
       if (!lastGalleryPayload) {
+        logToConsole('[REFRESH] ERROR: No previous gallery data available', 'error');
         setGalleryStatus('Error: No previous gallery data available');
         return;
       }
 
       const item = galleryItems.find(i => i.itemId === itemId);
       if (!item) {
+        logToConsole(`[REFRESH] ERROR: Item ${itemId} not found in galleryItems`, 'error');
         setGalleryStatus(`Error: Item ${itemId} not found`);
         return;
       }
 
-      // Get existing image URLs to avoid duplicates (not file names, as they're regenerated each call)
-      const existingUrls = new Set(item.variants.map(v => v.originalUrl));
+      // Get existing Google image URLs to avoid duplicates
+      const existingGoogleUrls = new Set((item.googleVariants || []).map(v => v.originalUrl));
+      const currentGoogleCount = (item.googleVariants || []).length;
+      logToConsole(`[REFRESH] Current Google images: ${currentGoogleCount}, existing URLs: ${existingGoogleUrls.size}`, 'info');
 
       refreshBtn.classList.add('loading');
       refreshBtn.disabled = true;
-      setGalleryStatus(`Fetching new images for ${getItemDisplayLabel(itemId)}...`);
+      setGalleryStatus(`Fetching 3 new images for ${getItemDisplayLabel(itemId)}...`);
+      logToConsole(`[REFRESH] Starting fetch for 3 new Google images...`, 'info');
 
       try {
-        // Create payload for single item with 3 images
-        // Use productName (the original search term) instead of itemId
-        const productName = item.productName || item.itemId;
+        // Find the original POS item in the payload
+        const originalPosItems = lastGalleryPayload.posItems || [];
+        const originalItem = originalPosItems.find(p => p.itemId === itemId);
         
-        // Find the index of this item in the original products array to get the correct reference item number
-        const originalProducts = lastGalleryPayload.products || [];
-        const itemIndex = originalProducts.findIndex(p => {
-          // Try to match by productName or itemId
-          return p === productName || p === item.itemId;
-        });
+        if (!originalItem) {
+          logToConsole(`[REFRESH] ERROR: Item ${itemId} not found in original posItems`, 'error');
+          setGalleryStatus(`Error: Item ${itemId} not found in original data`);
+          return;
+        }
+
+        const shortDescription = originalItem.shortDescription || itemId;
+        logToConsole(`[REFRESH] Using ShortDescription: '${shortDescription}'`, 'info');
         
-        // Get the correct reference item number for this item
-        const referenceItemNumbers = lastGalleryPayload.item_numbers || [];
-        const itemNumber = itemIndex >= 0 && itemIndex < referenceItemNumbers.length 
-          ? referenceItemNumbers[itemIndex] 
-          : (item.referenceId || null);
+        // Calculate start index based on current Google images count
+        // Start from position after existing Google images
+        const startIndex = currentGoogleCount + 1; // 1-based index
+        logToConsole(`[REFRESH] Start index: ${startIndex} (current Google count: ${currentGoogleCount})`, 'info');
         
-        // Request more images starting from where we left off to avoid duplicates
-        // If we have 33 images, request starting from position 34
-        const existingCount = item.variants.length;
-        const startIndex = existingCount + 1; // Start from next position (1-based)
-        
+        // Create payload for single item with 3 new images
         const singleItemPayload = {
           ...lastGalleryPayload,
-          products: [productName], // Use the original product name/search term
-          item_numbers: itemNumber ? [itemNumber] : [], // Pass the correct reference item number
-          images_per_item: 10, // Request 10 images to filter for 3 unique ones
-          start_index: startIndex // Pagination: start from next position to get NEW images
+          posItems: [originalItem], // Send only this one item
+          images_per_item: 3, // Request exactly 3 new images
+          start_index: startIndex // Start from next position
         };
 
-        // TODO: Remove console.log statements in future cleanup
-        console.log('Refresh Images - Payload:', {
-          productName,
-          itemId,
-          itemNumber,
-          existingImageCount: item.variants.length,
-          existingUrls: Array.from(existingUrls).slice(0, 3) // Log first 3 URLs for debugging
-        });
-
+        logToConsole(`[REFRESH] Calling gallery_generate API with single item...`, 'info');
         const result = await apiCall('gallery_generate', singleItemPayload);
 
         if (!result.success) {
+          logToConsole(`[REFRESH] API Error: ${result.error}`, 'error');
           setGalleryStatus(`Error fetching new images: ${result.error || 'Unknown error'}`);
-          // TODO: Remove console.log statements in future cleanup
-          console.error('Refresh Images - API Error:', result.error);
           return;
         }
 
         const newItems = result.items || [];
-        // TODO: Remove console.log statements in future cleanup
-        console.log('Refresh Images - API Response:', {
-          itemsCount: newItems.length,
-          firstItemId: newItems[0]?.itemId,
-          expectedItemId: itemId,
-          variantsCount: newItems[0]?.variants?.length || 0
-        });
+        logToConsole(`[REFRESH] API returned ${newItems.length} items`, 'info');
         
         if (newItems.length === 0) {
+          logToConsole(`[REFRESH] No items returned from API`, 'warning');
           setGalleryStatus(`No new images found for ${getItemDisplayLabel(itemId)}`);
           return;
         }
         
-        // Check if itemId matches (allowing for referenceId matching)
         const returnedItem = newItems[0];
-        const itemIdMatches = returnedItem.itemId === itemId || 
-                             returnedItem.itemId === item.referenceId ||
-                             (item.referenceId && returnedItem.itemId === item.referenceId);
-        
-        if (!itemIdMatches) {
-          // TODO: Remove console.log statements in future cleanup
-          console.warn('Refresh Images - ItemId mismatch:', {
-            returned: returnedItem.itemId,
-            expected: itemId,
-            referenceId: item.referenceId
-          });
-          // Still try to use it if it's the only item returned
-          if (newItems.length > 1) {
-            setGalleryStatus(`Item mismatch for ${getItemDisplayLabel(itemId)}`);
-            return;
-          }
+        if (returnedItem.itemId !== itemId) {
+          logToConsole(`[REFRESH] WARNING: ItemId mismatch - returned: ${returnedItem.itemId}, expected: ${itemId}`, 'warning');
         }
 
-        const newVariants = returnedItem.variants || [];
-        // TODO: Remove console.log statements in future cleanup
-        console.log('Refresh Images - New Variants:', {
-          total: newVariants.length,
-          urls: newVariants.map(v => v.originalUrl).slice(0, 3)
-        });
+        const newGoogleVariants = returnedItem.googleVariants || [];
+        logToConsole(`[REFRESH] Received ${newGoogleVariants.length} new Google variants`, 'info');
         
-        // Filter out duplicates by comparing image URLs (not file names, which are regenerated)
-        const uniqueNewVariants = newVariants.filter(v => !existingUrls.has(v.originalUrl));
-        
-        // TODO: Remove console.log statements in future cleanup
-        console.log('Refresh Images - After Duplicate Filter:', {
-          unique: uniqueNewVariants.length,
-          filtered: newVariants.length - uniqueNewVariants.length
-        });
+        // Filter out duplicates by comparing image URLs
+        const uniqueNewVariants = newGoogleVariants.filter(v => !existingGoogleUrls.has(v.originalUrl));
+        logToConsole(`[REFRESH] After duplicate filter: ${uniqueNewVariants.length} unique variants`, 'info');
 
         if (uniqueNewVariants.length === 0) {
-          setGalleryStatus(`No new unique images found for ${getItemDisplayLabel(itemId)} (all ${newVariants.length} were duplicates)`);
+          logToConsole(`[REFRESH] No unique new images (all ${newGoogleVariants.length} were duplicates)`, 'warning');
+          setGalleryStatus(`No new unique images found for ${getItemDisplayLabel(itemId)} (all ${newGoogleVariants.length} were duplicates)`);
           return;
         }
 
