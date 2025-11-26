@@ -4625,7 +4625,7 @@
         gallerySliderPositions[uniqueKey] = finalIndex;
         
         setGalleryStatus(`Added ${variantsToAdd.length} new image(s) for ${getItemDisplayLabel(itemId)}${uniqueNewVariants.length > 3 ? ` (${uniqueNewVariants.length - 3} more available)` : ''}`);
-        renderGallery();
+        renderGallery(true); // Disable animations when refreshing
         
         // After render, fine-tune the position with accurate measurements
         // Use requestAnimationFrame + setTimeout to ensure DOM is fully rendered and slider is initialized
