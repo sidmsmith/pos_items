@@ -3231,11 +3231,18 @@
           // Position 1: URL1
           if (item.url1Variants && item.url1Variants.length > 0) {
             const url1Variant = item.url1Variants[0];
+            // Check if this is the original URL1 image
+            const isOriginalUrl1 = item.originalUrl1 && url1Variant.originalUrl === item.originalUrl1.originalUrl;
+            // If originalUrl1 is not set yet, this is the first/original image, so set isOriginal to true
+            const isOriginal = isOriginalUrl1 || !item.originalUrl1;
+            
+            logToConsole(`[RENDER] URL1 variant: isOriginal=${isOriginal}, isOriginalUrl1=${isOriginalUrl1}, originalUrl=${url1Variant.originalUrl}, item.originalUrl1=${item.originalUrl1?.originalUrl}`, 'info');
+            
             combinedVariants.push({
               ...url1Variant,
               positionLabel: 'URL1',
               isUrlImage: true,
-              isOriginal: item.originalUrl1 && url1Variant.originalUrl === item.originalUrl1.originalUrl
+              isOriginal: isOriginal
             });
           } else {
             // Placeholder for URL1
@@ -3255,11 +3262,18 @@
           // Position 2: URL2
           if (item.url2Variants && item.url2Variants.length > 0) {
             const url2Variant = item.url2Variants[0];
+            // Check if this is the original URL2 image
+            const isOriginalUrl2 = item.originalUrl2 && url2Variant.originalUrl === item.originalUrl2.originalUrl;
+            // If originalUrl2 is not set yet, this is the first/original image, so set isOriginal to true
+            const isOriginal = isOriginalUrl2 || !item.originalUrl2;
+            
+            logToConsole(`[RENDER] URL2 variant: isOriginal=${isOriginal}, isOriginalUrl2=${isOriginalUrl2}, originalUrl=${url2Variant.originalUrl}, item.originalUrl2=${item.originalUrl2?.originalUrl}`, 'info');
+            
             combinedVariants.push({
               ...url2Variant,
               positionLabel: 'URL2',
               isUrlImage: true,
-              isOriginal: item.originalUrl2 && url2Variant.originalUrl === item.originalUrl2.originalUrl
+              isOriginal: isOriginal
             });
           } else {
             // Placeholder for URL2
