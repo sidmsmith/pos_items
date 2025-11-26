@@ -3347,13 +3347,21 @@
           // Position 3+: Google images - sort by Variant number
           if (item.googleVariants && item.googleVariants.length > 0) {
             // Sort googleVariants by Variant number (extract number from positionLabel)
+            // Items with URL1/URL2 labels maintain their current array position (stable sort)
             const sortedGoogleVariants = [...item.googleVariants].sort((a, b) => {
               const getVariantNumber = (variant) => {
                 const label = variant.positionLabel || '';
-                // Extract number from "Variant X" or return 0 for URL1/URL2 (shouldn't be in googleVariants but handle it)
-                if (label === 'URL1' || label === 'URL2') return 0;
+                // Extract number from "Variant X" 
                 const match = label.match(/^Variant (\d+)$/);
-                return match ? parseInt(match[1], 10) : 0;
+                if (match) {
+                  return parseInt(match[1], 10);
+                }
+                // For URL1/URL2 labels in gallery, use a large number to sort them to the end
+                // This preserves their position relative to each other
+                if (label === 'URL1' || label === 'URL2') {
+                  return 999999; // Sort to end
+                }
+                return 0;
               };
               return getVariantNumber(a) - getVariantNumber(b);
             });
@@ -4551,19 +4559,9 @@
           // This label should NEVER change - it's the permanent identity of the image
           const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
           
-          // Extract the Variant number from the dragged variant's label to preserve position in sorted gallery
-          // When URL variant goes to gallery, it should maintain the same sorted position as the dragged variant
-          let urlVariantPositionLabel = preservedPositionLabel; // Default: keep original label (URL1/URL2)
-          
-          // Extract Variant number from dragged variant (e.g., "Variant 4" -> 4)
-          const draggedVariantMatch = draggedVariantOriginalLabel.match(/^Variant (\d+)$/);
-          if (draggedVariantMatch) {
-            const variantNumber = draggedVariantMatch[1];
-            // Assign URL variant a "Variant X" label matching the swapped position so it sorts correctly
-            // This preserves the visual position in the sorted gallery
-            urlVariantPositionLabel = `Variant ${variantNumber}`;
-            logToConsole(`[SWAP] Assigning URL variant label "${urlVariantPositionLabel}" to maintain position in sorted gallery`, 'info');
-          }
+          // Preserve the URL variant's original positionLabel - this is its permanent identity
+          // If it doesn't have one yet, assign it based on position (first time only)
+          const urlVariantOriginalLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
           
           // Move Google variant to URL position, preserving its ORIGINAL positionLabel (never changes)
           targetArray[0] = { 
@@ -4571,11 +4569,11 @@
             positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 4") - NEVER change
           };
           
-          // Replace Google variant with old URL variant, using position label that maintains sorted position
+          // Replace Google variant with old URL variant, preserving isOriginal flag and ORIGINAL positionLabel
           item.googleVariants[googleIndex] = { 
             ...currentUrlVariant, 
             isOriginal: preservedIsOriginal,
-            positionLabel: urlVariantPositionLabel // Use label that preserves position in sorted gallery
+            positionLabel: urlVariantOriginalLabel // Preserve the ORIGINAL position label (URL1/URL2) - NEVER change
           };
           
           logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant gets: "${urlVariantPositionLabel}" (to maintain position)`, 'info');
