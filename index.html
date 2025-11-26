@@ -3524,14 +3524,14 @@
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
       
-      // Check if every non-skipped row has images in positions 1 and 2
+      // Check if every row is accounted for: URL1 AND URL2 populated OR row is skipped
       const incompleteItems = galleryItems.filter((item, itemIndex) => {
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
         const isSkipped = gallerySkippedItems.has(uniqueKey);
         
-        // If skipped, it's complete (doesn't need positions 1 and 2)
+        // If skipped, it's complete (accounted for)
         if (isSkipped) {
-          return false; // Not incomplete - skipped items don't need images
+          return false; // Not incomplete - skipped items are accounted for
         }
         
         // Check if position 1 (URL1) has an image (not a placeholder)
@@ -3542,7 +3542,7 @@
         const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
         const hasUrl2 = url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_';
         
-        // Item is incomplete if it doesn't have both position 1 and position 2 images
+        // Item is incomplete if it doesn't have BOTH URL1 AND URL2 populated
         return !hasUrl1 || !hasUrl2;
       });
       
@@ -3567,16 +3567,33 @@
     function updateGallerySummary() {
       const summaryEl = document.getElementById('gallerySelectionSummary');
       if (!summaryEl) return;
-      // Count only non-skipped items (use unique keys)
-      const total = galleryItems.filter((item, itemIndex) => {
+      
+      // Count total items (all rows)
+      const total = galleryItems.length;
+      
+      // Count items that are ready: URL1 AND URL2 populated OR row is skipped
+      const ready = galleryItems.filter((item, itemIndex) => {
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        return !gallerySkippedItems.has(uniqueKey);
+        const isSkipped = gallerySkippedItems.has(uniqueKey);
+        
+        // If skipped, it's ready (accounted for)
+        if (isSkipped) {
+          return true;
+        }
+        
+        // Check if position 1 (URL1) has an image (not a placeholder)
+        const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+        const hasUrl1 = url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        // Check if position 2 (URL2) has an image (not a placeholder)
+        const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+        const hasUrl2 = url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        // Item is ready if it has BOTH URL1 AND URL2 populated
+        return hasUrl1 && hasUrl2;
       }).length;
-      // Check if selection's unique key is not in skipped items
-      const selected = Object.keys(gallerySelections).filter(uniqueKey => {
-        return !gallerySkippedItems.has(uniqueKey);
-      }).length;
-      summaryEl.textContent = `${selected} of ${total} items selected`;
+      
+      summaryEl.textContent = `${ready} of ${total} items ready`;
     }
 
     function getItemDisplayLabel(itemId) {
@@ -4669,6 +4686,10 @@
         const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
         const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
         updateGalleryRow(targetUniqueKey, true); // Disable animations
+        
+        // Update toolbar and summary after reset to reflect new state
+        updateGalleryToolbar();
+        updateGallerySummary();
       } catch (error) {
         logToConsole(`[RESET] Error: ${error.message}`, 'error');
       }
