@@ -883,24 +883,6 @@
 
     </div>
 
-    <div class="section-frame" id="itemListPanel">
-      <div class="section-title d-flex justify-content-between align-items-center">
-        <span>Current Item List</span>
-        <button id="itemListToggleBtn" class="btn btn-outline-light btn-sm">Hide</button>
-      </div>
-      <div id="itemListBody">
-        <textarea id="itemListTextarea" class="form-control" rows="8" style="background:#0d1117;color:#fff;border:1px solid #333;"></textarea>
-        <div id="unappliedChangesBadge" style="display: none; margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: rgba(255, 165, 0, 0.2); border: 1px solid #ffa500; border-radius: 4px; color: #ffa500; font-size: 0.85em;">
-          <i class="fas fa-exclamation-triangle" style="margin-right: 0.25rem;"></i>
-          <span id="unappliedChangesCount">0</span> unvalidated change(s) - Click "Validate List" or they will be auto-validated on Download
-        </div>
-      <div style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-        <button id="itemListApplyBtn" class="btn btn-primary btn-sm">Validate List</button>
-        <button id="itemListSaveBtn" class="btn btn-outline-light btn-sm">Save List</button>
-        <button id="itemListClearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
-      </div>
-      <div class="status-label" id="itemListStatus"></div>
-    </div>
   </div>
 
     <!-- ============================================================================= -->
@@ -1020,7 +1002,6 @@
     let generatedOutputText = '';
     let referenceItems = [];
     let currentItemList = [];
-    let itemListCollapsed = false;
     let galleryItems = [];
     let gallerySelections = {};
     let gallerySkippedItems = new Set(); // Track skipped items
@@ -2143,76 +2124,8 @@
       
       // NOTE: Existing Item List Load button and file change handler are now in registerEventHandlers()
 
-      // Add event listener to textarea to detect changes
-      logToConsole('[INIT] Setting up item list textarea and buttons...', 'info');
-      const itemListTextarea = document.getElementById('itemListTextarea');
-      if (itemListTextarea) {
-        itemListTextarea.addEventListener('input', checkForUnappliedChanges);
-        itemListTextarea.addEventListener('paste', () => {
-          // Delay check to allow paste to complete
-          setTimeout(checkForUnappliedChanges, 10);
-        });
-        logToConsole('[INIT] ✓ itemListTextarea event listeners added', 'success');
-      } else {
-        logToConsole('[INIT] WARNING: itemListTextarea not found', 'warning');
-      }
-
-      const itemListApplyBtn = document.getElementById('itemListApplyBtn');
-      if (itemListApplyBtn) {
-        itemListApplyBtn.addEventListener('click', () => {
-          const result = validateItemsFromTextarea();
-          if (!result.success) {
-            alert(`Invalid item list format: ${result.error}`);
-          }
-          // Visual indicators are cleared in setItemList -> updateItemListTextarea -> checkForUnappliedChanges
-        });
-        logToConsole('[INIT] ✓ itemListApplyBtn event listener added', 'success');
-      } else {
-        logToConsole('[INIT] WARNING: itemListApplyBtn not found', 'warning');
-      }
-
-      const itemListSaveBtn = document.getElementById('itemListSaveBtn');
-      if (itemListSaveBtn) {
-        itemListSaveBtn.addEventListener('click', () => {
-        // Validate before saving (same validations as Validate List button)
-        const result = validateItemsFromTextarea();
-        if (!result.success) {
-          alert(`Cannot save: ${result.error}`);
-          return;
-        }
-        
-        // If validation passes, get the content and save
-        const textarea = document.getElementById('itemListTextarea');
-        const content = textarea.value.trim().length ? textarea.value : currentItemList.join('\n');
-        
-        // Generate unique filename with YYMMDD-HHMM format
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const timestamp = `${year}${month}${day}-${hours}${minutes}`;
-        const fileName = `Items_${timestamp}.txt`;
-        
-        downloadTextFile(content, fileName);
-        logToConsole(`Item List saved to file ${fileName}`, 'success');
-        });
-      } else {
-        logToConsole('[INIT] WARNING: itemListSaveBtn not found', 'warning');
-      }
-
-      document.getElementById('itemListClearBtn').addEventListener('click', () => {
-        setItemList([], 'Item list cleared');
-        setExistingListStatus('');
-      });
-
-      document.getElementById('itemListToggleBtn').addEventListener('click', toggleItemListPanel);
-
+      // Current Item List section removed - no initialization needed
       setItemList([], 'No items loaded yet.');
-      
-      // Initialize change detection
-      checkForUnappliedChanges();
     }
 
     async function parseReferenceItemsFile(file) {
@@ -2272,104 +2185,20 @@
     }
 
 
-    function updateItemListTextarea(message, autoApply = false) {
-      const textarea = document.getElementById('itemListTextarea');
-      if (!textarea) return;
+
+    function setItemList(items, statusMessage, autoApply = false) {
+      currentItemList = normalizeItemList(items || []);
       
-      textarea.value = currentItemList.join('\n');
-      
-      // Don't display any messages in Current Items section - clear itemListStatus
-      const status = document.getElementById('itemListStatus');
-      if (status) {
-        status.textContent = '';
-      }
-      
-      // Display all status messages in genStatus area (Generate Items section)
+      // Display status messages in genStatus area (Generate Items section)
       const genStatusEl = document.getElementById('genStatus');
       if (genStatusEl) {
-        if (message) {
-          genStatusEl.textContent = message;
+        if (statusMessage) {
+          genStatusEl.textContent = statusMessage;
         } else {
           // Default message if no specific message provided
           genStatusEl.textContent = currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.';
         }
       }
-      
-      // Clear unapplied changes visual indicators
-      checkForUnappliedChanges();
-    }
-
-    function checkForUnappliedChanges() {
-      const textarea = document.getElementById('itemListTextarea');
-      const badge = document.getElementById('unappliedChangesBadge');
-      const countSpan = document.getElementById('unappliedChangesCount');
-      
-      if (!textarea || !badge || !countSpan) return;
-      
-      const textareaValue = textarea.value.trim();
-      const currentValue = currentItemList.join('\n');
-      
-      // Check if textarea differs from currentItemList
-      const hasChanges = textareaValue !== currentValue;
-      
-      if (hasChanges) {
-        // Count differences - compare line by line
-        const textareaLines = textareaValue.split(/\r?\n/).filter(line => line.trim().length > 0);
-        const currentLines = currentItemList.length;
-        const originalLines = currentValue.split('\n').filter(line => line.trim().length > 0);
-        const newLines = textareaValue.split(/\r?\n/).filter(line => line.trim().length > 0);
-        
-        // Count actual changes (added, removed, or modified lines)
-        let changeCount = 0;
-        const maxLen = Math.max(originalLines.length, newLines.length);
-        for (let i = 0; i < maxLen; i++) {
-          const orig = originalLines[i] || '';
-          const newLine = newLines[i] || '';
-          if (orig.trim() !== newLine.trim()) {
-            changeCount++;
-          }
-        }
-        changeCount = changeCount || Math.abs(newLines.length - originalLines.length) || 1;
-        
-        // Show badge
-        badge.style.display = 'block';
-        countSpan.textContent = changeCount;
-        
-        // Apply orange color to textarea text to match warning badge
-        textarea.style.color = '#ffa500'; // Orange color matching the badge
-      } else {
-        // Hide badge and restore normal color
-        badge.style.display = 'none';
-        textarea.style.color = '#fff'; // Normal white color
-      }
-    }
-
-    function validateItemsFromTextarea() {
-      const textarea = document.getElementById('itemListTextarea');
-      const textValue = textarea.value.trim();
-      
-      // Check if textarea is empty
-      if (!textValue || textValue.length === 0) {
-        return { success: false, error: 'Item list cannot be empty. Please enter at least one item.' };
-      }
-      
-      // Parse items from textarea
-      const items = textValue.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-      
-      // Validate format
-      const validation = validateItemListFormat(items);
-      if (!validation.valid) {
-        return { success: false, error: validation.error };
-      }
-      
-      // Apply if valid
-      setItemList(items, `Validated ${items.length} items from editor`);
-      return { success: true };
-    }
-
-    function setItemList(items, statusMessage, autoApply = false) {
-      currentItemList = normalizeItemList(items || []);
-      updateItemListTextarea(statusMessage, autoApply);
     }
 
     async function loadItemsFromTextFile(file) {
@@ -2383,18 +2212,6 @@
       setExistingListStatus(`${items.length} items loaded`);
     }
 
-    function toggleItemListPanel() {
-      const body = document.getElementById('itemListBody');
-      const btn = document.getElementById('itemListToggleBtn');
-      itemListCollapsed = !itemListCollapsed;
-      if (itemListCollapsed) {
-        body.style.display = 'none';
-        btn.textContent = 'Show';
-      } else {
-        body.style.display = '';
-        btn.textContent = 'Hide';
-      }
-    }
 
     function logToConsole(message, type = 'info') {
       const consoleEl = document.getElementById('console');
