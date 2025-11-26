@@ -3347,8 +3347,11 @@
           // Position 3+: Google images - sort by Variant number
           if (item.googleVariants && item.googleVariants.length > 0) {
             // Sort googleVariants by Variant number (extract number from positionLabel)
-            // Items with URL1/URL2 labels maintain their current array position (stable sort)
-            const sortedGoogleVariants = [...item.googleVariants].sort((a, b) => {
+            // Items with URL1/URL2 labels maintain their current array position
+            const sortedGoogleVariants = [...item.googleVariants].map((variant, originalIndex) => ({
+              variant,
+              originalIndex
+            })).sort((a, b) => {
               const getVariantNumber = (variant) => {
                 const label = variant.positionLabel || '';
                 // Extract number from "Variant X" 
@@ -3356,15 +3359,28 @@
                 if (match) {
                   return parseInt(match[1], 10);
                 }
-                // For URL1/URL2 labels in gallery, use a large number to sort them to the end
-                // This preserves their position relative to each other
+                // For URL1/URL2 labels, use original array index to maintain position
+                // This preserves where they were swapped to
                 if (label === 'URL1' || label === 'URL2') {
-                  return 999999; // Sort to end
+                  return variant.originalIndex + 10000; // Use original index + offset to maintain position
                 }
                 return 0;
               };
-              return getVariantNumber(a) - getVariantNumber(b);
-            });
+              const numA = getVariantNumber(a.variant);
+              const numB = getVariantNumber(b.variant);
+              // If both are Variant numbers, sort by number
+              // If one is URL1/URL2, maintain relative order based on original index
+              if (numA >= 10000 && numB >= 10000) {
+                return numA - numB; // Both are URL1/URL2, sort by original index
+              }
+              if (numA >= 10000) {
+                return 1; // a is URL1/URL2, b is Variant - URL1/URL2 goes after Variants
+              }
+              if (numB >= 10000) {
+                return -1; // b is URL1/URL2, a is Variant - Variant goes before URL1/URL2
+              }
+              return numA - numB; // Both are Variants, sort by number
+            }).map(item => item.variant);
             
             sortedGoogleVariants.forEach((variant) => {
               // Check if this Google image was originally a URL1/URL2 image (has isOriginal flag)
