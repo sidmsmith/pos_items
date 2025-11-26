@@ -4588,101 +4588,64 @@
           return;
         }
 
-        if (!item.originalUrl1 || !item.originalUrl2) {
-          logToConsole(`[RESET] Original URLs not found for item ${itemId}`, 'warning');
-          return;
-        }
-
         // Save scroll position before reset
         const grid = document.getElementById('galleryGrid');
         const savedScrollTop = grid ? grid.scrollTop : 0;
         
-        // Restore original URL1
-        if (item.url1Variants && item.url1Variants.length > 0) {
-          const oldUrl1 = item.url1Variants[0];
-          // Preserve the old URL1's positionLabel (it might be "Variant X" if it was swapped)
-          const oldUrl1Label = oldUrl1.positionLabel;
-          
-          // Find where the original URL1 image currently is (might be in googleVariants if it was swapped)
-          const originalUrl1InGoogle = item.googleVariants.findIndex(v => 
-            v.originalUrl === item.originalUrl1.originalUrl || 
-            v.fileName === item.originalUrl1.fileName
-          );
-          
-          // If original URL1 is in googleVariants, remove it (we're moving it back to URL1 position)
-          if (originalUrl1InGoogle !== -1) {
-            item.googleVariants.splice(originalUrl1InGoogle, 1);
-            logToConsole(`[RESET] Removed original URL1 from googleVariants at index ${originalUrl1InGoogle}`, 'info');
-          }
-          
-          // Find if old URL1 (currently in URL1 position) is in googleVariants
-          const oldUrl1InGoogle = item.googleVariants.findIndex(v => 
-            v.originalUrl === oldUrl1.originalUrl || v.fileName === oldUrl1.fileName
-          );
-          if (oldUrl1InGoogle === -1 && oldUrl1.originalUrl !== item.originalUrl1.originalUrl) {
-            // Add old URL1 to googleVariants only if it's different from original, preserving its label
-            item.googleVariants.push({
-              ...oldUrl1,
-              positionLabel: oldUrl1Label // Preserve the label it had
-            });
-            logToConsole(`[RESET] Added old URL1 to googleVariants with label: ${oldUrl1Label}`, 'info');
-          }
-          
-          // Restore original URL1 with permanent 'URL1' label
-          item.url1Variants[0] = { 
+        // Simple logic: URL1 = position 1, URL2 = position 2
+        // If originalUrl1 exists, set it to position 1, otherwise create placeholder
+        if (item.originalUrl1) {
+          item.url1Variants = [{ 
             ...item.originalUrl1,
-            positionLabel: 'URL1' // Permanent label for URL1 position
-          };
-          logToConsole(`[RESET] Restored original URL1: ${item.originalUrl1.originalUrl}`, 'info');
+            positionLabel: 'URL1' // Permanent label
+          }];
+          logToConsole(`[RESET] Set URL1 to original: ${item.originalUrl1.originalUrl}`, 'info');
+        } else {
+          // Create placeholder for URL1
+          item.url1Variants = [{
+            fileName: 'URL1_placeholder',
+            previewUrl: '',
+            originalUrl: '_PLACEHOLDER_',
+            source: 'URL1',
+            shortDescription: '',
+            description: '',
+            isPlaceholder: true,
+            positionLabel: 'URL1',
+            isUrlImage: true
+          }];
+          logToConsole(`[RESET] Set URL1 to placeholder (no original)`, 'info');
         }
 
-        // Restore original URL2
-        if (item.url2Variants && item.url2Variants.length > 0) {
-          const oldUrl2 = item.url2Variants[0];
-          // Preserve the old URL2's positionLabel (it might be "Variant X" if it was swapped)
-          const oldUrl2Label = oldUrl2.positionLabel;
-          
-          // Find where the original URL2 image currently is (might be in googleVariants if it was swapped)
-          const originalUrl2InGoogle = item.googleVariants.findIndex(v => 
-            v.originalUrl === item.originalUrl2.originalUrl || 
-            v.fileName === item.originalUrl2.fileName
-          );
-          
-          // If original URL2 is in googleVariants, remove it (we're moving it back to URL2 position)
-          if (originalUrl2InGoogle !== -1) {
-            item.googleVariants.splice(originalUrl2InGoogle, 1);
-            logToConsole(`[RESET] Removed original URL2 from googleVariants at index ${originalUrl2InGoogle}`, 'info');
-          }
-          
-          // Find if old URL2 (currently in URL2 position) is in googleVariants
-          const oldUrl2InGoogle = item.googleVariants.findIndex(v => 
-            v.originalUrl === oldUrl2.originalUrl || v.fileName === oldUrl2.fileName
-          );
-          if (oldUrl2InGoogle === -1 && oldUrl2.originalUrl !== item.originalUrl2.originalUrl) {
-            // Add old URL2 to googleVariants only if it's different from original, preserving its label
-            item.googleVariants.push({
-              ...oldUrl2,
-              positionLabel: oldUrl2Label // Preserve the label it had
-            });
-            logToConsole(`[RESET] Added old URL2 to googleVariants with label: ${oldUrl2Label}`, 'info');
-          }
-          
-          // Restore original URL2 with permanent 'URL2' label
-          item.url2Variants[0] = { 
+        // URL2 = position 2
+        if (item.originalUrl2) {
+          item.url2Variants = [{ 
             ...item.originalUrl2,
-            positionLabel: 'URL2' // Permanent label for URL2 position
-          };
-          logToConsole(`[RESET] Restored original URL2: ${item.originalUrl2.originalUrl}`, 'info');
+            positionLabel: 'URL2' // Permanent label
+          }];
+          logToConsole(`[RESET] Set URL2 to original: ${item.originalUrl2.originalUrl}`, 'info');
+        } else {
+          // Create placeholder for URL2
+          item.url2Variants = [{
+            fileName: 'URL2_placeholder',
+            previewUrl: '',
+            originalUrl: '_PLACEHOLDER_',
+            source: 'URL2',
+            shortDescription: '',
+            description: '',
+            isPlaceholder: true,
+            positionLabel: 'URL2',
+            isUrlImage: true
+          }];
+          logToConsole(`[RESET] Set URL2 to placeholder (no original)`, 'info');
         }
 
-        logToConsole(`[RESET] Reset URL1 and URL2 to original images for ${itemId}`, 'success');
+        logToConsole(`[RESET] Reset URL1 and URL2 for ${itemId}`, 'success');
         
         // Re-render gallery without animations
         renderGallery(true);
         
         // Restore scroll position after render
         if (grid) {
-          // Use requestAnimationFrame to ensure DOM is updated before scrolling
           requestAnimationFrame(() => {
             grid.scrollTop = savedScrollTop;
           });
@@ -4963,11 +4926,14 @@
         let maxVariantNumber = 0;
         item.googleVariants.forEach(variant => {
           const label = variant.positionLabel || '';
-          const match = label.match(/^Variant (\d+)$/);
-          if (match) {
-            const variantNum = parseInt(match[1], 10);
-            if (variantNum > maxVariantNumber) {
-              maxVariantNumber = variantNum;
+          // Only count "Variant X" labels, ignore URL1/URL2
+          if (label !== 'URL1' && label !== 'URL2') {
+            const match = label.match(/^Variant (\d+)$/);
+            if (match) {
+              const variantNum = parseInt(match[1], 10);
+              if (variantNum > maxVariantNumber) {
+                maxVariantNumber = variantNum;
+              }
             }
           }
         });
