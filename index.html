@@ -3504,10 +3504,11 @@
         if (item.variants && Array.isArray(item.variants)) {
           return item.variants.length > 0;
         }
-        // New structure: check url1Variants and url2Variants
+        // New structure: check url1Variants, url2Variants, and googleVariants
         const url1Count = (item.url1Variants && Array.isArray(item.url1Variants)) ? item.url1Variants.length : 0;
         const url2Count = (item.url2Variants && Array.isArray(item.url2Variants)) ? item.url2Variants.length : 0;
-        return url1Count > 0 || url2Count > 0;
+        const googleCount = (item.googleVariants && Array.isArray(item.googleVariants)) ? item.googleVariants.length : 0;
+        return url1Count > 0 || url2Count > 0 || googleCount > 0;
       };
       // Get all items with variants (items that need selection or skip)
       const itemsWithVariants = galleryItems.filter(item => hasVariants(item));
