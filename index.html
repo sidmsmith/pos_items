@@ -3145,9 +3145,9 @@
 
         const header = document.createElement('div');
         header.className = 'gallery-group-header';
-        // For POS items, use itemId & ShortDescription as display title
+        // For POS items, use itemId: ShortDescription as display title
         const displayTitle = item.ShortDescription 
-          ? `${item.itemId} & ${item.ShortDescription}`
+          ? `${item.itemId}: ${item.ShortDescription}`
           : item.itemId;
         // Use unique key for skip state to prevent collisions when items share same itemId
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
@@ -3282,11 +3282,16 @@
             // If originalUrl2 is not set yet, this is the first/original image, so set isOriginal to true
             const isOriginal = isOriginalUrl2 || !item.originalUrl2;
             
-            logToConsole(`[RENDER] URL2 variant: isOriginal=${isOriginal}, isOriginalUrl2=${isOriginalUrl2}, originalUrl=${url2Variant.originalUrl}, item.originalUrl2=${item.originalUrl2?.originalUrl}`, 'info');
+            // Preserve existing positionLabel if it exists (from previous swaps), otherwise assign 'URL2'
+            // Once assigned, this label should NEVER change
+            const positionLabel = url2Variant.positionLabel || 'URL2';
+            
+            logToConsole(`[RENDER] URL2 variant: isOriginal=${isOriginal}, isOriginalUrl2=${isOriginalUrl2}, originalUrl=${url2Variant.originalUrl}, positionLabel=${positionLabel}`, 'info');
             
             combinedVariants.push({
               ...url2Variant,
-              positionLabel: 'URL2',
+              positionLabel: positionLabel, // Preserve existing label or assign 'URL2' (permanent)
+              isUrlImage: true,
               isUrlImage: true,
               isOriginal: isOriginal
             });
@@ -4478,20 +4483,27 @@
           logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, isOriginalImage: ${isOriginalImage}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
           
           // Preserve the Google variant's original positionLabel before moving it to URL position
+          // This label should NEVER change - it's the permanent identity of the image
           const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
           
-          // Move Google variant to URL position, preserving its original positionLabel
+          // Preserve the URL variant's original positionLabel - this is its permanent identity
+          // If it doesn't have one yet, assign it based on position (first time only)
+          const urlVariantOriginalLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
+          
+          // Move Google variant to URL position, preserving its ORIGINAL positionLabel (never changes)
           targetArray[0] = { 
             ...item.googleVariants[googleIndex],
-            positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 3")
+            positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 1") - NEVER change
           };
           
-          // Replace Google variant with old URL variant, preserving isOriginal flag and positionLabel
+          // Replace Google variant with old URL variant, preserving isOriginal flag and ORIGINAL positionLabel
           item.googleVariants[googleIndex] = { 
             ...currentUrlVariant, 
             isOriginal: preservedIsOriginal,
-            positionLabel: preservedPositionLabel // Preserve the position label (URL1/URL2)
+            positionLabel: urlVariantOriginalLabel // Preserve the ORIGINAL position label (URL1/URL2) - NEVER change
           };
+          
+          logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant keeps: "${urlVariantOriginalLabel}"`, 'info');
           
           logToConsole(`[SWAP] After swap - item.googleVariants[${googleIndex}].isOriginal: ${item.googleVariants[googleIndex].isOriginal}, positionLabel: ${item.googleVariants[googleIndex].positionLabel}`, 'info');
           logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
