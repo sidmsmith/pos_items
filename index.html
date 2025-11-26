@@ -3130,8 +3130,10 @@
 
         const header = document.createElement('div');
         header.className = 'gallery-group-header';
-        // For POS items, use itemId as display title
-        const displayTitle = item.itemId;
+        // For POS items, use itemId & ShortDescription as display title
+        const displayTitle = item.ShortDescription 
+          ? `${item.itemId} & ${item.ShortDescription}`
+          : item.itemId;
         // Use unique key for skip state to prevent collisions when items share same itemId
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
         const isSkipped = gallerySkippedItems.has(uniqueKey);
@@ -3140,15 +3142,13 @@
         const titleDiv = document.createElement('div');
         const h5 = document.createElement('h5');
         h5.textContent = displayTitle;
-        // Add image count display next to item name (total from both URL rows)
-        const url1Count = (item.url1Variants || []).length;
-        const url2Count = (item.url2Variants || []).length;
-        const totalCount = url1Count + url2Count;
+        // Add image count display next to item name (Google images only, excluding positions 1 and 2)
+        const googleCount = (item.googleVariants || []).length;
         const countSpan = document.createElement('span');
         countSpan.style.color = '#9aa4d3'; // Different color (matching source text color)
         countSpan.style.marginLeft = '0.5rem';
         countSpan.style.fontSize = '0.9em';
-        countSpan.textContent = `(${totalCount})`;
+        countSpan.textContent = `(${googleCount})`;
         h5.appendChild(countSpan);
         titleDiv.appendChild(h5);
         
@@ -3196,7 +3196,7 @@
           resetBtn = document.createElement('button');
           resetBtn.className = 'reset-btn';
           resetBtn.type = 'button';
-          resetBtn.innerHTML = '<span>↺</span> Reset';
+          resetBtn.innerHTML = '<span>↺</span>';
           resetBtn.title = 'Reset URL1 and URL2 to original images';
           resetBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -3817,13 +3817,11 @@
             const isNewImage = galleryNewImages.has(item.itemId) && 
                                galleryNewImages.get(item.itemId).has(variant.originalUrl);
             const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
-            const urlBadgeHtml = isUrlImage ? `<div class="url-badge" style="position: absolute; top: 4px; left: 4px; background: rgba(13, 110, 253, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
-            // Red badge for original images in lower right
+            // Red badge for original images in lower right (no blue URL badge for positions 1-2, green background is enough)
             const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
             cardContent = `
               <div class="gallery-card-image" style="position: relative;">
                 <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
-                ${urlBadgeHtml}
                 ${originalBadgeHtml}
                 ${newBadgeHtml}
               </div>
@@ -4053,7 +4051,7 @@
         if (pageIndicator && scrollableVariants.length > 0) {
           const currentPage = Math.floor(sliderState.index / sliderState.visible) + 1;
           const totalPages = needsScrolling ? Math.ceil(scrollableVariants.length / sliderState.visible) : 1;
-          pageIndicator.textContent = `Page ${currentPage} of ${totalPages} (Google images)`;
+          pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
         }
       };
       
