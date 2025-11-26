@@ -502,6 +502,16 @@
       margin: 3px; /* Add margin to ensure halo is fully visible */
     }
 
+    .gallery-card.url-position-card {
+      background: #1a3d2e; /* Green background for URL1/URL2 positions */
+      border: 1px solid #2d5a3f;
+    }
+
+    .gallery-card.url-position-card:hover {
+      border-color: #3d7a5f;
+      box-shadow: 0 0 0 2px rgba(61, 122, 95, 0.3);
+    }
+
     .gallery-card-image {
       border-radius: 10px;
       overflow: hidden;
@@ -3732,18 +3742,19 @@
           const isOriginal = variant.isOriginal || false;
           const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
           
+          // Add special class for URL1/URL2 positions to get green background
+          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
+            card.classList.add('url-position-card');
+            card.dataset.dropTarget = positionLabel.toLowerCase();
+            card.dataset.itemId = item.itemId;
+            card.dataset.variantIndex = idx;
+          }
+          
           // Make cards draggable (except placeholders and URL positions)
           if (!isPlaceholder && !isUrlImage) {
             card.draggable = true;
             card.dataset.variantIndex = idx;
             card.dataset.itemId = item.itemId;
-          }
-          
-          // Make URL1/URL2 positions drop targets
-          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
-            card.dataset.dropTarget = positionLabel.toLowerCase();
-            card.dataset.itemId = item.itemId;
-            card.dataset.variantIndex = idx;
           }
           
           let cardContent = '';
@@ -4294,14 +4305,17 @@
         } else {
           // Swap: Replace URL variant with dragged Google variant
           const currentUrlVariant = { ...targetArray[0] };
+          // Preserve isOriginal flag when moving to gallery
+          const preservedIsOriginal = currentUrlVariant.isOriginal || false;
+          
           targetArray[0] = { ...item.googleVariants[googleIndex] };
           
-          // Replace Google variant with old URL variant
-          item.googleVariants[googleIndex] = currentUrlVariant;
+          // Replace Google variant with old URL variant, preserving isOriginal flag
+          item.googleVariants[googleIndex] = { ...currentUrlVariant, isOriginal: preservedIsOriginal };
           logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
         }
         
-        // Update isOriginal flag
+        // Update isOriginal flag for new URL position (always false since it's a new image)
         targetArray[0].isOriginal = false; // New image is not original
         
         // Re-render gallery without animations
