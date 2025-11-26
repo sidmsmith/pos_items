@@ -3228,7 +3228,7 @@
           logToConsole(`[GALLERY] Rendering single row with ${combinedVariants.length} variants (URL1, URL2, ${item.googleVariants?.length || 0} Google images)`, 'info');
           
           // Render single row with all variants
-          const singleRow = renderSingleRow(itemIndex, item, combinedVariants, uniqueKey);
+          const singleRow = renderSingleRow(itemIndex, item, combinedVariants, uniqueKey, disableAnimations);
           group.appendChild(singleRow);
           
           grid.appendChild(group);
@@ -3659,7 +3659,7 @@
     }
 
     // Helper function to render a single row with URL1, URL2, and Google images
-    function renderSingleRow(itemIndex, item, variants, uniqueKey) {
+    function renderSingleRow(itemIndex, item, variants, uniqueKey, disableAnimations = false) {
       const rowContainer = document.createElement('div');
       rowContainer.className = 'variant-slider';
       
