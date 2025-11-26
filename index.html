@@ -4569,11 +4569,11 @@
 
         if (isPlaceholder) {
           // Replace placeholder: just set the new image, don't swap
-          // Preserve the Google variant's original positionLabel - it's the permanent identity
-          const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
+          // Preserve the dragged variant's original positionLabel - it's the permanent identity
+          const draggedVariantOriginalLabel = sourceArray[sourceIndex].positionLabel || `Variant ${sourceIndex + 1}`;
           
           const newVariant = {
-            ...item.googleVariants[googleIndex],
+            ...sourceArray[sourceIndex],
             positionLabel: draggedVariantOriginalLabel // Preserve original label - NEVER change
           };
           
@@ -4582,11 +4582,11 @@
           } else {
             targetArray[0] = newVariant;
           }
-          // Remove the Google image from googleVariants since we're using it
-          item.googleVariants.splice(googleIndex, 1);
-          logToConsole(`[SWAP] Replaced ${targetPosition.toUpperCase()} placeholder with Google image, preserving label: "${draggedVariantOriginalLabel}"`, 'success');
+          // Remove the image from source array since we're using it
+          sourceArray.splice(sourceIndex, 1);
+          logToConsole(`[SWAP] Replaced ${targetPosition.toUpperCase()} placeholder with image, preserving label: "${draggedVariantOriginalLabel}"`, 'success');
         } else {
-          // Swap: Replace URL variant with dragged Google variant
+          // Swap: Replace URL variant with dragged variant
           const currentUrlVariant = { ...targetArray[0] };
           // Check if this is the original URL image by comparing with originalUrl1/originalUrl2
           const originalUrl = targetPosition === 'url1' ? item.originalUrl1 : item.originalUrl2;
@@ -4599,31 +4599,48 @@
           
           logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, isOriginalImage: ${isOriginalImage}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
           
-          // Preserve the Google variant's original positionLabel before moving it to URL position
+          // Preserve the dragged variant's original positionLabel before moving it to URL position
           // This label should NEVER change - it's the permanent identity of the image
-          const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
+          const draggedVariantOriginalLabel = sourceArray[sourceIndex].positionLabel || `Variant ${sourceIndex + 1}`;
           
           // Preserve the URL variant's original positionLabel - this is its permanent identity
           // If it doesn't have one yet, assign it based on position (first time only)
           const urlVariantOriginalLabel = currentUrlVariant.positionLabel || (targetPosition === 'url1' ? 'URL1' : 'URL2');
           
-          // Move Google variant to URL position, preserving its ORIGINAL positionLabel (never changes)
+          // Move dragged variant to URL position, preserving its ORIGINAL positionLabel (never changes)
           targetArray[0] = { 
-            ...item.googleVariants[googleIndex],
+            ...sourceArray[sourceIndex],
             positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 4") - NEVER change
           };
           
-          // Replace Google variant with old URL variant, preserving isOriginal flag and ORIGINAL positionLabel
-          item.googleVariants[googleIndex] = { 
-            ...currentUrlVariant, 
-            isOriginal: preservedIsOriginal,
-            positionLabel: urlVariantOriginalLabel // Preserve the ORIGINAL position label (URL1/URL2) - NEVER change
-          };
+          // If source is googleVariants, replace with old URL variant
+          // If source is url1Variants or url2Variants, move old URL variant to googleVariants
+          if (sourceArray === item.googleVariants) {
+            // Replace in googleVariants
+            item.googleVariants[sourceIndex] = { 
+              ...currentUrlVariant, 
+              isOriginal: preservedIsOriginal,
+              positionLabel: urlVariantOriginalLabel // Preserve the ORIGINAL position label (URL1/URL2) - NEVER change
+            };
+            logToConsole(`[SWAP] Replaced in googleVariants at index ${sourceIndex}`, 'info');
+          } else {
+            // Source is url1Variants or url2Variants - remove from there and add to googleVariants
+            sourceArray.splice(sourceIndex, 1);
+            // Initialize googleVariants if needed
+            if (!item.googleVariants) {
+              item.googleVariants = [];
+            }
+            // Add to googleVariants, preserving position label
+            item.googleVariants.push({
+              ...currentUrlVariant,
+              isOriginal: preservedIsOriginal,
+              positionLabel: urlVariantOriginalLabel
+            });
+            logToConsole(`[SWAP] Moved from ${sourceArray === item.url1Variants ? 'url1Variants' : 'url2Variants'} to googleVariants`, 'info');
+          }
           
-          logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant gets: "${urlVariantPositionLabel}" (to maintain position)`, 'info');
-          
-          logToConsole(`[SWAP] After swap - item.googleVariants[${googleIndex}].isOriginal: ${item.googleVariants[googleIndex].isOriginal}, positionLabel: ${item.googleVariants[googleIndex].positionLabel}`, 'info');
-          logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with Google image at index ${googleIndex}`, 'success');
+          logToConsole(`[SWAP] Label preservation - dragged variant keeps: "${draggedVariantOriginalLabel}", URL variant keeps: "${urlVariantOriginalLabel}"`, 'info');
+          logToConsole(`[SWAP] Swapped ${targetPosition.toUpperCase()} with image from ${sourceArray === item.googleVariants ? 'googleVariants' : (sourceArray === item.url1Variants ? 'url1Variants' : 'url2Variants')}`, 'success');
         }
         
         // Update isOriginal flag for new URL position (always false since it's a new image)
