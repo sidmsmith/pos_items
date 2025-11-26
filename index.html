@@ -4638,6 +4638,33 @@
 
         logToConsole(`[RESET] Reset URL1 and URL2 for ${itemId}`, 'success');
         
+        // Sort googleVariants by positionLabel number (Variant 1, Variant 2, etc.) WITHOUT changing labels
+        // This ensures Variant 1 appears first, Variant 2 second, etc. in positions 3+
+        // Filter out any URL1/URL2 labels that shouldn't be in googleVariants
+        const variantsToSort = item.googleVariants.filter(v => 
+          v.positionLabel !== 'URL1' && v.positionLabel !== 'URL2'
+        );
+        
+        // Sort by extracting number from positionLabel (e.g., "Variant 1" -> 1, "Variant 2" -> 2)
+        variantsToSort.sort((a, b) => {
+          const getVariantNumber = (variant) => {
+            if (variant.positionLabel) {
+              const match = variant.positionLabel.match(/^Variant (\d+)$/);
+              if (match) {
+                return parseInt(match[1], 10);
+              }
+            }
+            // If no positionLabel or doesn't match pattern, sort to end
+            return 9999;
+          };
+          return getVariantNumber(a) - getVariantNumber(b);
+        });
+        
+        // Update googleVariants with sorted array (labels remain unchanged)
+        item.googleVariants = variantsToSort;
+        
+        logToConsole(`[RESET] Sorted ${variantsToSort.length} variants by positionLabel for ${itemId}`, 'info');
+        
         // Update only the affected row instead of re-rendering entire gallery
         const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
         const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
@@ -4883,12 +4910,9 @@
       gallerySkippedItems.clear();
       logToConsole('[REFRESH] Cleared all skipped items', 'info');
       
-      // Reset each item in the gallery
-      galleryItems.forEach((item, itemIndex) => {
+      // Simply call resetItemUrls for each row - no other logic needed
+      galleryItems.forEach((item) => {
         resetItemUrls(item.itemId);
-        // Update the row to remove skipped styling
-        const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        updateGalleryRow(uniqueKey);
       });
       
       setGalleryStatus('All rows reset');
