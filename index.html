@@ -3849,11 +3849,26 @@
             card.dataset.positionIndex = idx; // Store position index for drop handling
           }
           
-          // Make cards draggable (except placeholders and fixed positions)
-          if (!isPlaceholder && !isFixedPosition) {
+          // Make all cards draggable (except placeholders)
+          // Fixed position cards can also be dragged to move them elsewhere
+          if (!isPlaceholder) {
             card.draggable = true;
             card.dataset.variantIndex = idx;
             card.dataset.itemId = item.itemId;
+            
+            // Add drag handlers for all draggable cards
+            card.addEventListener('dragstart', (e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', JSON.stringify({
+                itemId: item.itemId,
+                variantIndex: idx,
+                variant: variant
+              }));
+              card.classList.add('dragging');
+            });
+            card.addEventListener('dragend', () => {
+              card.classList.remove('dragging');
+            });
           }
           
           let cardContent = '';
