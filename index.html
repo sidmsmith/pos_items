@@ -3887,6 +3887,11 @@
           const isOriginal = variant.isOriginal || false;
           const positionLabel = variant.positionLabel || `Variant ${actualIdx + 1}`;
           
+          // Log for debugging red badge
+          if (isOriginal) {
+            logToConsole(`[RENDER SCROLLABLE] Rendering scrollable variant ${idx} (actualIdx ${actualIdx}): isOriginal=${isOriginal}, positionLabel=${positionLabel}, variant.positionLabel=${variant.positionLabel}, originalUrl=${variant.originalUrl}`, 'info');
+          }
+          
           // Make cards draggable
           if (!isPlaceholder && !isUrlImage) {
             card.draggable = true;
