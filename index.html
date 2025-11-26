@@ -3891,8 +3891,10 @@
             const isNewImage = galleryNewImages.has(item.itemId) && 
                                galleryNewImages.get(item.itemId).has(variant.originalUrl);
             const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
-            // Red badge for original images in lower right (no blue URL badge for positions 1-2, green background is enough)
-            const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
+            // Red badge for URL1/URL2 labels when in gallery (regardless of isOriginal flag)
+            // Show red badge if positionLabel is URL1 or URL2 - this is the permanent identity
+            const showRedBadge = positionLabel === 'URL1' || positionLabel === 'URL2';
+            const originalBadgeHtml = showRedBadge ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
             cardContent = `
               <div class="gallery-card-image" style="position: relative;">
                 <img src="${variant.previewUrl || variant.originalUrl}" alt="${variant.fileName}">
@@ -3991,14 +3993,14 @@
             const isNewImage = galleryNewImages.has(item.itemId) && 
                                galleryNewImages.get(item.itemId).has(variant.originalUrl);
             const newBadgeHtml = isNewImage ? '<div class="new-images-badge">NEW</div>' : '';
-            // Red badge for original images in lower right (even in gallery)
-            // Use positionLabel if it's URL1/URL2, otherwise use 'ORIG'
-            const badgeLabel = (positionLabel === 'URL1' || positionLabel === 'URL2') ? positionLabel : 'ORIG';
-            const originalBadgeHtml = isOriginal ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${badgeLabel}</div>` : '';
+            // Red badge for URL1/URL2 labels when in gallery (regardless of isOriginal flag)
+            // Show red badge if positionLabel is URL1 or URL2 - this is the permanent identity
+            const showRedBadge = positionLabel === 'URL1' || positionLabel === 'URL2';
+            const originalBadgeHtml = showRedBadge ? `<div class="original-badge" style="position: absolute; bottom: 4px; right: 4px; background: rgba(220, 38, 38, 0.9); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; z-index: 10;">${positionLabel}</div>` : '';
             
             // Log badge rendering
-            if (isOriginal) {
-              logToConsole(`[RENDER SCROLLABLE] Creating badge for variant ${idx}: isOriginal=${isOriginal}, positionLabel=${positionLabel}, badgeLabel=${badgeLabel}, will render: ${originalBadgeHtml ? 'YES' : 'NO'}`, 'info');
+            if (showRedBadge) {
+              logToConsole(`[RENDER SCROLLABLE] Creating badge for variant ${idx}: positionLabel=${positionLabel}, will render: ${originalBadgeHtml ? 'YES' : 'NO'}`, 'info');
             }
             
             cardContent = `
@@ -4894,8 +4896,28 @@
         if (!item.googleVariants) {
           item.googleVariants = [];
         }
+        
+        // Find the highest existing Variant number to continue numbering from there
+        let maxVariantNumber = 0;
+        item.googleVariants.forEach(variant => {
+          const label = variant.positionLabel || '';
+          const match = label.match(/^Variant (\d+)$/);
+          if (match) {
+            const variantNum = parseInt(match[1], 10);
+            if (variantNum > maxVariantNumber) {
+              maxVariantNumber = variantNum;
+            }
+          }
+        });
+        
+        // Assign permanent labels to new variants, continuing from highest existing number
+        variantsToAdd.forEach((variant, idx) => {
+          const variantNumber = maxVariantNumber + idx + 1;
+          variant.positionLabel = `Variant ${variantNumber}`; // Permanent label - assigned once, never changes
+        });
+        
         item.googleVariants.push(...variantsToAdd);
-        logToConsole(`[REFRESH] Item now has ${item.googleVariants.length} Google images total`, 'success');
+        logToConsole(`[REFRESH] Item now has ${item.googleVariants.length} Google images total. New variants labeled: ${variantsToAdd.map(v => v.positionLabel).join(', ')}`, 'success');
         
         // Calculate first new image index in combined array: URL1 (0), URL2 (1), then Google images (2+)
         const firstNewImageIndex = 2 + currentGoogleCount; // 2 = URL1 + URL2 positions
