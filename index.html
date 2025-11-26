@@ -3836,16 +3836,21 @@
           const isOriginal = variant.isOriginal || false;
           const positionLabel = variant.positionLabel || `Variant ${idx + 1}`;
           
+          // Positions 0 and 1 are always the fixed URL1/URL2 drop targets (regardless of label)
           // Add special class for URL1/URL2 positions to get green background
-          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
+          const isFixedPosition = idx === 0 || idx === 1;
+          if (isFixedPosition) {
             card.classList.add('url-position-card');
-            card.dataset.dropTarget = positionLabel.toLowerCase();
+            // Position 0 = URL1, Position 1 = URL2
+            const targetPosition = idx === 0 ? 'url1' : 'url2';
+            card.dataset.dropTarget = targetPosition;
             card.dataset.itemId = item.itemId;
             card.dataset.variantIndex = idx;
+            card.dataset.positionIndex = idx; // Store position index for drop handling
           }
           
-          // Make cards draggable (except placeholders and URL positions)
-          if (!isPlaceholder && !isUrlImage) {
+          // Make cards draggable (except placeholders and fixed positions)
+          if (!isPlaceholder && !isFixedPosition) {
             card.draggable = true;
             card.dataset.variantIndex = idx;
             card.dataset.itemId = item.itemId;
@@ -3890,9 +3895,12 @@
           card.innerHTML = cardContent;
           
           // Add drag and drop handlers
-          // Make URL1/URL2 positions (including placeholders) drop targets
-          if (isUrlImage && (positionLabel === 'URL1' || positionLabel === 'URL2')) {
-            // Drop target handlers for URL1/URL2 (including placeholders)
+          // Make fixed positions (0 and 1) drop targets - these are always URL1/URL2 positions
+          if (isFixedPosition) {
+            // Position 0 = URL1, Position 1 = URL2
+            const targetPosition = idx === 0 ? 'url1' : 'url2';
+            
+            // Drop target handlers for fixed positions (including placeholders)
             card.addEventListener('dragover', (e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
@@ -3904,22 +3912,7 @@
             card.addEventListener('drop', (e) => {
               e.preventDefault();
               card.classList.remove('drag-over');
-              handleImageSwap(e, item.itemId, positionLabel.toLowerCase(), idx, isPlaceholder);
-            });
-          } else if (!isUrlImage && !isPlaceholder) {
-            // Draggable handlers for Google images (not placeholders)
-            card.draggable = true;
-            card.addEventListener('dragstart', (e) => {
-              e.dataTransfer.effectAllowed = 'move';
-              e.dataTransfer.setData('text/plain', JSON.stringify({
-                itemId: item.itemId,
-                variantIndex: idx,
-                variant: variant
-              }));
-              card.classList.add('dragging');
-            });
-            card.addEventListener('dragend', () => {
-              card.classList.remove('dragging');
+              handleImageSwap(e, item.itemId, targetPosition, idx, isPlaceholder);
             });
           }
           
