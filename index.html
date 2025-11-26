@@ -2985,7 +2985,9 @@
     }
 
     function renderGallery(disableAnimations = false) {
-      const grid = document.getElementById('galleryGrid');
+      // Clear DOM cache before full render to ensure fresh references
+      domCache.clearCache();
+      const grid = domCache.getGalleryGrid();
       
       // Save scroll position to prevent auto-scroll
       const scrollTop = grid ? grid.scrollTop : 0;
@@ -3058,7 +3060,8 @@
           } else {
             gallerySkippedItems.delete(uniqueKey);
           }
-          renderGallery();
+          // Update only the affected row instead of re-rendering entire gallery
+          updateGalleryRow(uniqueKey);
           updateGallerySummary();
           updateGalleryToolbar();
         });
@@ -4216,94 +4219,100 @@
     }
     
     // Optimized function to update only a specific row instead of re-rendering entire gallery
-    function updateGalleryRow(uniqueKey) {
+    // DOM cache for frequently accessed elements
+    const domCache = {
+      galleryGrid: null,
+      getGalleryGrid: function() {
+        if (!this.galleryGrid) {
+          this.galleryGrid = document.getElementById('galleryGrid');
+        }
+        return this.galleryGrid;
+      },
+      clearCache: function() {
+        this.galleryGrid = null;
+      }
+    };
+
+    function updateGalleryRow(uniqueKey, disableAnimations = false) {
       // Parse uniqueKey to get itemIndex
       const parts = uniqueKey.split('_');
       const itemIndex = parseInt(parts[0], 10);
       if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= galleryItems.length) {
         // Fallback to full render if we can't parse the key
-        renderGallery();
+        logToConsole(`[UPDATE ROW] Invalid itemIndex, falling back to full render`, 'warning');
+        renderGallery(disableAnimations);
         return;
       }
       
       const item = galleryItems[itemIndex];
-      const grid = document.getElementById('galleryGrid');
+      const grid = domCache.getGalleryGrid();
+      if (!grid) {
+        logToConsole(`[UPDATE ROW] Gallery grid not found, falling back to full render`, 'warning');
+        renderGallery(disableAnimations);
+        return;
+      }
+      
       const groups = grid.querySelectorAll('.gallery-group');
       if (itemIndex >= groups.length) {
         // Fallback to full render if row doesn't exist
-        renderGallery();
+        logToConsole(`[UPDATE ROW] Row ${itemIndex} doesn't exist, falling back to full render`, 'warning');
+        renderGallery(disableAnimations);
         return;
       }
       
       const group = groups[itemIndex];
-      const track = group.querySelector('.slider-track');
-      if (!track) {
-        // Fallback to full render if track doesn't exist
-        renderGallery();
-        return;
+      
+      // Save scroll position and slider position before re-rendering
+      const savedScrollTop = grid.scrollTop;
+      const savedScrollLeft = grid.scrollLeft;
+      const savedSliderPosition = gallerySliderPositions[uniqueKey] || 0;
+      
+      // Get combined variants (URL1, URL2, Google images)
+      const fixedVariants = [];
+      if (item.url1Variants && item.url1Variants.length > 0) {
+        fixedVariants.push(item.url1Variants[0]);
+      }
+      if (item.url2Variants && item.url2Variants.length > 0) {
+        fixedVariants.push(item.url2Variants[0]);
+      }
+      const scrollableVariants = item.googleVariants || [];
+      const combinedVariants = [...fixedVariants, ...scrollableVariants];
+      
+      // Save the header content before replacing
+      const header = group.querySelector('.gallery-group-header');
+      const controlsDiv = group.querySelector('.gallery-controls');
+      
+      // Remove the old slider content but keep header and controls
+      const oldSlider = group.querySelector('.variant-slider');
+      if (oldSlider) {
+        oldSlider.remove();
       }
       
-      // Update all cards in this row to reflect current selection state
-      const cards = track.querySelectorAll('.gallery-card');
-      cards.forEach((card, idx) => {
-        if (idx >= item.variants.length) return;
-        
-        const variant = item.variants[idx];
-        const currentFileName = variant.fileName;
-        const isSelected = gallerySelections[uniqueKey] === currentFileName;
-        
-        // Update selected class
-        if (isSelected) {
-          card.classList.add('selected');
-        } else {
-          card.classList.remove('selected');
+      // Re-render the row content
+      const newSlider = renderSingleRow(itemIndex, item, combinedVariants, uniqueKey, disableAnimations);
+      group.appendChild(newSlider);
+      
+      // Restore scroll position
+      grid.scrollTop = savedScrollTop;
+      grid.scrollLeft = savedScrollLeft;
+      
+      // Restore slider position after a brief delay to ensure DOM is updated
+      requestAnimationFrame(() => {
+        const track = group.querySelector('.slider-track');
+        if (track && savedSliderPosition !== undefined) {
+          gallerySliderPositions[uniqueKey] = savedSliderPosition;
+          updateSlider(uniqueKey, savedSliderPosition, false);
         }
       });
       
-      // Update skip checkbox if needed
-      const skipCheckbox = group.querySelector('.skip-checkbox');
-      if (skipCheckbox) {
-        const isSkipped = gallerySkippedItems.has(uniqueKey);
-        skipCheckbox.checked = isSkipped;
-      }
-      
-      // Update skipped class on group element (controls shading and strikethrough)
-      const isSkipped = gallerySkippedItems.has(uniqueKey);
-      if (isSkipped) {
-        group.classList.add('skipped');
-      } else {
-        group.classList.remove('skipped');
-      }
-      
-      // Update image count display in header
-      const h5 = group.querySelector('.gallery-group-header h5');
-      if (h5) {
-        const countSpan = h5.querySelector('span');
-        if (countSpan) {
-          // Update count to show only Google images (excluding positions 1 and 2)
-          const googleCount = (item.googleVariants || []).length;
-          countSpan.textContent = `(${googleCount})`;
-        } else {
-          // If span doesn't exist, add it (shouldn't happen, but handle gracefully)
-          const displayTitle = item.ShortDescription 
-            ? `${item.itemId} & ${item.ShortDescription}`
-            : (item.productName || item.itemId);
-          const newCountSpan = document.createElement('span');
-          newCountSpan.style.color = '#9aa4d3';
-          newCountSpan.style.marginLeft = '0.5rem';
-          newCountSpan.style.fontSize = '0.9em';
-          newCountSpan.textContent = `(${item.variants.length})`;
-          h5.textContent = displayTitle;
-          h5.appendChild(newCountSpan);
-        }
-      }
+      logToConsole(`[UPDATE ROW] Successfully updated row ${itemIndex} (${item.itemId})`, 'info');
     }
 
     // Handle image swap when dragging onto URL1/URL2
     function handleImageSwap(event, itemId, targetPosition, targetIndex, isPlaceholder) {
       try {
-        // Save current scroll position to prevent auto-scroll
-        const galleryGrid = document.getElementById('galleryGrid');
+        // Save current scroll position to prevent auto-scroll (using DOM cache)
+        const galleryGrid = domCache.getGalleryGrid();
         const scrollTop = galleryGrid ? galleryGrid.scrollTop : 0;
         const scrollLeft = galleryGrid ? galleryGrid.scrollLeft : 0;
         
@@ -4449,16 +4458,10 @@
         // Update isOriginal flag for new URL position (always false since it's a new image)
         targetArray[0].isOriginal = false; // New image is not original
         
-        // Re-render gallery without animations
-        renderGallery(true);
-        
-        // Restore scroll position after a brief delay to ensure DOM is updated
-        setTimeout(() => {
-          if (galleryGrid) {
-            galleryGrid.scrollTop = scrollTop;
-            galleryGrid.scrollLeft = scrollLeft;
-          }
-        }, 10);
+        // Update only the affected row instead of re-rendering entire gallery
+        const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
+        const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
+        updateGalleryRow(targetUniqueKey, true); // Disable animations
       } catch (error) {
         logToConsole(`[SWAP] Error: ${error.message}`, 'error');
       }
@@ -4473,8 +4476,8 @@
           return;
         }
 
-        // Save scroll position before reset
-        const grid = document.getElementById('galleryGrid');
+        // Save scroll position before reset (using DOM cache)
+        const grid = domCache.getGalleryGrid();
         const savedScrollTop = grid ? grid.scrollTop : 0;
         
         // Initialize googleVariants if it doesn't exist
@@ -4611,15 +4614,10 @@
 
         logToConsole(`[RESET] Reset URL1 and URL2 for ${itemId}`, 'success');
         
-        // Re-render gallery without animations
-        renderGallery(true);
-        
-        // Restore scroll position after render
-        if (grid) {
-          requestAnimationFrame(() => {
-            grid.scrollTop = savedScrollTop;
-          });
-        }
+        // Update only the affected row instead of re-rendering entire gallery
+        const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
+        const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
+        updateGalleryRow(targetUniqueKey, true); // Disable animations
       } catch (error) {
         logToConsole(`[RESET] Error: ${error.message}`, 'error');
       }
@@ -4708,7 +4706,7 @@
       const maxIdx = Math.max(0, lastPageBoundary);
       targetIndex = Math.min(targetIndex, maxIdx);
       
-      // Save slider position BEFORE renderGallery() so the row scrolls to the correct page
+      // Save slider position BEFORE updateGalleryRow() so the row scrolls to the correct page
       gallerySliderPositions[uniqueKey] = targetIndex;
       
       // Save values before closing carousel (carouselGroup will be nulled)
@@ -4716,7 +4714,8 @@
       const savedVariantIndex = carouselIndex;
       const savedVariantsLength = carouselGroup.variants.length;
       
-      renderGallery();
+      // Update only the affected row instead of re-rendering entire gallery
+      updateGalleryRow(uniqueKey);
       closeVariantCarousel();
       
       // Fine-tune scroll position after render with accurate measurements
@@ -4959,26 +4958,17 @@
         
         setGalleryStatus(`Added ${variantsToAdd.length} new image(s) for ${getItemDisplayLabel(itemId)}${uniqueNewVariants.length > 3 ? ` (${uniqueNewVariants.length - 3} more available)` : ''}`);
         
-        // Save scroll position before rendering to prevent jumping to row 1
-        const grid = document.getElementById('galleryGrid');
-        const savedScrollTop = grid ? grid.scrollTop : 0;
-        
-        renderGallery(true); // Disable animations when refreshing
-        
-        // Restore scroll position after render
-        if (grid) {
-          // Use requestAnimationFrame to ensure DOM is updated before scrolling
-          requestAnimationFrame(() => {
-            grid.scrollTop = savedScrollTop;
-          });
-        }
+        // Update only the affected row instead of re-rendering entire gallery
+        const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
+        const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
+        updateGalleryRow(targetUniqueKey, true); // Disable animations when refreshing
         
         // After render, fine-tune the position with accurate measurements
         // Use requestAnimationFrame + setTimeout to ensure DOM is fully rendered and slider is initialized
         requestAnimationFrame(() => {
           setTimeout(() => {
-            const grid = document.getElementById('galleryGrid');
-            const groups = grid.querySelectorAll('.gallery-group');
+            const grid = domCache.getGalleryGrid();
+            const groups = grid ? grid.querySelectorAll('.gallery-group') : [];
             
             if (targetItemIndex >= 0 && targetItemIndex < groups.length) {
               const group = groups[targetItemIndex];
