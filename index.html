@@ -3589,7 +3589,16 @@
         return hasUrl1 && hasUrl2;
       }).length;
       
-      summaryEl.textContent = `${ready} of ${total} items ready`;
+      // Count skipped items
+      const skippedCount = gallerySkippedItems.size;
+      
+      // Build summary text with skipped count only if there are skipped items
+      let summaryText = `${ready} of ${total} items ready`;
+      if (skippedCount > 0) {
+        summaryText += ` (${skippedCount} skipped)`;
+      }
+      
+      summaryEl.textContent = summaryText;
     }
 
     function getItemDisplayLabel(itemId) {
