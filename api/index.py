@@ -183,8 +183,20 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
         filters: Image filter parameters
         start: Starting index for pagination (1-based, default=1)
     """
+    log_to_console(f"[GOOGLE-API] fetch_image_variants called: product='{product_name}', item_id={item_id}, count={images_per_item}, start={start}", "[INFO]")
+    
+    # Check API key
+    if not API_KEY_DOWN:
+        log_to_console(f"[GOOGLE-API] ERROR: GOOGLE_API_KEY environment variable not set!", "[ERROR]")
+        return [], "Google API key not configured"
+    
+    log_to_console(f"[GOOGLE-API] API key present: {API_KEY_DOWN[:10]}...", "[INFO]")
+    log_to_console(f"[GOOGLE-API] CX (Search Engine ID): {CX}", "[INFO]")
+    
     site_query = " OR ".join(f"site:{s}" for s in sites) if sites else ""
     query = f"{product_name} ({site_query})" if site_query else product_name
+    log_to_console(f"[GOOGLE-API] Query: '{query}'", "[INFO]")
+    log_to_console(f"[GOOGLE-API] Sites: {sites}", "[INFO]")
 
     params = {
         "key": API_KEY_DOWN,
@@ -196,21 +208,39 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
     }
     if filters:
         params.update(filters)
+        log_to_console(f"[GOOGLE-API] Filters applied: {filters}", "[INFO]")
+    
+    log_to_console(f"[GOOGLE-API] Request params: num={params['num']}, start={params['start']}, searchType={params['searchType']}", "[INFO]")
+    log_to_console(f"[GOOGLE-API] Making request to: {URL_DOWN}", "[INFO]")
 
     last_error = None
     variants = []
 
     for attempt in range(3):
         try:
+            log_to_console(f"[GOOGLE-API] Attempt {attempt + 1}/3", "[INFO]")
             r = requests.get(URL_DOWN, params=params, timeout=15)
+            log_to_console(f"[GOOGLE-API] Response status: {r.status_code}", "[INFO]" if r.status_code == 200 else "[WARNING]")
+            
             if r.status_code == 429:
                 last_error = "Google API rate limited (429)"
+                log_to_console(f"[GOOGLE-API] Rate limited (429), will retry", "[WARNING]")
                 continue
             r.raise_for_status()
             data = r.json()
+            
+            # Log response structure
+            log_to_console(f"[GOOGLE-API] Response keys: {list(data.keys())}", "[INFO]")
+            if "error" in data:
+                log_to_console(f"[GOOGLE-API] API Error: {data['error']}", "[ERROR]")
+                last_error = f"Google API error: {data['error']}"
+                break
+            
             items = data.get("items", [])
+            log_to_console(f"[GOOGLE-API] Found {len(items)} items in response", "[INFO]")
             if not items:
                 last_error = "No images returned"
+                log_to_console(f"[GOOGLE-API] No items in response, searchInfo: {data.get('searchInformation', {})}", "[WARNING]")
                 break
 
             for idx, item in enumerate(items):
@@ -248,13 +278,26 @@ def fetch_image_variants(product_name, item_id, sites, images_per_item, filters,
 
                 if len(variants) >= images_per_item:
                     break
+            
+            log_to_console(f"[GOOGLE-API] Successfully processed {len(variants)} variants", "[SUCCESS]")
             break
         except requests.exceptions.Timeout:
             last_error = "Google API timeout"
+            log_to_console(f"[GOOGLE-API] Timeout on attempt {attempt + 1}", "[ERROR]")
         except requests.exceptions.RequestException as e:
             last_error = f"Google API error: {str(e)[:80]}"
+            log_to_console(f"[GOOGLE-API] Request exception on attempt {attempt + 1}: {last_error}", "[ERROR]")
+            break
+        except Exception as e:
+            last_error = f"Unexpected error: {str(e)[:80]}"
+            log_to_console(f"[GOOGLE-API] Unexpected exception on attempt {attempt + 1}: {last_error}", "[ERROR]")
             break
 
+    if last_error:
+        log_to_console(f"[GOOGLE-API] Returning {len(variants)} variants with error: {last_error}", "[WARNING]")
+    else:
+        log_to_console(f"[GOOGLE-API] ✓ Returning {len(variants)} variants successfully", "[SUCCESS]")
+    
     return variants, last_error
 
 def download_image_from_url(image_url, item_id, url_type="URL1"):
@@ -843,12 +886,21 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
 
             # Search Google Images using ShortDescription
             google_variants = []
+            log_to_console(f"[GOOGLE] Starting Google Images search for {item_id}", "[INFO]")
+            log_to_console(f"[GOOGLE] ShortDescription: '{short_description}'", "[INFO]")
+            log_to_console(f"[GOOGLE] Images per item: {images_per_item}, Start index: {start_index}", "[INFO]")
+            log_to_console(f"[GOOGLE] Sites: {sites}, Filters: {filters}", "[INFO]")
+            
             if short_description:
+                log_to_console(f"[GOOGLE] ShortDescription found, proceeding with Google Images search", "[INFO]")
                 # Fetch Google Images variants
                 if images_per_item <= 10:
+                    log_to_console(f"[GOOGLE] Single API call (images_per_item={images_per_item} <= 10)", "[INFO]")
                     variants, last_error = fetch_image_variants(short_description, item_id, sites, images_per_item, filters, start=start_index)
                     google_variants = variants
+                    log_to_console(f"[GOOGLE] Single call returned {len(variants)} variants, error: {last_error or 'None'}", "[INFO]" if not last_error else "[WARNING]")
                 else:
+                    log_to_console(f"[GOOGLE] Multiple API calls needed (images_per_item={images_per_item} > 10)", "[INFO]")
                     # Multiple API calls with pagination
                     remaining = images_per_item
                     current_start = start_index
@@ -857,11 +909,14 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
                     
                     while remaining > 0 and len(all_google_variants) < images_per_item:
                         batch_size = min(10, remaining)
+                        log_to_console(f"[GOOGLE] Batch call: batch_size={batch_size}, start={current_start}, remaining={remaining}", "[INFO]")
                         variants, batch_error = fetch_image_variants(short_description, item_id, sites, batch_size, filters, start=current_start)
+                        log_to_console(f"[GOOGLE] Batch returned {len(variants)} variants, error: {batch_error or 'None'}", "[INFO]" if not batch_error else "[WARNING]")
                         
                         if batch_error:
                             last_error = batch_error
                             if not variants:
+                                log_to_console(f"[GOOGLE] Batch error and no variants, stopping pagination", "[WARNING]")
                                 break
                         
                         all_google_variants.extend(variants)
@@ -869,14 +924,18 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
                         current_start += len(variants)
                         
                         if len(variants) < batch_size:
+                            log_to_console(f"[GOOGLE] Received fewer variants than requested ({len(variants)} < {batch_size}), stopping", "[INFO]")
                             break
                     
                     google_variants = all_google_variants[:images_per_item]
+                    log_to_console(f"[GOOGLE] Total Google variants collected: {len(google_variants)}", "[INFO]")
                 
                 if not google_variants:
-                    log_to_console(f"No Google Images found for {item_id} (search: {short_description})", "[WARNING]")
+                    log_to_console(f"[GOOGLE] No Google Images found for {item_id} (search: '{short_description}')", "[WARNING]")
+                else:
+                    log_to_console(f"[GOOGLE] ✓ Successfully fetched {len(google_variants)} Google Images for {item_id}", "[SUCCESS]")
             else:
-                log_to_console(f"No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
+                log_to_console(f"[GOOGLE] No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
 
             # Keep URL1 and URL2 separate, Google images separate
             # Build item payload with separate arrays
