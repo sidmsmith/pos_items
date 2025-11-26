@@ -3161,8 +3161,23 @@
           await handleRefreshImages(item.itemId, refreshBtn);
         });
         
+        // Add Reset button for POS items
+        let resetBtn = null;
+        if (item.url1Variants !== undefined || item.url2Variants !== undefined) {
+          resetBtn = document.createElement('button');
+          resetBtn.className = 'reset-btn';
+          resetBtn.type = 'button';
+          resetBtn.innerHTML = '<span>↺</span> Reset';
+          resetBtn.title = 'Reset URL1 and URL2 to original images';
+          resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetItemUrls(item.itemId);
+          });
+        }
+        
         controlsDiv.appendChild(skipCheckbox);
         controlsDiv.appendChild(refreshBtn);
+        if (resetBtn) controlsDiv.appendChild(resetBtn);
         
         // Make header position relative so page indicator can be absolutely positioned
         header.style.position = 'relative';
