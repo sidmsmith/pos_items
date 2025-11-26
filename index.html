@@ -3745,10 +3745,10 @@
       const fixedVariants = variants.slice(0, 2); // URL1 and URL2
       const scrollableVariants = variants.slice(2); // Google images
       
-      // Create fixed container for URL1/URL2
+      // Create fixed container for URL1/URL2 with green background
       const fixedContainer = document.createElement('div');
       fixedContainer.className = 'url-positions-fixed';
-      fixedContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; flex-shrink: 0;';
+      fixedContainer.style.cssText = 'display: flex; gap: 8px; flex-shrink: 0;';
       
       // Render fixed positions (URL1/URL2)
       fixedVariants.forEach((variant, idx) => {
