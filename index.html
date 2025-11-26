@@ -3251,11 +3251,15 @@
             // If originalUrl1 is not set yet, this is the first/original image, so set isOriginal to true
             const isOriginal = isOriginalUrl1 || !item.originalUrl1;
             
-            logToConsole(`[RENDER] URL1 variant: isOriginal=${isOriginal}, isOriginalUrl1=${isOriginalUrl1}, originalUrl=${url1Variant.originalUrl}, item.originalUrl1=${item.originalUrl1?.originalUrl}`, 'info');
+            // Preserve existing positionLabel if it exists (from previous swaps), otherwise assign 'URL1'
+            // Once assigned, this label should NEVER change - it's the permanent identity of the card
+            const positionLabel = url1Variant.positionLabel || 'URL1';
+            
+            logToConsole(`[RENDER] URL1 variant: isOriginal=${isOriginal}, isOriginalUrl1=${isOriginalUrl1}, originalUrl=${url1Variant.originalUrl}, positionLabel=${positionLabel}, variant.positionLabel=${url1Variant.positionLabel}`, 'info');
             
             combinedVariants.push({
               ...url1Variant,
-              positionLabel: 'URL1',
+              positionLabel: positionLabel, // Preserve existing label or assign 'URL1' (permanent)
               isUrlImage: true,
               isOriginal: isOriginal
             });
@@ -4459,14 +4463,22 @@
 
         if (isPlaceholder) {
           // Replace placeholder: just set the new image, don't swap
+          // Preserve the Google variant's original positionLabel - it's the permanent identity
+          const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
+          
+          const newVariant = {
+            ...item.googleVariants[googleIndex],
+            positionLabel: draggedVariantOriginalLabel // Preserve original label - NEVER change
+          };
+          
           if (targetArray.length === 0) {
-            targetArray.push({ ...item.googleVariants[googleIndex] });
+            targetArray.push(newVariant);
           } else {
-            targetArray[0] = { ...item.googleVariants[googleIndex] };
+            targetArray[0] = newVariant;
           }
           // Remove the Google image from googleVariants since we're using it
           item.googleVariants.splice(googleIndex, 1);
-          logToConsole(`[SWAP] Replaced ${targetPosition.toUpperCase()} placeholder with Google image`, 'success');
+          logToConsole(`[SWAP] Replaced ${targetPosition.toUpperCase()} placeholder with Google image, preserving label: "${draggedVariantOriginalLabel}"`, 'success');
         } else {
           // Swap: Replace URL variant with dragged Google variant
           const currentUrlVariant = { ...targetArray[0] };
