@@ -4970,80 +4970,27 @@
       document.getElementById('galleryFooterStatus').textContent = message || '';
     }
 
-    async function refreshGallery() {
-      if (!lastGalleryPayload) return;
-      
+    function refreshGallery() {
       // Save scroll position before refresh
       const grid = document.getElementById('galleryGrid');
       const savedScrollTop = grid ? grid.scrollTop : 0;
       
-      galleryLoading = true;
-      updateGalleryToolbar();
-      setGalleryStatus('Refreshing gallery...');
-      const result = await apiCall('gallery_generate', lastGalleryPayload);
-      galleryLoading = false;
-      if (result.success) {
-        const newItems = result.items || [];
-        
-        // Preserve existing googleVariants and new images from current galleryItems
-        // Map by itemId to merge data
-        const existingItemsMap = new Map();
-        galleryItems.forEach(item => {
-          existingItemsMap.set(item.itemId, {
-            googleVariants: item.googleVariants || [],
-            url1Variants: item.url1Variants || [],
-            url2Variants: item.url2Variants || []
-          });
+      setGalleryStatus('Resetting all rows...');
+      logToConsole('[REFRESH] Refreshing gallery by resetting all rows', 'info');
+      
+      // Reset each item in the gallery
+      galleryItems.forEach(item => {
+        resetItemUrls(item.itemId);
+      });
+      
+      setGalleryStatus('All rows reset');
+      logToConsole(`[REFRESH] Reset ${galleryItems.length} rows`, 'success');
+      
+      // Restore scroll position after render
+      if (grid) {
+        requestAnimationFrame(() => {
+          grid.scrollTop = savedScrollTop;
         });
-        
-        // Merge: preserve user's current URL1/URL2 and googleVariants (including new ones)
-        newItems.forEach(newItem => {
-          const existing = existingItemsMap.get(newItem.itemId);
-          if (existing) {
-            // Preserve existing googleVariants (including newly added ones) - just sort them
-            newItem.googleVariants = existing.googleVariants;
-            // Preserve user's current URL1/URL2 selections (they may have swapped images)
-            if (existing.url1Variants && existing.url1Variants.length > 0) {
-              newItem.url1Variants = existing.url1Variants;
-            }
-            if (existing.url2Variants && existing.url2Variants.length > 0) {
-              newItem.url2Variants = existing.url2Variants;
-            }
-            // Preserve originalUrl1/originalUrl2 references for reset functionality
-            if (newItem.originalUrl1 && !newItem.originalUrl1.originalUrl) {
-              // If new item doesn't have originalUrl1 set, use the one from existing
-              const existingItem = galleryItems.find(i => i.itemId === newItem.itemId);
-              if (existingItem && existingItem.originalUrl1) {
-                newItem.originalUrl1 = existingItem.originalUrl1;
-              }
-            }
-            if (newItem.originalUrl2 && !newItem.originalUrl2.originalUrl) {
-              const existingItem = galleryItems.find(i => i.itemId === newItem.itemId);
-              if (existingItem && existingItem.originalUrl2) {
-                newItem.originalUrl2 = existingItem.originalUrl2;
-              }
-            }
-          }
-        });
-        
-        galleryItems = newItems;
-        gallerySelections = {};
-        gallerySkippedItems.clear(); // Clear skipped items when refreshing
-        // Don't clear galleryNewImages - preserve the "NEW" badges
-        galleryMissingItems = result.missingItems || [];
-        
-        renderGallery();
-        setGalleryStatus('Gallery refreshed');
-        
-        // Restore scroll position after render
-        if (grid) {
-          requestAnimationFrame(() => {
-            grid.scrollTop = savedScrollTop;
-          });
-        }
-      } else {
-        setGalleryStatus(`Error refreshing gallery: ${result.error || 'Unknown error'}`);
-        updateGalleryToolbar();
       }
     }
 
