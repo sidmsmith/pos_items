@@ -4376,10 +4376,14 @@
       if (h5) {
         const countSpan = h5.querySelector('span');
         if (countSpan) {
-          countSpan.textContent = `(${item.variants.length})`;
+          // Update count to show only Google images (excluding positions 1 and 2)
+          const googleCount = (item.googleVariants || []).length;
+          countSpan.textContent = `(${googleCount})`;
         } else {
           // If span doesn't exist, add it (shouldn't happen, but handle gracefully)
-          const displayTitle = item.productName || item.itemId;
+          const displayTitle = item.ShortDescription 
+            ? `${item.itemId} & ${item.ShortDescription}`
+            : (item.productName || item.itemId);
           const newCountSpan = document.createElement('span');
           newCountSpan.style.color = '#9aa4d3';
           newCountSpan.style.marginLeft = '0.5rem';
