@@ -503,13 +503,13 @@
     }
 
     .gallery-card.url-position-card {
-      background: #1a3d2e; /* Green background for URL1/URL2 positions */
-      border: 1px solid #2d5a3f;
+      background: #28a745; /* Bright green matching Download Selected Items button */
+      border: 1px solid #218838;
     }
 
     .gallery-card.url-position-card:hover {
-      border-color: #3d7a5f;
-      box-shadow: 0 0 0 2px rgba(61, 122, 95, 0.3);
+      border-color: #1e7e34;
+      box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.3);
     }
 
     .gallery-card-image {
@@ -3270,10 +3270,13 @@
           // Position 3+: Google images
           if (item.googleVariants && item.googleVariants.length > 0) {
             item.googleVariants.forEach((variant, idx) => {
+              // Check if this Google image was originally a URL1/URL2 image (has isOriginal flag)
+              const isOriginal = variant.isOriginal || false;
               combinedVariants.push({
                 ...variant,
                 positionLabel: `Variant ${idx + 1}`,
-                isUrlImage: false
+                isUrlImage: false,
+                isOriginal: isOriginal // Preserve isOriginal flag for red badge
               });
             });
           }
@@ -3904,7 +3907,7 @@
         }
         const trackWidth = track.scrollWidth;
         const viewportClientWidth = viewport.clientWidth;
-        const needsScrolling = trackWidth > viewportClientWidth;
+        const needsScrolling = trackWidth > viewportClientWidth && scrollableVariants.length > 0;
         const isAtStart = sliderState.index === 0;
         const currentOffset = -(sliderState.cardWidth + gap) * sliderState.index;
         const maxOffset = viewportClientWidth - trackWidth;
@@ -3913,6 +3916,14 @@
         nextBtn.style.display = (!needsScrolling || isAtEnd) ? 'none' : 'flex';
         prevBtn.disabled = isAtStart && needsScrolling;
         nextBtn.disabled = isAtEnd && needsScrolling;
+        
+        // Update page indicator for scrollable variants only
+        const pageIndicator = rowContainer.parentElement?.querySelector('.gallery-page-indicator');
+        if (pageIndicator && scrollableVariants.length > 0) {
+          const currentPage = Math.floor(sliderState.index / sliderState.visible) + 1;
+          const totalPages = needsScrolling ? Math.ceil(scrollableVariants.length / sliderState.visible) : 1;
+          pageIndicator.textContent = `Page ${currentPage} of ${totalPages} (Google images)`;
+        }
       };
       
       prevBtn.addEventListener('click', () => {
@@ -3923,7 +3934,8 @@
         const viewportWidth = viewport.getBoundingClientRect().width;
         const visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
         sliderState.visible = visible;
-        const lastPageBoundary = Math.floor((variants.length - 1) / visible) * visible;
+        // Only calculate pagination for scrollable variants
+        const lastPageBoundary = Math.floor((scrollableVariants.length - 1) / visible) * visible;
         const maxIdx = Math.max(0, lastPageBoundary);
         let newIndex = Math.max(0, sliderState.index - visible);
         newIndex = Math.floor(newIndex / visible) * visible;
@@ -3940,7 +3952,8 @@
         const viewportWidth = viewport.getBoundingClientRect().width;
         const visible = Math.max(1, Math.floor(viewportWidth / spacePerCard));
         sliderState.visible = visible;
-        const lastPageBoundary = Math.floor((variants.length - 1) / visible) * visible;
+        // Only calculate pagination for scrollable variants
+        const lastPageBoundary = Math.floor((scrollableVariants.length - 1) / visible) * visible;
         const maxIdx = Math.max(0, lastPageBoundary);
         let newIndex = sliderState.index + visible;
         newIndex = Math.floor(newIndex / visible) * visible;
