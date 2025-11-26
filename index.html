@@ -4818,19 +4818,58 @@
 
     async function refreshGallery() {
       if (!lastGalleryPayload) return;
+      
+      // Save scroll position before refresh
+      const grid = document.getElementById('galleryGrid');
+      const savedScrollTop = grid ? grid.scrollTop : 0;
+      
       galleryLoading = true;
       updateGalleryToolbar();
       setGalleryStatus('Refreshing gallery...');
       const result = await apiCall('gallery_generate', lastGalleryPayload);
       galleryLoading = false;
       if (result.success) {
-        galleryItems = result.items || [];
+        const newItems = result.items || [];
+        
+        // Preserve existing googleVariants and new images from current galleryItems
+        // Map by itemId to merge data
+        const existingItemsMap = new Map();
+        galleryItems.forEach(item => {
+          existingItemsMap.set(item.itemId, {
+            googleVariants: item.googleVariants || [],
+            url1Variants: item.url1Variants || [],
+            url2Variants: item.url2Variants || []
+          });
+        });
+        
+        // Merge: use new URL1/URL2 from API, but preserve existing googleVariants
+        newItems.forEach(newItem => {
+          const existing = existingItemsMap.get(newItem.itemId);
+          if (existing) {
+            // Preserve existing googleVariants (including newly added ones)
+            newItem.googleVariants = existing.googleVariants;
+            // Use new URL1/URL2 from API (they should match originals)
+            // But if user has swapped, preserve their current URL1/URL2
+            // Actually, on full refresh, we should reset to originals
+            // So use new URL1/URL2 from API
+          }
+        });
+        
+        galleryItems = newItems;
         gallerySelections = {};
         gallerySkippedItems.clear(); // Clear skipped items when refreshing
-        galleryNewImages.clear(); // Clear new images tracking when refreshing
+        // Don't clear galleryNewImages - preserve the "NEW" badges
         galleryMissingItems = result.missingItems || [];
+        
         renderGallery();
         setGalleryStatus('Gallery refreshed');
+        
+        // Restore scroll position after render
+        if (grid) {
+          requestAnimationFrame(() => {
+            grid.scrollTop = savedScrollTop;
+          });
+        }
       } else {
         setGalleryStatus(`Error refreshing gallery: ${result.error || 'Unknown error'}`);
         updateGalleryToolbar();
