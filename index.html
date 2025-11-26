@@ -5152,7 +5152,8 @@
         });
         
         item.googleVariants.push(...variantsToAdd);
-        logToConsole(`[REFRESH] Item now has ${item.googleVariants.length} Google images total. New variants labeled: ${variantsToAdd.map(v => v.positionLabel).join(', ')}`, 'success');
+        const variantLabels = variantsToAdd.map(function(v) { return v.positionLabel; }).join(', ');
+        logToConsole(`[REFRESH] Item now has ${item.googleVariants.length} Google images total. New variants labeled: ${variantLabels}`, 'success');
         
         // Calculate first new image index in combined array: URL1 (0), URL2 (1), then Google images (2+)
         const firstNewImageIndex = 2 + currentGoogleCount; // 2 = URL1 + URL2 positions
@@ -5868,7 +5869,8 @@
                     logToConsole(`✓ Upload complete: ${data.successful} successful, ${finalFailedCount} failed (Total time: ${data.total_duration}s)`, 'success');
                     logToConsole(`[CLOUDINARY] Final summary: ${data.successful} successful, ${finalFailedCount} failed, ${data.total} total, ${data.total_duration}s duration`, 'success');
                     if (finalFailedCount > 0 && data.failed) {
-                      logToConsole(`[CLOUDINARY] Failed files: ${JSON.stringify(data.failed.map(f => f.filename_only)))}`, 'error');
+                      const failedFilenames = data.failed.map(function(f) { return f.filename_only || f.filename || 'unknown'; });
+                      logToConsole('[CLOUDINARY] Failed files: ' + JSON.stringify(failedFilenames), 'error');
                     }
                     setGalleryStatus(`Upload complete: ${data.successful} successful, ${finalFailedCount} failed`);
                     alert(`Upload complete!\n\nSuccessful: ${data.successful}\nFailed: ${finalFailedCount}\nTotal time: ${data.total_duration}s\n\nCheck console for details.`);
