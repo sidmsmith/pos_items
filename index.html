@@ -3683,55 +3683,25 @@
 
     function updateGalleryToolbar() {
       const saveBtn = document.getElementById('gallerySaveBtn');
-      // Helper to check if item has any variants (support both old and new structure)
-      const hasVariants = (item) => {
-        if (item.variants && Array.isArray(item.variants)) {
-          return item.variants.length > 0;
-        }
-        // New structure: check url1Variants, url2Variants, and googleVariants
-        const url1Count = (item.url1Variants && Array.isArray(item.url1Variants)) ? item.url1Variants.length : 0;
-        const url2Count = (item.url2Variants && Array.isArray(item.url2Variants)) ? item.url2Variants.length : 0;
-        const googleCount = (item.googleVariants && Array.isArray(item.googleVariants)) ? item.googleVariants.length : 0;
-        return url1Count > 0 || url2Count > 0 || googleCount > 0;
-      };
-      // Get all items with variants (items that need selection or skip)
-      const itemsWithVariants = galleryItems.filter(item => hasVariants(item));
       
-      // If no items with variants, disable button (nothing to download)
-      if (itemsWithVariants.length === 0) {
-        saveBtn.disabled = true;
-        document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
-        document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
-        return;
-      }
-      
-      // Check if all items with variants are skipped (nothing to download)
-      const allSkipped = itemsWithVariants.every((item, idx) => {
-        // Find original index in galleryItems
-        const originalIndex = galleryItems.findIndex(gi => gi === item);
-        if (originalIndex === -1) return false;
-        const uniqueKey = getUniqueKey(originalIndex, item.itemId);
-        return gallerySkippedItems.has(uniqueKey);
-      });
-      
-      if (allSkipped) {
-        saveBtn.disabled = true;
-        document.getElementById('gallerySelectFirstBtn').disabled = galleryItems.length === 0 || galleryLoading;
-        document.getElementById('galleryRefreshBtn').disabled = galleryLoading;
-        return;
-      }
-      
-      // Check all items: each must either be skipped OR have a selection
+      // Check if every row has images in positions 1 and 2 (or is skipped)
       const incompleteItems = galleryItems.filter((item, itemIndex) => {
-        // Items with no variants don't need selection
-        if (!hasVariants(item)) return false;
-        
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
         const isSkipped = gallerySkippedItems.has(uniqueKey);
-        const hasSelection = !!gallerySelections[uniqueKey];
         
-        // Item is incomplete if it's not skipped AND has no selection
-        return !isSkipped && !hasSelection;
+        // If skipped, it's complete (doesn't need positions 1 and 2)
+        if (isSkipped) return false;
+        
+        // Check if position 1 (URL1) has an image (not a placeholder)
+        const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+        const hasUrl1 = url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        // Check if position 2 (URL2) has an image (not a placeholder)
+        const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+        const hasUrl2 = url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        // Item is incomplete if it doesn't have both position 1 and position 2 images
+        return !hasUrl1 || !hasUrl2;
       });
       
       saveBtn.disabled = incompleteItems.length > 0 || galleryLoading;
@@ -5294,107 +5264,46 @@
         return;
       }
 
-      const prefix = document.getElementById('prefix').value.trim();
       galleryLoading = true;
       updateGalleryToolbar();
-      setGalleryStatus('Finalizing selection...');
+      setGalleryStatus('Downloading images from positions 1 and 2...');
 
       try {
-        const selectionsPayload = [];
+        // Download images from positions 1 and 2 for each item
+        const downloadPromises = [];
+        
         galleryItems.forEach((item, itemIndex) => {
-          // Skip items that are marked as skipped (use unique keys)
           const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-          if (gallerySkippedItems.has(uniqueKey)) return;
+          const isSkipped = gallerySkippedItems.has(uniqueKey);
           
-          const selectedFile = gallerySelections[uniqueKey];
-          if (!selectedFile) return;
-          const variant = item.variants.find(v => v.fileName === selectedFile);
-          if (variant) {
-            selectionsPayload.push({
-              itemId: item.itemId,
-              referenceId: item.referenceId,
-              productName: item.productName,
-              fileName: variant.fileName,
-              originalUrl: variant.originalUrl,
-              shortDescription: variant.shortDescription,
-              description: variant.description,
-              source: variant.source
-            });
+          // Skip items that are marked as skipped
+          if (isSkipped) return;
+          
+          // Download position 1 (URL1) image
+          const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+          if (url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_') {
+            const filename1 = `${item.itemId}_1`;
+            downloadPromises.push(downloadImage(url1Variant.originalUrl, filename1));
+            logToConsole(`[DOWNLOAD] Queued download for ${item.itemId} position 1: ${filename1}`, 'info');
+          }
+          
+          // Download position 2 (URL2) image
+          const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+          if (url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_') {
+            const filename2 = `${item.itemId}_2`;
+            downloadPromises.push(downloadImage(url2Variant.originalUrl, filename2));
+            logToConsole(`[DOWNLOAD] Queued download for ${item.itemId} position 2: ${filename2}`, 'info');
           }
         });
-
-        // Get required items (items that need selection, not skipped)
-        const requiredItems = getGalleryRequiredItems();
         
-        const payload = {
-          selections: selectionsPayload,
-          prefix,
-          reference_items: referenceItems,
-          required_items: requiredItems
-        };
-
-        const result = await apiCall('gallery_finalize', payload);
-
-        if (!result.success) {
-          setGalleryStatus(`Error finalizing: ${result.error || 'Unknown error'}`);
-          return;
-        }
-
-        // Generate timestamp in YYMMDD-HHMM format for fallback filenames
-        const now = new Date();
-        const year = now.getFullYear().toString().slice(-2);
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const timestamp = `${year}${month}${day}-${hours}${minutes}`;
+        // Wait for all downloads to complete
+        await Promise.all(downloadPromises);
         
-        if (result.csv_content) {
-          downloadBase64File(result.csv_content, result.csv_filename || `imagedownload_${timestamp}.csv`, 'text/csv');
-          const csvText = atob(result.csv_content);
-          csvData = parseCsvToArray(csvText);
-        }
-        if (result.zip_content) {
-          downloadBase64File(result.zip_content, result.zip_filename || `downloaded_items_${timestamp}.zip`, 'application/zip');
-          
-          // Check if upload after download is enabled (checkboxes are synchronized, so check either one)
-          const uploadAfterDownload = document.getElementById('uploadAfterDownload');
-          if (uploadAfterDownload && uploadAfterDownload.checked) {
-            try {
-              // Trigger upload from zip
-              logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
-              setGalleryStatus('Extracting zip and uploading to Cloudinary...');
-              await uploadFromZipContent(result.zip_content);
-            } catch (uploadError) {
-              logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
-              setGalleryStatus(`Upload failed: ${uploadError.message || 'Unknown error'}`);
-              // Continue with WM update even if upload fails
-            }
-          }
-        }
-
-        // Check if update WM after download is enabled
-        const updateWmAfterDownload = document.getElementById('updateWmAfterDownload');
-        if (updateWmAfterDownload && updateWmAfterDownload.checked && csvData) {
-          try {
-            // Trigger WM update - force use of csvData (the just-downloaded CSV)
-            logToConsole('Update WM after download enabled. Updating WM...', 'info');
-            setGalleryStatus('Updating WM...');
-            await handleWmUpdate(true); // Pass true to force use of csvData
-          } catch (wmError) {
-            logToConsole(`WM Update error: ${wmError.message || 'Unknown error'}`, 'error');
-            setGalleryStatus(`WM Update failed: ${wmError.message || 'Unknown error'}`);
-            // Continue to close modal even if WM update fails
-          }
-        }
-
-        document.getElementById('dlStatus').textContent = `Downloaded ${selectionsPayload.length} items via gallery.`;
-        setGalleryStatus('Downloads ready. Check your browser downloads folder.');
-        galleryItems = [];
-        gallerySelections = {};
-        gallerySkippedItems.clear(); // Clear skipped items
-        galleryNewImages.clear(); // Clear new images tracking
-        galleryMissingItems = [];
+        const totalDownloads = downloadPromises.length;
+        logToConsole(`[DOWNLOAD] Successfully downloaded ${totalDownloads} images`, 'success');
+        setGalleryStatus(`Downloaded ${totalDownloads} images from positions 1 and 2.`);
+        
+        document.getElementById('dlStatus').textContent = `Downloaded ${totalDownloads} images from positions 1 and 2.`;
         closeGalleryModal();
       } catch (error) {
         logToConsole(`Error in finalizeGallerySelections: ${error.message || 'Unknown error'}`, 'error');
