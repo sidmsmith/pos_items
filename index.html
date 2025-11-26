@@ -4593,38 +4593,84 @@
           return;
         }
 
+        // Save scroll position before reset
+        const grid = document.getElementById('galleryGrid');
+        const savedScrollTop = grid ? grid.scrollTop : 0;
+        
         // Restore original URL1
         if (item.url1Variants && item.url1Variants.length > 0) {
           const oldUrl1 = item.url1Variants[0];
+          // Preserve the old URL1's positionLabel (it might be "Variant X" if it was swapped)
+          const oldUrl1Label = oldUrl1.positionLabel;
+          
           // Find if old URL1 is in googleVariants and remove it, or add it
           const googleIndex = item.googleVariants.findIndex(v => 
-            v.originalUrl === oldUrl1.originalUrl
+            v.originalUrl === oldUrl1.originalUrl || v.fileName === oldUrl1.fileName
           );
           if (googleIndex === -1) {
-            // Add old URL1 to googleVariants
-            item.googleVariants.push(oldUrl1);
+            // Add old URL1 to googleVariants, preserving its label
+            item.googleVariants.push({
+              ...oldUrl1,
+              positionLabel: oldUrl1Label // Preserve the label it had
+            });
+          } else {
+            // Update existing variant in googleVariants to preserve its label
+            item.googleVariants[googleIndex] = {
+              ...item.googleVariants[googleIndex],
+              positionLabel: oldUrl1Label // Preserve the label
+            };
           }
-          item.url1Variants[0] = { ...item.originalUrl1 };
+          
+          // Restore original URL1 with permanent 'URL1' label
+          item.url1Variants[0] = { 
+            ...item.originalUrl1,
+            positionLabel: 'URL1' // Permanent label for URL1 position
+          };
         }
 
         // Restore original URL2
         if (item.url2Variants && item.url2Variants.length > 0) {
           const oldUrl2 = item.url2Variants[0];
+          // Preserve the old URL2's positionLabel (it might be "Variant X" if it was swapped)
+          const oldUrl2Label = oldUrl2.positionLabel;
+          
           // Find if old URL2 is in googleVariants and remove it, or add it
           const googleIndex = item.googleVariants.findIndex(v => 
-            v.originalUrl === oldUrl2.originalUrl
+            v.originalUrl === oldUrl2.originalUrl || v.fileName === oldUrl2.fileName
           );
           if (googleIndex === -1) {
-            // Add old URL2 to googleVariants
-            item.googleVariants.push(oldUrl2);
+            // Add old URL2 to googleVariants, preserving its label
+            item.googleVariants.push({
+              ...oldUrl2,
+              positionLabel: oldUrl2Label // Preserve the label it had
+            });
+          } else {
+            // Update existing variant in googleVariants to preserve its label
+            item.googleVariants[googleIndex] = {
+              ...item.googleVariants[googleIndex],
+              positionLabel: oldUrl2Label // Preserve the label
+            };
           }
-          item.url2Variants[0] = { ...item.originalUrl2 };
+          
+          // Restore original URL2 with permanent 'URL2' label
+          item.url2Variants[0] = { 
+            ...item.originalUrl2,
+            positionLabel: 'URL2' // Permanent label for URL2 position
+          };
         }
 
         logToConsole(`[RESET] Reset URL1 and URL2 to original images for ${itemId}`, 'success');
         
         // Re-render gallery without animations
         renderGallery(true);
+        
+        // Restore scroll position after render
+        if (grid) {
+          // Use requestAnimationFrame to ensure DOM is updated before scrolling
+          requestAnimationFrame(() => {
+            grid.scrollTop = savedScrollTop;
+          });
+        }
       } catch (error) {
         logToConsole(`[RESET] Error: ${error.message}`, 'error');
       }
@@ -4957,7 +5003,20 @@
         gallerySliderPositions[uniqueKey] = finalIndex;
         
         setGalleryStatus(`Added ${variantsToAdd.length} new image(s) for ${getItemDisplayLabel(itemId)}${uniqueNewVariants.length > 3 ? ` (${uniqueNewVariants.length - 3} more available)` : ''}`);
+        
+        // Save scroll position before rendering to prevent jumping to row 1
+        const grid = document.getElementById('galleryGrid');
+        const savedScrollTop = grid ? grid.scrollTop : 0;
+        
         renderGallery(true); // Disable animations when refreshing
+        
+        // Restore scroll position after render
+        if (grid) {
+          // Use requestAnimationFrame to ensure DOM is updated before scrolling
+          requestAnimationFrame(() => {
+            grid.scrollTop = savedScrollTop;
+          });
+        }
         
         // After render, fine-tune the position with accurate measurements
         // Use requestAnimationFrame + setTimeout to ensure DOM is fully rendered and slider is initialized
