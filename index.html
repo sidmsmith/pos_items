@@ -4503,6 +4503,10 @@
         const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
         const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
         updateGalleryRow(targetUniqueKey, true); // Disable animations
+        
+        // Update toolbar and summary after drag/drop to reflect new state
+        updateGalleryToolbar();
+        updateGallerySummary();
       } catch (error) {
         logToConsole(`[SWAP] Error: ${error.message}`, 'error');
       }
