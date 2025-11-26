@@ -3802,6 +3802,8 @@
       };
       
       prevBtn.addEventListener('click', () => {
+        // Re-enable transitions for user interactions
+        track.style.transition = '';
         const gap = 8;
         const spacePerCard = sliderState.cardWidth + gap;
         const viewportWidth = viewport.getBoundingClientRect().width;
@@ -3817,6 +3819,8 @@
       });
       
       nextBtn.addEventListener('click', () => {
+        // Re-enable transitions for user interactions
+        track.style.transition = '';
         const gap = 8;
         const spacePerCard = sliderState.cardWidth + gap;
         const viewportWidth = viewport.getBoundingClientRect().width;
