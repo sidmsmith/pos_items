@@ -5246,20 +5246,60 @@
       return rows.slice(1).map(row => row.split(','));
     }
 
+    // Helper function to download an image from a URL
+    async function downloadImage(url, filename) {
+      try {
+        logToConsole(`[DOWNLOAD] Starting download: ${filename} from ${url}`, 'info');
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        
+        // Create a temporary link and trigger download
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the object URL after a delay
+        setTimeout(() => URL.revokeObjectURL(link.href), 100);
+        
+        logToConsole(`[DOWNLOAD] Successfully downloaded: ${filename}`, 'success');
+      } catch (error) {
+        logToConsole(`[DOWNLOAD] Error downloading ${filename}: ${error.message}`, 'error');
+        throw error;
+      }
+    }
+
     async function finalizeGallerySelections() {
-      // Check for missing selections using unique keys
+      // Check that every row has images in positions 1 and 2 (or is skipped)
       const missing = [];
       galleryItems.forEach((item, itemIndex) => {
         const uniqueKey = getUniqueKey(itemIndex, item.itemId);
-        if (item.variants.length > 0 && !gallerySkippedItems.has(uniqueKey)) {
-          if (!gallerySelections[uniqueKey]) {
-            missing.push(item.itemId);
-          }
+        const isSkipped = gallerySkippedItems.has(uniqueKey);
+        
+        // Skip items that are marked as skipped
+        if (isSkipped) return;
+        
+        // Check if position 1 (URL1) has an image (not a placeholder)
+        const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+        const hasUrl1 = url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        // Check if position 2 (URL2) has an image (not a placeholder)
+        const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+        const hasUrl2 = url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_';
+        
+        if (!hasUrl1 || !hasUrl2) {
+          missing.push(item.itemId);
         }
       });
+
       if (missing.length > 0) {
         const missingLabels = missing.map(getItemDisplayLabel);
-        setGalleryStatus(`Select one image for: ${missingLabels.join(', ')}`);
+        setGalleryStatus(`Missing images in positions 1 or 2 for: ${missingLabels.join(', ')}`);
         updateGalleryWarnings();
         return;
       }
