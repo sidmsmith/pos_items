@@ -4842,16 +4842,33 @@
           });
         });
         
-        // Merge: use new URL1/URL2 from API, but preserve existing googleVariants
+        // Merge: preserve user's current URL1/URL2 and googleVariants (including new ones)
         newItems.forEach(newItem => {
           const existing = existingItemsMap.get(newItem.itemId);
           if (existing) {
-            // Preserve existing googleVariants (including newly added ones)
+            // Preserve existing googleVariants (including newly added ones) - just sort them
             newItem.googleVariants = existing.googleVariants;
-            // Use new URL1/URL2 from API (they should match originals)
-            // But if user has swapped, preserve their current URL1/URL2
-            // Actually, on full refresh, we should reset to originals
-            // So use new URL1/URL2 from API
+            // Preserve user's current URL1/URL2 selections (they may have swapped images)
+            if (existing.url1Variants && existing.url1Variants.length > 0) {
+              newItem.url1Variants = existing.url1Variants;
+            }
+            if (existing.url2Variants && existing.url2Variants.length > 0) {
+              newItem.url2Variants = existing.url2Variants;
+            }
+            // Preserve originalUrl1/originalUrl2 references for reset functionality
+            if (newItem.originalUrl1 && !newItem.originalUrl1.originalUrl) {
+              // If new item doesn't have originalUrl1 set, use the one from existing
+              const existingItem = galleryItems.find(i => i.itemId === newItem.itemId);
+              if (existingItem && existingItem.originalUrl1) {
+                newItem.originalUrl1 = existingItem.originalUrl1;
+              }
+            }
+            if (newItem.originalUrl2 && !newItem.originalUrl2.originalUrl) {
+              const existingItem = galleryItems.find(i => i.itemId === newItem.itemId);
+              if (existingItem && existingItem.originalUrl2) {
+                newItem.originalUrl2 = existingItem.originalUrl2;
+              }
+            }
           }
         });
         
