@@ -2277,16 +2277,21 @@
       if (!textarea) return;
       
       textarea.value = currentItemList.join('\n');
-      const status = document.getElementById('itemListStatus');
-      // Don't display the full "items loaded from..." message in Current Items section
-      // Only show a simple count, the full message goes to genStatus
-      status.textContent = currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.';
       
-      // Display the full message (including filename) in genStatus area
-      if (message && message.includes('items loaded')) {
-        const genStatusEl = document.getElementById('genStatus');
-        if (genStatusEl) {
+      // Don't display any messages in Current Items section - clear itemListStatus
+      const status = document.getElementById('itemListStatus');
+      if (status) {
+        status.textContent = '';
+      }
+      
+      // Display all status messages in genStatus area (Generate Items section)
+      const genStatusEl = document.getElementById('genStatus');
+      if (genStatusEl) {
+        if (message) {
           genStatusEl.textContent = message;
+        } else {
+          // Default message if no specific message provided
+          genStatusEl.textContent = currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.';
         }
       }
       
