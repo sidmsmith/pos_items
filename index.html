@@ -3060,6 +3060,37 @@
           });
         }
         
+        // Assign permanent positionLabels to all variants (if not already assigned)
+        // These labels are the permanent identity of each card and NEVER change
+        galleryItems.forEach(item => {
+          // Assign permanent labels to URL1 variants
+          if (item.url1Variants && item.url1Variants.length > 0) {
+            item.url1Variants.forEach((variant, idx) => {
+              if (!variant.positionLabel) {
+                variant.positionLabel = 'URL1'; // Permanent label - assigned once, never changes
+              }
+            });
+          }
+          
+          // Assign permanent labels to URL2 variants
+          if (item.url2Variants && item.url2Variants.length > 0) {
+            item.url2Variants.forEach((variant, idx) => {
+              if (!variant.positionLabel) {
+                variant.positionLabel = 'URL2'; // Permanent label - assigned once, never changes
+              }
+            });
+          }
+          
+          // Assign permanent labels to Google variants
+          if (item.googleVariants && item.googleVariants.length > 0) {
+            item.googleVariants.forEach((variant, idx) => {
+              if (!variant.positionLabel) {
+                variant.positionLabel = `Variant ${idx + 1}`; // Permanent label - assigned once, never changes
+              }
+            });
+          }
+        });
+        
         // Store original URL1/URL2 for each item (for reset functionality and red badges)
         galleryItems.forEach(item => {
           if (!item.originalUrl1) {
