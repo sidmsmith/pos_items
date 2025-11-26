@@ -5663,6 +5663,15 @@
     
     // Direct Cloudinary upload function (bypasses Vercel payload limits)
     async function uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset) {
+      // Default preset if none provided
+      const CLOUDINARY_DEFAULT_PRESET = 'sc_uploads';
+      
+      // Use default preset if none provided
+      const effectivePreset = (uploadPreset && uploadPreset.trim() !== '') ? uploadPreset : CLOUDINARY_DEFAULT_PRESET;
+      if (!uploadPreset || uploadPreset.trim() === '') {
+        logToConsole(`[CLOUDINARY] No preset provided, using default preset: ${CLOUDINARY_DEFAULT_PRESET}`, 'info');
+      }
+      
       // Get Cloudinary config from server
       let cloudName;
       try {
@@ -5704,9 +5713,7 @@
       if (uploadFolder) {
         logToConsole(`[CLOUDINARY] Using folder: ${uploadFolder}`, 'info');
       }
-      if (uploadPreset) {
-        logToConsole(`[CLOUDINARY] Using preset: ${uploadPreset}`, 'info');
-      }
+      logToConsole(`[CLOUDINARY] Using preset: ${effectivePreset}${!uploadPreset || uploadPreset.trim() === '' ? ' (default)' : ''}`, 'info');
       
       // Log file details
       const totalSize = imageFiles.reduce((sum, f) => sum + f.size, 0);
@@ -5747,10 +5754,9 @@
           // Create FormData for Cloudinary upload
           const formData = new FormData();
           formData.append('file', file);
-          if (uploadPreset) {
-            formData.append('upload_preset', uploadPreset);
-          }
-          if (uploadFolder) {
+          // Always use effective preset (defaults to CLOUDINARY_DEFAULT_PRESET if not provided)
+          formData.append('upload_preset', effectivePreset);
+          if (uploadFolder && uploadFolder.trim() !== '') {
             // Build public_id with folder
             const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
             formData.append('public_id', `${uploadFolder}/${nameWithoutExt}`);
@@ -5834,6 +5840,14 @@
     async function uploadImageFiles(imageFiles) {
       const uploadFolder = document.getElementById('upload_folder').value.trim();
       const uploadPreset = document.getElementById('upload_profile').value.trim();
+      
+      // For unsigned client-side uploads, Cloudinary requires a preset
+      // If no preset is provided, fall back to server-side upload (which can use signed uploads)
+      if (!uploadPreset || uploadPreset === '') {
+        logToConsole('[CLOUDINARY] No preset provided, using server-side upload (supports signed uploads)', 'info');
+        // Fall back to original server-side upload method
+        return await uploadImageFilesServer(imageFiles, uploadFolder, uploadPreset);
+      }
       
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
