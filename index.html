@@ -4951,7 +4951,7 @@
         // Clamp to maxIdx (which is already a page boundary)
         finalIndex = Math.min(finalIndex, maxIdx);
         
-        // Update saved position BEFORE renderGallery() so the new slider uses the correct position
+        // Update saved position BEFORE updateGalleryRow() so the new slider uses the correct position
         const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
         const uniqueKey = getUniqueKey(targetItemIndex, itemId);
         gallerySliderPositions[uniqueKey] = finalIndex;
@@ -4959,9 +4959,7 @@
         setGalleryStatus(`Added ${variantsToAdd.length} new image(s) for ${getItemDisplayLabel(itemId)}${uniqueNewVariants.length > 3 ? ` (${uniqueNewVariants.length - 3} more available)` : ''}`);
         
         // Update only the affected row instead of re-rendering entire gallery
-        const targetItemIndex = galleryItems.findIndex(i => i.itemId === itemId);
-        const targetUniqueKey = getUniqueKey(targetItemIndex, itemId);
-        updateGalleryRow(targetUniqueKey, true); // Disable animations when refreshing
+        updateGalleryRow(uniqueKey, true); // Disable animations when refreshing
         
         // After render, fine-tune the position with accurate measurements
         // Use requestAnimationFrame + setTimeout to ensure DOM is fully rendered and slider is initialized
