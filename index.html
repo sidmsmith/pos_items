@@ -2278,7 +2278,18 @@
       
       textarea.value = currentItemList.join('\n');
       const status = document.getElementById('itemListStatus');
-      status.textContent = message || (currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.');
+      // Don't display the full "items loaded from..." message in Current Items section
+      // Only show a simple count, the full message goes to genStatus
+      status.textContent = currentItemList.length ? `${currentItemList.length} items in list` : 'No items loaded yet.';
+      
+      // Display the full message (including filename) in genStatus area
+      if (message && message.includes('items loaded')) {
+        const genStatusEl = document.getElementById('genStatus');
+        if (genStatusEl) {
+          genStatusEl.textContent = message;
+        }
+      }
+      
       // Clear unapplied changes visual indicators
       checkForUnappliedChanges();
     }
