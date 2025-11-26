@@ -6053,14 +6053,42 @@
         
         // Use EventSource-like approach with fetch and ReadableStream
         // Since EventSource doesn't support POST, we'll use fetch with streaming
-        const response = await fetch('/api/upload_cloudinary_stream', {
-          method: 'POST',
-          body: formData
-        });
+        logToConsole(`[CLOUDINARY] Initiating fetch request to /api/upload_cloudinary_stream...`, 'info');
+        logToConsole(`[CLOUDINARY] FormData contains ${imageFiles.length} files, folder="${uploadFolder}", preset="${uploadPreset}"`, 'info');
+        const fetchStartTime = Date.now();
+        let response;
+        try {
+          response = await fetch('/api/upload_cloudinary_stream', {
+            method: 'POST',
+            body: formData
+          });
+        } catch (fetchError) {
+          logToConsole(`[CLOUDINARY] Fetch request failed (network error): ${fetchError.message}`, 'error');
+          logToConsole(`[CLOUDINARY] Fetch error type: ${fetchError.name || 'Unknown'}`, 'error');
+          logToConsole(`[CLOUDINARY] Fetch error stack: ${fetchError.stack || 'N/A'}`, 'error');
+          throw new Error(`Network error: ${fetchError.message}`);
+        }
+        const fetchDuration = ((Date.now() - fetchStartTime) / 1000).toFixed(2);
+        logToConsole(`[CLOUDINARY] Fetch response received (${fetchDuration}s). Status: ${response.status} ${response.statusText}`, response.ok ? 'info' : 'error');
+        logToConsole(`[CLOUDINARY] Response headers: Content-Type=${response.headers.get('Content-Type')}, Content-Length=${response.headers.get('Content-Length') || 'N/A'}`, 'info');
         
         if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
+          // Try to get error details from response
+          let errorDetails = response.statusText || `HTTP ${response.status}`;
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorDetails += ` - ${errorText}`;
+              logToConsole(`[CLOUDINARY] Error response body: ${errorText}`, 'error');
+            }
+          } catch (e) {
+            logToConsole(`[CLOUDINARY] Could not read error response: ${e.message}`, 'error');
+          }
+          logToConsole(`[CLOUDINARY] Upload failed with status ${response.status}: ${errorDetails}`, 'error');
+          throw new Error(`Upload failed: ${errorDetails}`);
         }
+        
+        logToConsole(`[CLOUDINARY] Response OK. Starting to read stream...`, 'info');
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
