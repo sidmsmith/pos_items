@@ -3045,6 +3045,21 @@
         galleryItems = result.items || [];
         logToConsole(`Gallery items set: ${galleryItems.length} items`, 'success');
         
+        // Preserve ShortDescription from posItemsData if not in API response
+        if (posItemsData && posItemsData.length > 0) {
+          const posItemsMap = new Map();
+          posItemsData.forEach(posItem => {
+            posItemsMap.set(posItem.itemId, posItem);
+          });
+          
+          galleryItems.forEach(item => {
+            const posItem = posItemsMap.get(item.itemId);
+            if (posItem && posItem.shortDescription) {
+              item.ShortDescription = posItem.shortDescription;
+            }
+          });
+        }
+        
         // Store original URL1/URL2 for each item (for reset functionality and red badges)
         galleryItems.forEach(item => {
           if (!item.originalUrl1) {
@@ -4462,13 +4477,20 @@
           
           logToConsole(`[SWAP] Before swap - currentUrlVariant.isOriginal: ${currentUrlVariant.isOriginal}, isOriginalImage: ${isOriginalImage}, preservedIsOriginal: ${preservedIsOriginal}, preservedPositionLabel: ${preservedPositionLabel}`, 'info');
           
-          targetArray[0] = { ...item.googleVariants[googleIndex] };
+          // Preserve the Google variant's original positionLabel before moving it to URL position
+          const draggedVariantOriginalLabel = item.googleVariants[googleIndex].positionLabel || `Variant ${googleIndex + 1}`;
+          
+          // Move Google variant to URL position, preserving its original positionLabel
+          targetArray[0] = { 
+            ...item.googleVariants[googleIndex],
+            positionLabel: draggedVariantOriginalLabel // Keep original label (e.g., "Variant 3")
+          };
           
           // Replace Google variant with old URL variant, preserving isOriginal flag and positionLabel
           item.googleVariants[googleIndex] = { 
             ...currentUrlVariant, 
             isOriginal: preservedIsOriginal,
-            positionLabel: preservedPositionLabel // Preserve the position label for the badge
+            positionLabel: preservedPositionLabel // Preserve the position label (URL1/URL2)
           };
           
           logToConsole(`[SWAP] After swap - item.googleVariants[${googleIndex}].isOriginal: ${item.googleVariants[googleIndex].isOriginal}, positionLabel: ${item.googleVariants[googleIndex].positionLabel}`, 'info');
