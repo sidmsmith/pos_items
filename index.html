@@ -4605,15 +4605,60 @@
         const grid = document.getElementById('galleryGrid');
         const savedScrollTop = grid ? grid.scrollTop : 0;
         
-        // Simple logic: URL1 = position 1, URL2 = position 2
-        // If originalUrl1 exists, set it to position 1, otherwise create placeholder
+        // Initialize googleVariants if it doesn't exist
+        if (!item.googleVariants) {
+          item.googleVariants = [];
+        }
+        
+        // Reset URL1: Find original URL1 (might be in url1Variants or googleVariants)
         if (item.originalUrl1) {
+          const currentUrl1 = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+          
+          // Find original URL1 - it might be in url1Variants[0] or in googleVariants
+          const originalUrl1InGoogle = item.googleVariants.findIndex(v => 
+            v.originalUrl === item.originalUrl1.originalUrl || 
+            v.fileName === item.originalUrl1.fileName
+          );
+          
+          // If current URL1 is not the original, move it to googleVariants
+          if (currentUrl1 && currentUrl1.originalUrl !== item.originalUrl1.originalUrl) {
+            // Check if it's already in googleVariants to avoid duplicates
+            const currentUrl1InGoogle = item.googleVariants.findIndex(v => 
+              v.originalUrl === currentUrl1.originalUrl || v.fileName === currentUrl1.fileName
+            );
+            if (currentUrl1InGoogle === -1) {
+              item.googleVariants.push(currentUrl1);
+              logToConsole(`[RESET] Moved current URL1 (${currentUrl1.positionLabel}) to googleVariants`, 'info');
+            }
+          }
+          
+          // Remove original URL1 from googleVariants if it's there
+          if (originalUrl1InGoogle !== -1) {
+            item.googleVariants.splice(originalUrl1InGoogle, 1);
+            logToConsole(`[RESET] Removed original URL1 from googleVariants`, 'info');
+          }
+          
+          // Set URL1 to original
           item.url1Variants = [{ 
             ...item.originalUrl1,
             positionLabel: 'URL1' // Permanent label
           }];
           logToConsole(`[RESET] Set URL1 to original: ${item.originalUrl1.originalUrl}`, 'info');
         } else {
+          // No original URL1 - create placeholder
+          const currentUrl1 = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+          
+          // If there's a current URL1 that's not a placeholder, move it to googleVariants
+          if (currentUrl1 && !currentUrl1.isPlaceholder) {
+            const currentUrl1InGoogle = item.googleVariants.findIndex(v => 
+              v.originalUrl === currentUrl1.originalUrl || v.fileName === currentUrl1.fileName
+            );
+            if (currentUrl1InGoogle === -1) {
+              item.googleVariants.push(currentUrl1);
+              logToConsole(`[RESET] Moved current URL1 (${currentUrl1.positionLabel}) to googleVariants`, 'info');
+            }
+          }
+          
           // Create placeholder for URL1
           item.url1Variants = [{
             fileName: 'URL1_placeholder',
@@ -4629,14 +4674,54 @@
           logToConsole(`[RESET] Set URL1 to placeholder (no original)`, 'info');
         }
 
-        // URL2 = position 2
+        // Reset URL2: Same logic as URL1
         if (item.originalUrl2) {
+          const currentUrl2 = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+          
+          // Find original URL2 - it might be in url2Variants[0] or in googleVariants
+          const originalUrl2InGoogle = item.googleVariants.findIndex(v => 
+            v.originalUrl === item.originalUrl2.originalUrl || 
+            v.fileName === item.originalUrl2.fileName
+          );
+          
+          // If current URL2 is not the original, move it to googleVariants
+          if (currentUrl2 && currentUrl2.originalUrl !== item.originalUrl2.originalUrl) {
+            const currentUrl2InGoogle = item.googleVariants.findIndex(v => 
+              v.originalUrl === currentUrl2.originalUrl || v.fileName === currentUrl2.fileName
+            );
+            if (currentUrl2InGoogle === -1) {
+              item.googleVariants.push(currentUrl2);
+              logToConsole(`[RESET] Moved current URL2 (${currentUrl2.positionLabel}) to googleVariants`, 'info');
+            }
+          }
+          
+          // Remove original URL2 from googleVariants if it's there
+          if (originalUrl2InGoogle !== -1) {
+            item.googleVariants.splice(originalUrl2InGoogle, 1);
+            logToConsole(`[RESET] Removed original URL2 from googleVariants`, 'info');
+          }
+          
+          // Set URL2 to original
           item.url2Variants = [{ 
             ...item.originalUrl2,
             positionLabel: 'URL2' // Permanent label
           }];
           logToConsole(`[RESET] Set URL2 to original: ${item.originalUrl2.originalUrl}`, 'info');
         } else {
+          // No original URL2 - create placeholder
+          const currentUrl2 = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+          
+          // If there's a current URL2 that's not a placeholder, move it to googleVariants
+          if (currentUrl2 && !currentUrl2.isPlaceholder) {
+            const currentUrl2InGoogle = item.googleVariants.findIndex(v => 
+              v.originalUrl === currentUrl2.originalUrl || v.fileName === currentUrl2.fileName
+            );
+            if (currentUrl2InGoogle === -1) {
+              item.googleVariants.push(currentUrl2);
+              logToConsole(`[RESET] Moved current URL2 (${currentUrl2.positionLabel}) to googleVariants`, 'info');
+            }
+          }
+          
           // Create placeholder for URL2
           item.url2Variants = [{
             fileName: 'URL2_placeholder',
