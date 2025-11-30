@@ -5189,6 +5189,30 @@
               logToConsole(`[CSV] Warning: No Cloudinary folder found, using empty string`, 'warning');
             }
             
+            // Helper function to build clean URL path: prefix/folder/filename
+            // Handles cases where user might have double slashes, trailing slashes, etc.
+            function buildCleanUrlPath(prefix, folder, filename) {
+              if (!filename) return '';
+              
+              // Normalize prefix: remove trailing slashes
+              let cleanPrefix = (prefix || '').trim().replace(/\/+$/, '');
+              
+              // Normalize folder: remove leading and trailing slashes
+              let cleanFolder = (folder || '').trim().replace(/^\/+|\/+$/g, '');
+              
+              // Normalize filename: remove leading slashes
+              let cleanFilename = (filename || '').trim().replace(/^\/+/, '');
+              
+              // Build path parts array (only include non-empty parts)
+              const parts = [];
+              if (cleanPrefix) parts.push(cleanPrefix);
+              if (cleanFolder) parts.push(cleanFolder);
+              if (cleanFilename) parts.push(cleanFilename);
+              
+              // Join with single slashes and return
+              return parts.join('/');
+            }
+            
             // Build map of itemId -> {filename1, filename2} for downloaded items
             const itemFilenameMap = new Map();
             galleryItems.forEach((item, itemIndex) => {
@@ -5240,16 +5264,17 @@
               const itemId = row[itemIdIndex] ? String(row[itemIdIndex]).trim() : '';
               const itemFilenames = itemFilenameMap.get(itemId);
               
-              // Format: {Cloudinary Prefix}&{Cloudinary Folder}&{filename}
+              // Format: {Cloudinary Prefix}/{Cloudinary Folder}/{filename}
+              // Uses buildCleanUrlPath to ensure valid URL/filepath
               let url1Updated = '';
               let url2Updated = '';
               
               if (itemFilenames) {
                 if (itemFilenames.filename1) {
-                  url1Updated = `${prefix}&${folder}&${itemFilenames.filename1}`;
+                  url1Updated = buildCleanUrlPath(prefix, folder, itemFilenames.filename1);
                 }
                 if (itemFilenames.filename2) {
-                  url2Updated = `${prefix}&${folder}&${itemFilenames.filename2}`;
+                  url2Updated = buildCleanUrlPath(prefix, folder, itemFilenames.filename2);
                 }
               }
               
