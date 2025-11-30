@@ -394,7 +394,7 @@ def app_opened():
     try:
         payload = {
             "event": "app_opened",
-            "version": "v0.0.5",
+            "version": "v0.1.5",
             "timestamp": datetime.now().isoformat()
         }
         requests.post(HA_WEBHOOK_URL, json=payload, timeout=5)
