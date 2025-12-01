@@ -1,6 +1,6 @@
 {
   "name": "pos-items",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "POS Items web application",
   "main": "server.js",
   "scripts": {
