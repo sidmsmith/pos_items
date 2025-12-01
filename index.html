@@ -883,7 +883,7 @@
     <div class="section-frame">
       <div class="section-title">Additional Parameters</div>
 
-      <div class="input-row">
+      <div class="input-row" style="display: none;">
         <label class="form-label">Update Item CSV File:</label>
         <div style="flex:1; position: relative;">
           <input type="file" id="csv_out_file" class="form-control" accept=".csv,.xls,.xlsx" style="display:none;" />
@@ -5524,10 +5524,10 @@
           // Always use effective preset (defaults to CLOUDINARY_DEFAULT_PRESET if not provided)
           formData.append('upload_preset', effectivePreset);
           if (uploadFolder && uploadFolder.trim() !== '') {
-            // Build public_id with folder
+            // Use folder parameter only - public_id should be just the filename
             const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-            formData.append('public_id', `${uploadFolder}/${nameWithoutExt}`);
-            formData.append('folder', uploadFolder);
+            formData.append('public_id', nameWithoutExt); // Only filename, no folder
+            formData.append('folder', uploadFolder); // Folder parameter separately
           }
           
           // Upload to Cloudinary using their upload endpoint
