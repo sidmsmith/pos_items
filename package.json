@@ -7,8 +7,8 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "express": "^4.18.2",
     "node-fetch": "^2.7.0"
   }
 }
-

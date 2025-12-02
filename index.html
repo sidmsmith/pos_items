@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>POS Items v0.1.6</title>
+  <title>POS Items v0.1.7</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -815,7 +815,7 @@
     </div>
   </div>
   <div class="main-card">
-    <h2>POS Items v0.1.6</h2>
+    <h2>POS Items v0.1.7</h2>
 
     <!-- ============================================================================= -->
     <!-- SECTION 1: GENERATE ITEMS -->
@@ -6199,6 +6199,19 @@
       console.log('%c3. Look for logs prefixed with: 🔍 [FILTER], 📋 [PREVIEW], 📁 [DIRECTORY], ⬆️ [UPLOAD], ☑️ [CHECKBOX]', 'color: #ffff00;');
       console.log('%cAll logs are prefixed with emojis for easy identification', 'color: #00ff00;');
     }); // End of window.addEventListener('DOMContentLoaded')
+  </script>
+  <script>
+    // Vercel Analytics - load the insights script
+    // This script is automatically provided by Vercel when Analytics is enabled
+    (function() {
+      const script = document.createElement('script');
+      script.src = '/_vercel/insights/script.js';
+      script.defer = true;
+      script.onerror = function() {
+        console.warn('Vercel Analytics script failed to load. Make sure Analytics is enabled in Vercel dashboard and the app is redeployed.');
+      };
+      document.head.appendChild(script);
+    })();
   </script>
 </body>
 </html>
