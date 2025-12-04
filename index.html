@@ -2829,6 +2829,15 @@
       } catch (error) {
         logToConsole(`EXCEPTION in handleDownloadClick: ${error.message}`, 'error');
         logToConsole(`Stack trace: ${error.stack}`, 'error');
+        
+        // Track download failure in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('download_items_failed', {
+            error: error.message || 'Download failed',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         const dlBtn = document.getElementById('dlBtn');
         const dlProgress = document.getElementById('dlProgress');
         const dlStatus = document.getElementById('dlStatus');
