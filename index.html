@@ -2489,6 +2489,15 @@
       genProgress.style.display = 'block';
       genStatus.textContent = 'Generating...';
 
+      // Track generate items attempt in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('generate_items_attempt', {
+          company: company || 'unknown',
+          count: String(count),
+          timestamp: new Date().toISOString()
+        });
+      }
+
       const result = await apiCall('generate_items', { company, website, count, extra_prompt });
 
       genBtn.disabled = false;
@@ -2496,6 +2505,15 @@
 
       if (!result.success) {
         genStatus.textContent = `Error: ${result.error}`;
+        
+        // Track generate failure in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('generate_items_failed', {
+            company: company || 'unknown',
+            error: result.error || 'Generation failed',
+            timestamp: new Date().toISOString()
+          });
+        }
         return;
       }
 
@@ -2504,6 +2522,15 @@
       setItemList(result.products, `${result.products.length} generated items ready for gallery.`, true);
 
       genStatus.textContent = `Generated ${result.count} products successfully!`;
+      
+      // Track generate success in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('generate_items_completed', {
+          company: company || 'unknown',
+          count: String(result.count || result.products?.length || 0),
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     function getSearchSource() {
@@ -2653,6 +2680,15 @@
       dlStatus.textContent = 'Preparing gallery...';
       logToConsole('Calling API: gallery_generate...', 'info');
 
+      // Track gallery generate attempt in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('gallery_generate_attempt', {
+          items_count: String(lastGalleryPayload?.posItems?.length || 0),
+          images_per_item: String(lastGalleryPayload?.images_per_item || 0),
+          timestamp: new Date().toISOString()
+        });
+      }
+
       try {
         const result = await apiCall('gallery_generate', lastGalleryPayload);
         
@@ -2683,11 +2719,27 @@
         if (!result.success) {
           logToConsole(`ERROR: Gallery generation failed - ${result.error || 'Unknown error'}`, 'error');
           dlStatus.textContent = `Error: ${result.error || 'Unable to generate gallery'}`;
+          
+          // Track gallery generate failure in Statsig
+          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+            window.StatsigTracking.logEvent('gallery_generate_failed', {
+              error: result.error || 'Gallery generation failed',
+              timestamp: new Date().toISOString()
+            });
+          }
           return;
         }
 
         galleryItems = result.items || [];
         logToConsole(`Gallery items set: ${galleryItems.length} items`, 'success');
+        
+        // Track gallery generate success in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('gallery_generate_completed', {
+            items_count: String(galleryItems.length || 0),
+            timestamp: new Date().toISOString()
+          });
+        }
         
         // Preserve ShortDescription from posItemsData if not in API response
         if (posItemsData && posItemsData.length > 0) {
@@ -5846,13 +5898,39 @@
         org = org.trim();
         
         // Authenticate (always authenticate, even if ORG matches previous)
+        
+        // Track auth attempt in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('auth_attempt', {
+            org: org,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         const authResult = await apiCall('auth', { org });
         if (!authResult.success) {
           alert(`Authentication failed: ${authResult.error}`);
+          
+          // Track auth failure in Statsig
+          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+            window.StatsigTracking.logEvent('auth_failed', {
+              org: org,
+              error: authResult.error || 'Auth failed',
+              timestamp: new Date().toISOString()
+            });
+          }
           return;
         }
         sessionToken = authResult.token;
         sessionOrg = org;
+        
+        // Track auth success in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('auth_success', {
+            org: org,
+            timestamp: new Date().toISOString()
+          });
+        }
       }
 
       const wmBtn = document.getElementById('wmBtn');
@@ -5873,6 +5951,15 @@
       }
       logToConsole(`Update POS: Calling API with ${rowCount} item(s)${itemDescriptions}`, 'info');
 
+      // Track update WM attempt in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('update_wm_attempt', {
+          org: org || 'unknown',
+          item_count: String(rowCount),
+          timestamp: new Date().toISOString()
+        });
+      }
+
       // Show visual indicator
       wmBtn.disabled = true;
       wmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...';
@@ -5890,10 +5977,30 @@
           logToConsole(`Update POS succeeded - ${summary}`, 'success');
           alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
           dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
+          
+          // Track update success in Statsig
+          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+            window.StatsigTracking.logEvent('update_wm_completed', {
+              org: org || 'unknown',
+              total: String(result.total || 0),
+              success_count: String(result.success_count || 0),
+              failed_count: String(result.failed_count || 0),
+              timestamp: new Date().toISOString()
+            });
+          }
         } else {
           logToConsole(`Update POS failed: ${result.error}`, 'error');
           alert(`WM Update failed: ${result.error}`);
           dlStatus.textContent = `Error: ${result.error}`;
+          
+          // Track update failure in Statsig
+          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+            window.StatsigTracking.logEvent('update_wm_failed', {
+              org: org || 'unknown',
+              error: result.error || 'Update failed',
+              timestamp: new Date().toISOString()
+            });
+          }
         }
       } catch (error) {
         logToConsole(`Update POS error: ${error.message}`, 'error');
@@ -6200,6 +6307,8 @@
       console.log('%cAll logs are prefixed with emojis for easy identification', 'color: #00ff00;');
     }); // End of window.addEventListener('DOMContentLoaded')
   </script>
+  <!-- Statsig SDK will be loaded by statsig.js -->
+  <script src="statsig.js"></script>
   <script>
     // Vercel Analytics - load the insights script
     // This script is automatically provided by Vercel when Analytics is enabled

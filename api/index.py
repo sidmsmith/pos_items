@@ -388,6 +388,39 @@ def create_placeholder_variant(item_id, url_type="URL1"):
 # API ROUTES
 # =============================================================================
 
+@app.route('/api/statsig-config', methods=['GET'])
+def statsig_config():
+    """Provide Statsig Client SDK Key to the client"""
+    client_key = os.getenv('STATSIG_CLIENT_KEY') or os.getenv('STATSIG_CLIENT_SDK_KEY')
+    
+    if not client_key:
+        return jsonify({
+            'key': None,
+            'error': 'STATSIG_CLIENT_KEY environment variable not set. Please add it in Vercel project settings.',
+            'note': 'You need a Client SDK Key (starts with "client-"), not a Server Secret (starts with "secret-")'
+        })
+    
+    return jsonify({
+        'key': client_key,
+        'note': 'Client SDK Key retrieved successfully'
+    })
+
+@app.route('/statsig-js-client.min.js', methods=['GET'])
+def serve_statsig_sdk():
+    """Serve Statsig SDK file"""
+    sdk_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'statsig-js-client.min.js')
+    if os.path.exists(sdk_path):
+        return send_from_directory(os.path.dirname(os.path.dirname(__file__)), 'statsig-js-client.min.js', mimetype='application/javascript')
+    return jsonify({'error': 'SDK file not found'}), 404
+
+@app.route('/statsig.js', methods=['GET'])
+def serve_statsig_js():
+    """Serve Statsig initialization script"""
+    statsig_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'statsig.js')
+    if os.path.exists(statsig_path):
+        return send_from_directory(os.path.dirname(os.path.dirname(__file__)), 'statsig.js', mimetype='application/javascript')
+    return jsonify({'error': 'Statsig script not found'}), 404
+
 @app.route('/api/app_opened', methods=['POST'])
 def app_opened():
     """Track app opened event"""
