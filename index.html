@@ -2580,11 +2580,27 @@
     async function handleDownloadClick() {
       logToConsole('=== Download Images Button Clicked ===', 'info');
       
+      // Track download attempt in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('download_items_attempt', {
+          items_count: String(posItemsData ? posItemsData.length : 0),
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       // Check if POS items data is loaded
       logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
       if (!posItemsData || posItemsData.length === 0) {
         logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
         alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
+        
+        // Track download failure in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('download_items_failed', {
+            error: 'No POS items data loaded',
+            timestamp: new Date().toISOString()
+          });
+        }
         return;
       }
       logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
@@ -5463,8 +5479,8 @@
         
         logToConsole(`Found ${imageFiles.length} image(s). Starting upload...`, 'info');
         
-        // Use the shared upload function
-        await uploadImageFiles(imageFiles);
+        // Use the shared upload function with source tracking
+        await uploadImageFiles(imageFiles, 'gallery_checkbox');
         
       } catch (error) {
         console.error('❌ [UPLOAD] Error uploading from zip:', error);
@@ -5656,9 +5672,19 @@
     }
     
     // Shared upload function for both directory and zip uploads
-    async function uploadImageFiles(imageFiles) {
+    async function uploadImageFiles(imageFiles, source = 'unknown') {
       const uploadFolder = document.getElementById('upload_folder').value.trim();
       const uploadPreset = document.getElementById('upload_profile').value.trim();
+      
+      // Track upload attempt in Statsig
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('upload_cloudinary_attempt', {
+          source: source, // 'main_screen' or 'gallery_checkbox'
+          images_count: String(imageFiles.length),
+          upload_folder: uploadFolder || 'default',
+          timestamp: new Date().toISOString()
+        });
+      }
       
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
@@ -5667,6 +5693,18 @@
         setGalleryStatus(`Upload complete: ${result.successful} successful, ${result.failed} failed`);
         alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}\nTotal time: ${result.total_duration}s\n\nCheck console for details.`);
         
+        // Track upload success in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('upload_cloudinary_completed', {
+            source: source,
+            successful: String(result.successful),
+            failed: String(result.failed),
+            total: String(result.total),
+            total_duration: String(result.total_duration),
+            timestamp: new Date().toISOString()
+          });
+        }
+        
       } catch (error) {
         logToConsole(`[CLOUDINARY] Upload error: ${error.message}`, 'error');
         logToConsole(`[CLOUDINARY] Error stack: ${error.stack || 'N/A'}`, 'error');
@@ -5674,6 +5712,15 @@
         console.error('⬆️ [UPLOAD] Full error object:', error);
         setGalleryStatus(`Upload error: ${error.message}`);
         alert(`Upload error: ${error.message}`);
+        
+        // Track upload failure in Statsig
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('upload_cloudinary_failed', {
+            source: source,
+            error: error.message || 'Upload failed',
+            timestamp: new Date().toISOString()
+          });
+        }
       } finally {
         // Hide progress bar
         const progressContainer = document.getElementById('uploadProgressContainer');
@@ -5796,11 +5843,33 @@
       if (progressPercent) progressPercent.textContent = '0%';
       if (timeRemaining) timeRemaining.textContent = '';
       
+      // Track upload attempt in Statsig (main screen)
+      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+        window.StatsigTracking.logEvent('upload_cloudinary_attempt', {
+          source: 'main_screen',
+          images_count: String(imageFiles.length),
+          upload_folder: uploadFolder || 'default',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
         
         // Show completion message
         alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}\nTotal time: ${result.total_duration}s\n\nCheck console for details.`);
+        
+        // Track upload success in Statsig (main screen)
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('upload_cloudinary_completed', {
+            source: 'main_screen',
+            successful: String(result.successful),
+            failed: String(result.failed),
+            total: String(result.total),
+            total_duration: String(result.total_duration),
+            timestamp: new Date().toISOString()
+          });
+        }
         
       } catch (error) {
         logToConsole(`[CLOUDINARY] Upload error: ${error.message}`, 'error');
@@ -5808,6 +5877,15 @@
         logToConsole(`[CLOUDINARY] Error name: ${error.name || 'N/A'}`, 'error');
         console.error('⬆️ [UPLOAD] Full error object:', error);
         alert(`Upload error: ${error.message}`);
+        
+        // Track upload failure in Statsig (main screen)
+        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
+          window.StatsigTracking.logEvent('upload_cloudinary_failed', {
+            source: 'main_screen',
+            error: error.message || 'Upload failed',
+            timestamp: new Date().toISOString()
+          });
+        }
       } finally {
         uploadBtn.disabled = false;
         uploadBtn.textContent = 'Upload to Cloudinary';
