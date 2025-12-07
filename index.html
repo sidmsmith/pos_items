@@ -1013,6 +1013,119 @@
     let carouselGroup = null;
     let carouselIndex = 0;
 
+    // ===== GENERIC METADATA COLLECTION =====
+    let sessionId = sessionStorage.getItem('session_id');
+    if (!sessionId) {
+      sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+      sessionStorage.setItem('session_id', sessionId);
+    }
+    const pageLoadTime = new Date().toISOString();
+    let authAttemptCount = 0;
+    let firstAuthSuccess = true;
+
+    // Browser detection helpers
+    function getBrowserName() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
+      if (ua.includes('Firefox')) return 'Firefox';
+      if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+      if (ua.includes('Edg')) return 'Edge';
+      if (ua.includes('Opera') || ua.includes('OPR')) return 'Opera';
+      return 'Unknown';
+    }
+
+    function getBrowserVersion() {
+      const ua = navigator.userAgent;
+      const match = ua.match(/(Chrome|Firefox|Safari|Edg|Opera|OPR)\/(\d+)/);
+      return match ? match[2] : 'Unknown';
+    }
+
+    function getOSName() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows')) return 'Windows';
+      if (ua.includes('Mac')) return 'macOS';
+      if (ua.includes('Linux')) return 'Linux';
+      if (ua.includes('Android')) return 'Android';
+      if (ua.includes('iOS')) return 'iOS';
+      return 'Unknown';
+    }
+
+    function getOSVersion() {
+      const ua = navigator.userAgent;
+      if (ua.includes('Windows NT 10.0')) return '10';
+      if (ua.includes('Windows NT 6.3')) return '8.1';
+      if (ua.includes('Windows NT 6.2')) return '8';
+      if (ua.includes('Windows NT 6.1')) return '7';
+      if (ua.includes('Mac OS X')) {
+        const match = ua.match(/Mac OS X (\d+[._]\d+)/);
+        return match ? match[1].replace('_', '.') : 'Unknown';
+      }
+      return 'Unknown';
+    }
+
+    function getDeviceType() {
+      const ua = navigator.userAgent;
+      if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return 'Tablet';
+      if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return 'Mobile';
+      return 'Desktop';
+    }
+
+    function getCommonMetadata(eventSpecificMetadata = {}) {
+      const appName = document.title.split(' v')[0] || 'POS Items';
+      const appVersionMatch = document.title.match(/v(\d+\.\d+\.\d+)/i);
+      const appVersion = appVersionMatch ? appVersionMatch[1] : '0.1.7';
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlParamsObj = {};
+      for (const [key, value] of urlParams.entries()) {
+        urlParamsObj[key] = value;
+      }
+
+      const metadata = {
+        app_name: appName,
+        app_version: appVersion,
+        timestamp: new Date().toISOString(),
+        session_id: sessionId,
+        page_load_time: pageLoadTime,
+        time_on_page_seconds: Math.floor((Date.now() - new Date(pageLoadTime).getTime()) / 1000),
+        user_agent: navigator.userAgent,
+        browser_name: getBrowserName(),
+        browser_version: getBrowserVersion(),
+        device_type: getDeviceType(),
+        os_name: getOSName(),
+        os_version: getOSVersion(),
+        screen_resolution: `${window.screen.width}x${window.screen.height}`,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language: navigator.language,
+        referrer: document.referrer,
+        url_params: urlParamsObj,
+        auto_authenticated: !!urlParams.get('Organization'),
+        request_origin: window.location.origin,
+        ...eventSpecificMetadata
+      };
+
+      // Add auth-specific metadata if available
+      if (metadata.event_name && metadata.event_name.startsWith('auth_')) {
+        metadata.auth_method = urlParams.get('Organization') ? 'url_param' : 'manual';
+        metadata.auth_attempt_count = authAttemptCount;
+        metadata.first_auth_success = firstAuthSuccess;
+      }
+
+      return metadata;
+    }
+
+    // Home Assistant tracking helper
+    async function trackEvent(eventName, metadata = {}) {
+      try {
+        await apiCall('ha-track', {
+          event_name: eventName,
+          metadata: getCommonMetadata(metadata)
+        });
+      } catch (error) {
+        console.warn('[HA] Failed to track event:', error);
+      }
+    }
+
     function loadConfig() {
       const config = {};
       for (const key in DEFAULTS) {
@@ -2489,16 +2602,17 @@
       genProgress.style.display = 'block';
       genStatus.textContent = 'Generating...';
 
-      // Track generate items attempt in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('generate_items_attempt', {
-          company: company || 'unknown',
-          count: String(count),
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track generate items attempt
+      const generateStartTime = Date.now();
+      await trackEvent('generate_items_attempt', {
+        company: company || 'unknown',
+        website: website || '',
+        count: count,
+        extra_prompt: extra_prompt || ''
+      });
 
       const result = await apiCall('generate_items', { company, website, count, extra_prompt });
+      const generateDuration = Date.now() - generateStartTime;
 
       genBtn.disabled = false;
       genProgress.style.display = 'none';
@@ -2506,14 +2620,15 @@
       if (!result.success) {
         genStatus.textContent = `Error: ${result.error}`;
         
-        // Track generate failure in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('generate_items_failed', {
-            company: company || 'unknown',
-            error: result.error || 'Generation failed',
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track generate failure
+        await trackEvent('generate_items_failed', {
+          company: company || 'unknown',
+          website: website || '',
+          count: count,
+          extra_prompt: extra_prompt || '',
+          error: result.error || 'Generation failed',
+          generation_duration_ms: generateDuration
+        });
         return;
       }
 
@@ -2523,14 +2638,14 @@
 
       genStatus.textContent = `Generated ${result.count} products successfully!`;
       
-      // Track generate success in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('generate_items_completed', {
-          company: company || 'unknown',
-          count: String(result.count || result.products?.length || 0),
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track generate success
+      await trackEvent('generate_items_completed', {
+        company: company || 'unknown',
+        website: website || '',
+        count: result.count || result.products?.length || 0,
+        generated_count: result.products?.length || 0,
+        generation_duration_ms: generateDuration
+      });
     }
 
     function getSearchSource() {
@@ -2580,13 +2695,11 @@
     async function handleDownloadClick() {
       logToConsole('=== Download Images Button Clicked ===', 'info');
       
-      // Track download attempt in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('download_items_attempt', {
-          items_count: String(posItemsData ? posItemsData.length : 0),
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track download attempt
+      await trackEvent('download_items_attempt', {
+        items_count: posItemsData ? posItemsData.length : 0,
+        pos_items_count: posItemsData ? posItemsData.length : 0
+      });
       
       // Check if POS items data is loaded
       logToConsole(`Checking POS items data... (length: ${posItemsData ? posItemsData.length : 0})`, 'info');
@@ -2594,13 +2707,11 @@
         logToConsole('ERROR: No POS items data loaded. Please load a CSV file first.', 'error');
         alert('Please load a CSV file with ItemID, ImageURL1, ImageURL2, and ShortDescription columns before downloading images.');
         
-        // Track download failure in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('download_items_failed', {
-            error: 'No POS items data loaded',
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track download failure
+        await trackEvent('download_items_failed', {
+          error: 'No POS items data loaded',
+          has_pos_items_data: false
+        });
         return;
       }
       logToConsole(`✓ POS items data found: ${posItemsData.length} items`, 'success');
@@ -2696,14 +2807,16 @@
       dlStatus.textContent = 'Preparing gallery...';
       logToConsole('Calling API: gallery_generate...', 'info');
 
-      // Track gallery generate attempt in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('gallery_generate_attempt', {
-          items_count: String(lastGalleryPayload?.posItems?.length || 0),
-          images_per_item: String(lastGalleryPayload?.images_per_item || 0),
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track gallery generate attempt
+      const galleryStartTime = Date.now();
+      await trackEvent('gallery_generate_attempt', {
+        items_count: lastGalleryPayload?.posItems?.length || 0,
+        pos_items_count: lastGalleryPayload?.posItems?.length || 0,
+        images_per_item: lastGalleryPayload?.images_per_item || 0,
+        sites: lastGalleryPayload?.sites || '',
+        prefix: lastGalleryPayload?.prefix || '',
+        image_filters: lastGalleryPayload?.image_filters || ''
+      });
 
       try {
         const result = await apiCall('gallery_generate', lastGalleryPayload);
@@ -2736,26 +2849,37 @@
           logToConsole(`ERROR: Gallery generation failed - ${result.error || 'Unknown error'}`, 'error');
           dlStatus.textContent = `Error: ${result.error || 'Unable to generate gallery'}`;
           
-          // Track gallery generate failure in Statsig
-          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-            window.StatsigTracking.logEvent('gallery_generate_failed', {
-              error: result.error || 'Gallery generation failed',
-              timestamp: new Date().toISOString()
-            });
-          }
+          // Track gallery generate failure
+          const galleryDuration = Date.now() - galleryStartTime;
+          await trackEvent('gallery_generate_failed', {
+            items_count: lastGalleryPayload?.posItems?.length || 0,
+            pos_items_count: lastGalleryPayload?.posItems?.length || 0,
+            images_per_item: lastGalleryPayload?.images_per_item || 0,
+            sites: lastGalleryPayload?.sites || '',
+            prefix: lastGalleryPayload?.prefix || '',
+            image_filters: lastGalleryPayload?.image_filters || '',
+            error: result.error || 'Gallery generation failed',
+            generation_duration_ms: galleryDuration
+          });
           return;
         }
 
         galleryItems = result.items || [];
         logToConsole(`Gallery items set: ${galleryItems.length} items`, 'success');
         
-        // Track gallery generate success in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('gallery_generate_completed', {
-            items_count: String(galleryItems.length || 0),
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track gallery generate success
+        const galleryDuration = Date.now() - galleryStartTime;
+        await trackEvent('gallery_generate_completed', {
+          items_count: lastGalleryPayload?.posItems?.length || 0,
+          pos_items_count: lastGalleryPayload?.posItems?.length || 0,
+          images_per_item: lastGalleryPayload?.images_per_item || 0,
+          sites: lastGalleryPayload?.sites || '',
+          prefix: lastGalleryPayload?.prefix || '',
+          image_filters: lastGalleryPayload?.image_filters || '',
+          gallery_items_count: galleryItems.length || 0,
+          missing_items_count: result.missingItems?.length || 0,
+          generation_duration_ms: galleryDuration
+        });
         
         // Preserve ShortDescription from posItemsData if not in API response
         if (posItemsData && posItemsData.length > 0) {
@@ -2830,13 +2954,12 @@
         logToConsole(`EXCEPTION in handleDownloadClick: ${error.message}`, 'error');
         logToConsole(`Stack trace: ${error.stack}`, 'error');
         
-        // Track download failure in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('download_items_failed', {
-            error: error.message || 'Download failed',
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track download failure
+        await trackEvent('download_items_failed', {
+          error: error.message || 'Download failed',
+          items_count: posItemsData ? posItemsData.length : 0,
+          pos_items_count: posItemsData ? posItemsData.length : 0
+        });
         
         const dlBtn = document.getElementById('dlBtn');
         const dlProgress = document.getElementById('dlProgress');
@@ -5685,15 +5808,14 @@
       const uploadFolder = document.getElementById('upload_folder').value.trim();
       const uploadPreset = document.getElementById('upload_profile').value.trim();
       
-      // Track upload attempt in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('upload_cloudinary_attempt', {
-          source: source, // 'main_screen' or 'gallery_checkbox'
-          images_count: String(imageFiles.length),
-          upload_folder: uploadFolder || 'default',
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track upload attempt
+      const uploadStartTime = Date.now();
+      await trackEvent('upload_cloudinary_attempt', {
+        source: source,
+        images_count: imageFiles.length,
+        upload_folder: uploadFolder || '',
+        upload_profile: uploadPreset || ''
+      });
       
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
@@ -5702,17 +5824,19 @@
         setGalleryStatus(`Upload complete: ${result.successful} successful, ${result.failed} failed`);
         alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}\nTotal time: ${result.total_duration}s\n\nCheck console for details.`);
         
-        // Track upload success in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('upload_cloudinary_completed', {
-            source: source,
-            successful: String(result.successful),
-            failed: String(result.failed),
-            total: String(result.total),
-            total_duration: String(result.total_duration),
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track upload success
+        const uploadDuration = Date.now() - uploadStartTime;
+        await trackEvent('upload_cloudinary_completed', {
+          source: source,
+          images_count: imageFiles.length,
+          successful: result.successful,
+          failed: result.failed,
+          total: result.total,
+          total_duration: result.total_duration,
+          upload_folder: uploadFolder || '',
+          upload_profile: uploadPreset || '',
+          upload_duration_ms: uploadDuration
+        });
         
       } catch (error) {
         logToConsole(`[CLOUDINARY] Upload error: ${error.message}`, 'error');
@@ -5722,14 +5846,16 @@
         setGalleryStatus(`Upload error: ${error.message}`);
         alert(`Upload error: ${error.message}`);
         
-        // Track upload failure in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('upload_cloudinary_failed', {
-            source: source,
-            error: error.message || 'Upload failed',
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track upload failure
+        const uploadDuration = Date.now() - uploadStartTime;
+        await trackEvent('upload_cloudinary_failed', {
+          source: source,
+          images_count: imageFiles.length,
+          upload_folder: uploadFolder || '',
+          upload_profile: uploadPreset || '',
+          error: error.message || 'Upload failed',
+          upload_duration_ms: uploadDuration
+        });
       } finally {
         // Hide progress bar
         const progressContainer = document.getElementById('uploadProgressContainer');
@@ -5852,15 +5978,14 @@
       if (progressPercent) progressPercent.textContent = '0%';
       if (timeRemaining) timeRemaining.textContent = '';
       
-      // Track upload attempt in Statsig (main screen)
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('upload_cloudinary_attempt', {
-          source: 'main_screen',
-          images_count: String(imageFiles.length),
-          upload_folder: uploadFolder || 'default',
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track upload attempt (main screen)
+      const uploadStartTime = Date.now();
+      await trackEvent('upload_cloudinary_attempt', {
+        source: 'main_screen',
+        images_count: imageFiles.length,
+        upload_folder: uploadFolder || '',
+        upload_profile: uploadPreset || ''
+      });
       
       try {
         const result = await uploadToCloudinaryDirect(imageFiles, uploadFolder, uploadPreset);
@@ -5868,17 +5993,19 @@
         // Show completion message
         alert(`Upload complete!\n\nSuccessful: ${result.successful}\nFailed: ${result.failed}\nTotal time: ${result.total_duration}s\n\nCheck console for details.`);
         
-        // Track upload success in Statsig (main screen)
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('upload_cloudinary_completed', {
-            source: 'main_screen',
-            successful: String(result.successful),
-            failed: String(result.failed),
-            total: String(result.total),
-            total_duration: String(result.total_duration),
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track upload success (main screen)
+        const uploadDuration = Date.now() - uploadStartTime;
+        await trackEvent('upload_cloudinary_completed', {
+          source: 'main_screen',
+          images_count: imageFiles.length,
+          successful: result.successful,
+          failed: result.failed,
+          total: result.total,
+          total_duration: result.total_duration,
+          upload_folder: uploadFolder || '',
+          upload_profile: uploadPreset || '',
+          upload_duration_ms: uploadDuration
+        });
         
       } catch (error) {
         logToConsole(`[CLOUDINARY] Upload error: ${error.message}`, 'error');
@@ -5887,14 +6014,16 @@
         console.error('⬆️ [UPLOAD] Full error object:', error);
         alert(`Upload error: ${error.message}`);
         
-        // Track upload failure in Statsig (main screen)
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('upload_cloudinary_failed', {
-            source: 'main_screen',
-            error: error.message || 'Upload failed',
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track upload failure (main screen)
+        const uploadDuration = Date.now() - uploadStartTime;
+        await trackEvent('upload_cloudinary_failed', {
+          source: 'main_screen',
+          images_count: imageFiles.length,
+          upload_folder: uploadFolder || '',
+          upload_profile: uploadPreset || '',
+          error: error.message || 'Upload failed',
+          upload_duration_ms: uploadDuration
+        });
       } finally {
         uploadBtn.disabled = false;
         uploadBtn.textContent = 'Upload to Cloudinary';
@@ -5986,37 +6115,39 @@
         
         // Authenticate (always authenticate, even if ORG matches previous)
         
-        // Track auth attempt in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('auth_attempt', {
-            org: org,
-            timestamp: new Date().toISOString()
-          });
-        }
+        // Track auth attempt
+        authAttemptCount++;
+        const authStartTime = Date.now();
+        await trackEvent('auth_attempt', {
+          org: org
+        });
         
         const authResult = await apiCall('auth', { org });
+        const authDuration = Date.now() - authStartTime;
+        
         if (!authResult.success) {
           alert(`Authentication failed: ${authResult.error}`);
           
-          // Track auth failure in Statsig
-          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-            window.StatsigTracking.logEvent('auth_failed', {
-              org: org,
-              error: authResult.error || 'Auth failed',
-              timestamp: new Date().toISOString()
-            });
-          }
+          // Track auth failure
+          await trackEvent('auth_failed', {
+            org: org,
+            error: authResult.error || 'Auth failed',
+            auth_duration_ms: authDuration,
+            token_received: false
+          });
           return;
         }
         sessionToken = authResult.token;
         sessionOrg = org;
         
-        // Track auth success in Statsig
-        if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-          window.StatsigTracking.logEvent('auth_success', {
-            org: org,
-            timestamp: new Date().toISOString()
-          });
+        // Track auth success
+        await trackEvent('auth_success', {
+          org: org,
+          auth_duration_ms: authDuration,
+          token_received: !!sessionToken
+        });
+        if (firstAuthSuccess) {
+          firstAuthSuccess = false;
         }
       }
 
@@ -6038,14 +6169,13 @@
       }
       logToConsole(`Update POS: Calling API with ${rowCount} item(s)${itemDescriptions}`, 'info');
 
-      // Track update WM attempt in Statsig
-      if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-        window.StatsigTracking.logEvent('update_wm_attempt', {
-          org: org || 'unknown',
-          item_count: String(rowCount),
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Track update WM attempt
+      const wmStartTime = Date.now();
+      await trackEvent('update_wm_attempt', {
+        org: org || 'unknown',
+        item_count: rowCount,
+        row_count: rowCount
+      });
 
       // Show visual indicator
       wmBtn.disabled = true;
@@ -6065,29 +6195,31 @@
           alert(`WM Update Complete!\n\nTotal: ${result.total}\nSuccess: ${result.success_count}\nFailed: ${result.failed_count}`);
           dlStatus.textContent = `WM Update complete: ${result.success_count}/${result.total} successful`;
           
-          // Track update success in Statsig
-          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-            window.StatsigTracking.logEvent('update_wm_completed', {
-              org: org || 'unknown',
-              total: String(result.total || 0),
-              success_count: String(result.success_count || 0),
-              failed_count: String(result.failed_count || 0),
-              timestamp: new Date().toISOString()
-            });
-          }
+          // Track update success
+          const wmDuration = Date.now() - wmStartTime;
+          await trackEvent('update_wm_completed', {
+            org: org || 'unknown',
+            total: result.total || 0,
+            success_count: result.success_count || 0,
+            failed_count: result.failed_count || 0,
+            item_count: rowCount,
+            row_count: rowCount,
+            update_duration_ms: wmDuration
+          });
         } else {
           logToConsole(`Update POS failed: ${result.error}`, 'error');
           alert(`WM Update failed: ${result.error}`);
           dlStatus.textContent = `Error: ${result.error}`;
           
-          // Track update failure in Statsig
-          if (window.StatsigTracking && window.StatsigTracking.isInitialized()) {
-            window.StatsigTracking.logEvent('update_wm_failed', {
-              org: org || 'unknown',
-              error: result.error || 'Update failed',
-              timestamp: new Date().toISOString()
-            });
-          }
+          // Track update failure
+          const wmDuration = Date.now() - wmStartTime;
+          await trackEvent('update_wm_failed', {
+            org: org || 'unknown',
+            item_count: rowCount,
+            row_count: rowCount,
+            error: result.error || 'Update failed',
+            update_duration_ms: wmDuration
+          });
         }
       } catch (error) {
         logToConsole(`Update POS error: ${error.message}`, 'error');
@@ -6337,7 +6469,7 @@
       });
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       try {
         logToConsole('=== DOMContentLoaded event fired ===', 'info');
         logToConsole('Calling initUI()...', 'info');
@@ -6348,9 +6480,13 @@
         registerEventHandlers();
         logToConsole('✓ registerEventHandlers() completed', 'success');
         
-        logToConsole('Calling app_opened API...', 'info');
-        apiCall('app_opened', {});
-        logToConsole('✓ app_opened API called', 'success');
+        // Track app opened
+        const urlParams = new URLSearchParams(window.location.search);
+        await trackEvent('app_opened', {
+          has_url_params: window.location.search.length > 0,
+          url_org: urlParams.get('Organization') || null
+        });
+        logToConsole('✓ app_opened tracked', 'success');
       } catch (error) {
         logToConsole(`ERROR during initialization: ${error.message}`, 'error');
         logToConsole(`Stack trace: ${error.stack}`, 'error');
@@ -6358,7 +6494,6 @@
       }
       
       // Check for ORG in URL parameter and auto-authenticate if present
-      const urlParams = new URLSearchParams(window.location.search);
       const urlOrg = urlParams.get('Organization');
       if (urlOrg && urlOrg.trim()) {
         // Auto-populate ORG and authenticate silently
@@ -6394,8 +6529,6 @@
       console.log('%cAll logs are prefixed with emojis for easy identification', 'color: #00ff00;');
     }); // End of window.addEventListener('DOMContentLoaded')
   </script>
-  <!-- Statsig SDK will be loaded by statsig.js -->
-  <script src="statsig.js"></script>
   <script>
     // Vercel Analytics - load the insights script
     // This script is automatically provided by Vercel when Analytics is enabled
