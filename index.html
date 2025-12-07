@@ -1122,7 +1122,7 @@
           metadata: getCommonMetadata(metadata)
         });
       } catch (error) {
-        console.warn('[HA] Failed to track event:', error);
+        // Silently fail - don't interrupt user experience
       }
     }
 
@@ -6486,7 +6486,6 @@
           has_url_params: window.location.search.length > 0,
           url_org: urlParams.get('Organization') || null
         });
-        logToConsole('✓ app_opened tracked', 'success');
       } catch (error) {
         logToConsole(`ERROR during initialization: ${error.message}`, 'error');
         logToConsole(`Stack trace: ${error.stack}`, 'error');
