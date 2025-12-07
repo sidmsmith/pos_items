@@ -2537,10 +2537,15 @@
                                   endpoint === 'generate_items' ? 'Generate Items' : 
                                   endpoint === 'gallery_generate' ? 'Gallery Generate' : endpoint;
       
+      // Skip logging for ha-track to keep it transparent
+      const isHATrack = endpoint === 'ha-track';
+      
       try {
-        logToConsole(`[API] Calling ${endpointDisplayName}...`, 'info');
-        logToConsole(`[API] Endpoint: /api/${endpoint}`, 'info');
-        logToConsole(`[API] Payload size: ${JSON.stringify(data).length} bytes`, 'info');
+        if (!isHATrack) {
+          logToConsole(`[API] Calling ${endpointDisplayName}...`, 'info');
+          logToConsole(`[API] Endpoint: /api/${endpoint}`, 'info');
+          logToConsole(`[API] Payload size: ${JSON.stringify(data).length} bytes`, 'info');
+        }
         
         const url = `/api/${endpoint}`;
         const requestOptions = {
@@ -2549,38 +2554,51 @@
           body: JSON.stringify(data)
         };
         
-        logToConsole(`[API] Making fetch request to ${url}...`, 'info');
+        if (!isHATrack) {
+          logToConsole(`[API] Making fetch request to ${url}...`, 'info');
+        }
         const response = await fetch(url, requestOptions);
         
-        logToConsole(`[API] Response status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
-        logToConsole(`[API] Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'info');
+        if (!isHATrack) {
+          logToConsole(`[API] Response status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+          logToConsole(`[API] Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`, 'info');
+        }
         
         if (!response.ok) {
           const errorText = await response.text();
-          logToConsole(`[API] Error response body: ${errorText}`, 'error');
+          if (!isHATrack) {
+            logToConsole(`[API] Error response body: ${errorText}`, 'error');
+          }
           throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
         
         const result = await response.json();
-        logToConsole(`[API] Response parsed successfully`, 'success');
-        logToConsole(`[API] Response keys: ${Object.keys(result).join(', ')}`, 'info');
+        if (!isHATrack) {
+          logToConsole(`[API] Response parsed successfully`, 'success');
+          logToConsole(`[API] Response keys: ${Object.keys(result).join(', ')}`, 'info');
+        }
         
         if (result.success) {
           // Don't log generic success for update_wm - handleWmUpdate will log detailed summary
-          if (endpoint !== 'update_wm') {
+          // Don't log ha-track at all
+          if (endpoint !== 'update_wm' && !isHATrack) {
             logToConsole(`[API] ${endpointDisplayName} Succeeded`, 'success');
           }
         } else {
-          logToConsole(`[API] ${endpointDisplayName} failed: ${result.error}`, 'error');
-          if (result.error) {
-            logToConsole(`[API] Error details: ${JSON.stringify(result.error, null, 2)}`, 'error');
+          if (!isHATrack) {
+            logToConsole(`[API] ${endpointDisplayName} failed: ${result.error}`, 'error');
+            if (result.error) {
+              logToConsole(`[API] Error details: ${JSON.stringify(result.error, null, 2)}`, 'error');
+            }
           }
         }
         
         return result;
       } catch (error) {
-        logToConsole(`[API] ${endpointDisplayName} exception: ${error.message}`, 'error');
-        logToConsole(`[API] Error stack: ${error.stack}`, 'error');
+        if (!isHATrack) {
+          logToConsole(`[API] ${endpointDisplayName} exception: ${error.message}`, 'error');
+          logToConsole(`[API] Error stack: ${error.stack}`, 'error');
+        }
         return { success: false, error: error.message };
       }
     }
