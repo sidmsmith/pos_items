@@ -1221,6 +1221,7 @@ def gallery_finalize():
                 if preview_url and preview_url != original_url:
                     try:
                         log_to_console(f"[GALLERY_FINALIZE] Falling back to preview URL for {file_name}...", "[INFO]")
+                        log_to_console(f"[GALLERY_FINALIZE] Preview URL: {preview_url[:100]}...", "[INFO]")
                         img_r = requests.get(preview_url, timeout=30, headers={
                             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                         })
@@ -1242,6 +1243,11 @@ def gallery_finalize():
                         log_to_console(f"[GALLERY_FINALIZE] Preview URL also failed for {file_name}: {str(e2)[:80]}", "[ERROR]")
                         return None
                 else:
+                    # Log why fallback didn't happen
+                    if not preview_url:
+                        log_to_console(f"[GALLERY_FINALIZE] No preview URL available for {file_name}, cannot fallback", "[WARNING]")
+                    elif preview_url == original_url:
+                        log_to_console(f"[GALLERY_FINALIZE] Preview URL same as original URL for {file_name}, cannot fallback", "[WARNING]")
                     return None
 
         if is_pos_format:
@@ -1253,9 +1259,12 @@ def gallery_finalize():
                     original_url = url1_data.get('originalUrl')
                     preview_url = url1_data.get('previewUrl')  # Fallback to Google cached thumbnail
                     file_name = url1_data.get('fileName') or f"{item_id}_1"
+                    log_to_console(f"[GALLERY_FINALIZE] URL1 for {item_id}: originalUrl={original_url[:80] if original_url else 'None'}..., previewUrl={preview_url[:80] if preview_url else 'None'}...", "[INFO]")
                     file_path = download_image(original_url, file_name, item_id, preview_url)
                     if file_path:
                         image_files.append(file_path)
+                    else:
+                        log_to_console(f"[GALLERY_FINALIZE] Failed to download URL1 for {item_id} (both original and preview URLs failed)", "[ERROR]")
                 
                 # Download URL2
                 url2_data = selections_data.get('url2')
@@ -1263,9 +1272,12 @@ def gallery_finalize():
                     original_url = url2_data.get('originalUrl')
                     preview_url = url2_data.get('previewUrl')  # Fallback to Google cached thumbnail
                     file_name = url2_data.get('fileName') or f"{item_id}_2"
+                    log_to_console(f"[GALLERY_FINALIZE] URL2 for {item_id}: originalUrl={original_url[:80] if original_url else 'None'}..., previewUrl={preview_url[:80] if preview_url else 'None'}...", "[INFO]")
                     file_path = download_image(original_url, file_name, item_id, preview_url)
                     if file_path:
                         image_files.append(file_path)
+                    else:
+                        log_to_console(f"[GALLERY_FINALIZE] Failed to download URL2 for {item_id} (both original and preview URLs failed)", "[ERROR]")
         else:
             # Legacy format: single image per item
             for item_id, selection in selection_map.items():

@@ -5358,9 +5358,27 @@
             const ext = urlExt ? urlExt[1] : 'jpg';
             const fullFilename2 = `${filename2}.${ext}`;
             
+            // Find previewUrl - check if it exists and is different from originalUrl
+            // If not in url2Variant, try to find it in googleVariants (in case user moved a Google image to URL2)
+            let previewUrl = null;
+            if (url2Variant.previewUrl && url2Variant.previewUrl !== url2Variant.originalUrl) {
+              previewUrl = url2Variant.previewUrl;
+            } else if (item.googleVariants) {
+              // Try to find matching variant in Google variants (user might have moved Google image to URL2)
+              const matchingGoogleVariant = item.googleVariants.find(v => 
+                v.originalUrl === url2Variant.originalUrl && 
+                v.previewUrl && 
+                v.previewUrl !== url2Variant.originalUrl
+              );
+              if (matchingGoogleVariant) {
+                previewUrl = matchingGoogleVariant.previewUrl;
+                logToConsole(`[GALLERY_FINALIZE] Found previewUrl for URL2 from googleVariants: ${previewUrl.substring(0, 80)}...`, 'info');
+              }
+            }
+            
             selection.url2 = {
               originalUrl: url2Variant.originalUrl,
-              previewUrl: url2Variant.previewUrl || url2Variant.originalUrl, // Fallback URL
+              previewUrl: previewUrl || undefined, // Only send if we found a valid previewUrl
               fileName: fullFilename2
             };
           }
