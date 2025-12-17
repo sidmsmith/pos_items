@@ -5344,6 +5344,7 @@
             
             selection.url1 = {
               originalUrl: url1Variant.originalUrl,
+              previewUrl: url1Variant.previewUrl || url1Variant.originalUrl, // Fallback URL
               fileName: fullFilename1
             };
           }
@@ -5359,6 +5360,7 @@
             
             selection.url2 = {
               originalUrl: url2Variant.originalUrl,
+              previewUrl: url2Variant.previewUrl || url2Variant.originalUrl, // Fallback URL
               fileName: fullFilename2
             };
           }

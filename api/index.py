@@ -1176,14 +1176,29 @@ def gallery_finalize():
     image_files = []
 
     try:
-        def download_image(original_url, file_name, item_id):
-            """Helper function to download a single image"""
+        def download_image(original_url, file_name, item_id, preview_url=None):
+            """Helper function to download a single image with fallback to preview URL
+            
+            Args:
+                original_url: Primary URL to try (original source)
+                file_name: Filename for the downloaded image
+                item_id: Item identifier for logging
+                preview_url: Fallback URL (Google cached thumbnail) if original fails
+            
+            Returns:
+                file_path if successful, None if both URLs fail
+            """
             if not original_url:
                 return None
             
+            # Try original URL first (higher quality)
             try:
+                log_to_console(f"[GALLERY_FINALIZE] Attempting to download {file_name} from original URL...", "[INFO]")
                 img_r = requests.get(original_url, timeout=30, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': original_url.split('/')[0] + '//' + original_url.split('/')[2] if '/' in original_url else ''
                 })
                 img_r.raise_for_status()
 
@@ -1197,10 +1212,37 @@ def gallery_finalize():
                 with open(file_path, "wb") as f:
                     f.write(img_r.content)
 
+                log_to_console(f"[GALLERY_FINALIZE] ✓ Successfully downloaded {file_name} from original URL", "[SUCCESS]")
                 return file_path
             except Exception as e:
-                log_to_console(f"[GALLERY_FINALIZE] Error downloading {file_name} from {original_url[:80]}: {str(e)[:80]}", "[WARNING]")
-                return None
+                log_to_console(f"[GALLERY_FINALIZE] Original URL failed for {file_name}: {str(e)[:80]}", "[WARNING]")
+                
+                # Fallback to preview URL if available (Google cached thumbnail)
+                if preview_url and preview_url != original_url:
+                    try:
+                        log_to_console(f"[GALLERY_FINALIZE] Falling back to preview URL for {file_name}...", "[INFO]")
+                        img_r = requests.get(preview_url, timeout=30, headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        })
+                        img_r.raise_for_status()
+
+                        extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
+                        if not file_name.lower().endswith(extension):
+                            file_name = re.sub(r'\.[^.]+$', '', file_name)
+                            file_name = f"{file_name}{extension}"
+
+                        safe_name = file_name
+                        file_path = os.path.join(temp_dir, safe_name)
+                        with open(file_path, "wb") as f:
+                            f.write(img_r.content)
+
+                        log_to_console(f"[GALLERY_FINALIZE] ✓ Successfully downloaded {file_name} from preview URL (fallback)", "[SUCCESS]")
+                        return file_path
+                    except Exception as e2:
+                        log_to_console(f"[GALLERY_FINALIZE] Preview URL also failed for {file_name}: {str(e2)[:80]}", "[ERROR]")
+                        return None
+                else:
+                    return None
 
         if is_pos_format:
             # POS items format: download URL1 and URL2 for each item
@@ -1209,8 +1251,9 @@ def gallery_finalize():
                 url1_data = selections_data.get('url1')
                 if url1_data:
                     original_url = url1_data.get('originalUrl')
+                    preview_url = url1_data.get('previewUrl')  # Fallback to Google cached thumbnail
                     file_name = url1_data.get('fileName') or f"{item_id}_1"
-                    file_path = download_image(original_url, file_name, item_id)
+                    file_path = download_image(original_url, file_name, item_id, preview_url)
                     if file_path:
                         image_files.append(file_path)
                 
@@ -1218,27 +1261,20 @@ def gallery_finalize():
                 url2_data = selections_data.get('url2')
                 if url2_data:
                     original_url = url2_data.get('originalUrl')
+                    preview_url = url2_data.get('previewUrl')  # Fallback to Google cached thumbnail
                     file_name = url2_data.get('fileName') or f"{item_id}_2"
-                    file_path = download_image(original_url, file_name, item_id)
+                    file_path = download_image(original_url, file_name, item_id, preview_url)
                     if file_path:
                         image_files.append(file_path)
         else:
             # Legacy format: single image per item
             for item_id, selection in selection_map.items():
                 original_url = selection.get('originalUrl')
+                preview_url = selection.get('previewUrl')  # Fallback to Google cached thumbnail
                 file_name = selection.get('fileName') or item_id
-                file_path = download_image(original_url, file_name, item_id)
+                file_path = download_image(original_url, file_name, item_id, preview_url)
                 if file_path:
                     image_files.append(file_path)
-
-            # CSV row generation commented out - not needed for testing
-            # csv_row = [""] * 16
-            # csv_row[0] = reference_id or item_id
-            # csv_row[1] = short_desc
-            # csv_row[2] = description
-            # csv_row[3] = f"{prefix}{safe_name}" if prefix else safe_name
-            # csv_row[15] = source
-            # csv_rows.append(csv_row)
 
         # CSV replication logic commented out - not needed for testing
         # if reference_items:
