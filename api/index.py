@@ -15,6 +15,7 @@ import io
 import base64
 from datetime import datetime
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -418,6 +419,45 @@ def ha_track():
 def app_opened():
     """Track app opened event"""
     return jsonify({"success": True})
+
+@app.route('/api/proxy_image', methods=['GET'])
+def proxy_image():
+    """Proxy image downloads to avoid CORS issues in browser
+    
+    Query parameters:
+    - url: The image URL to download and proxy
+    """
+    image_url = request.args.get('url')
+    if not image_url:
+        return jsonify({"success": False, "error": "Missing 'url' parameter"}), 400
+    
+    try:
+        # Download the image with appropriate timeout
+        r = requests.get(image_url, timeout=20, stream=True, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        r.raise_for_status()
+        
+        # Check if it's actually an image
+        content_type = r.headers.get("content-type", "").lower()
+        if not content_type.startswith("image/"):
+            return jsonify({"success": False, "error": f"URL does not point to an image (content-type: {content_type})"}), 400
+        
+        # Return the image with appropriate headers
+        return Response(
+            r.content,
+            mimetype=content_type,
+            headers={
+                'Cache-Control': 'public, max-age=3600',
+                'Access-Control-Allow-Origin': '*'
+            }
+        )
+    except requests.exceptions.Timeout:
+        return jsonify({"success": False, "error": "Timeout downloading image"}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({"success": False, "error": f"Failed to download: {str(e)[:80]}"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error: {str(e)[:80]}"}), 500
 
 @app.route('/api/auth', methods=['POST'])
 def auth():
@@ -837,14 +877,166 @@ def gallery_generate():
         log_to_console(f"Gallery generate failed: {str(e)}", "[ERROR]")
         return jsonify({"success": False, "error": str(e)}), 500
 
+def process_single_pos_item(pos_item, sites, images_per_item, filters, start_index):
+    """Process a single POS item in parallel
+    
+    Returns:
+        tuple: (item_payload_dict, missing_item_dict or None)
+    """
+    item_id = pos_item.get('itemId', '')
+    image_url1 = pos_item.get('imageURL1', '').strip()
+    image_url2 = pos_item.get('imageURL2', '').strip()
+    short_description = pos_item.get('shortDescription', item_id).strip()
+
+    if not item_id:
+        return None, {
+            "itemId": item_id or "Unknown",
+            "productName": short_description,
+            "reason": "Missing ItemID"
+        }
+
+    # Download ImageURL1 and ImageURL2 in parallel
+    url1_variants = []
+    url2_variants = []
+    
+    def process_url1():
+        if image_url1:
+            variant, error = download_image_from_url(image_url1, item_id, "URL1")
+            if variant:
+                return variant
+            else:
+                log_to_console(f"URL1 failed for {item_id}: {error}", "[WARNING]")
+                return create_placeholder_variant(item_id, "URL1")
+        else:
+            log_to_console(f"URL1 empty for {item_id}", "[WARNING]")
+            return create_placeholder_variant(item_id, "URL1")
+    
+    def process_url2():
+        if image_url2:
+            variant, error = download_image_from_url(image_url2, item_id, "URL2")
+            if variant:
+                return variant
+            else:
+                log_to_console(f"URL2 failed for {item_id}: {error}", "[WARNING]")
+                return create_placeholder_variant(item_id, "URL2")
+        else:
+            log_to_console(f"URL2 empty for {item_id}", "[WARNING]")
+            return create_placeholder_variant(item_id, "URL2")
+    
+    # Process URL1 and URL2 downloads in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        url1_future = executor.submit(process_url1)
+        url2_future = executor.submit(process_url2)
+        url1_variants.append(url1_future.result())
+        url2_variants.append(url2_future.result())
+
+    # Search Google Images using ShortDescription
+    google_variants = []
+    log_to_console(f"[GOOGLE] Starting Google Images search for {item_id}", "[INFO]")
+    log_to_console(f"[GOOGLE] ShortDescription: '{short_description}'", "[INFO]")
+    log_to_console(f"[GOOGLE] Images per item: {images_per_item}, Start index: {start_index}", "[INFO]")
+    log_to_console(f"[GOOGLE] Sites: {sites}, Filters: {filters}", "[INFO]")
+    
+    if short_description:
+        log_to_console(f"[GOOGLE] ShortDescription found, proceeding with Google Images search", "[INFO]")
+        # Fetch Google Images variants
+        if images_per_item <= 10:
+            log_to_console(f"[GOOGLE] Single API call (images_per_item={images_per_item} <= 10)", "[INFO]")
+            variants, last_error = fetch_image_variants(short_description, item_id, sites, images_per_item, filters, start=start_index)
+            google_variants = variants
+            log_to_console(f"[GOOGLE] Single call returned {len(variants)} variants, error: {last_error or 'None'}", "[INFO]" if not last_error else "[WARNING]")
+        else:
+            log_to_console(f"[GOOGLE] Multiple API calls needed (images_per_item={images_per_item} > 10)", "[INFO]")
+            # Multiple API calls with pagination
+            remaining = images_per_item
+            current_start = start_index
+            last_error = None
+            all_google_variants = []
+            
+            while remaining > 0 and len(all_google_variants) < images_per_item:
+                batch_size = min(10, remaining)
+                log_to_console(f"[GOOGLE] Batch call: batch_size={batch_size}, start={current_start}, remaining={remaining}", "[INFO]")
+                variants, batch_error = fetch_image_variants(short_description, item_id, sites, batch_size, filters, start=current_start)
+                log_to_console(f"[GOOGLE] Batch returned {len(variants)} variants, error: {batch_error or 'None'}", "[INFO]" if not batch_error else "[WARNING]")
+                
+                if batch_error:
+                    last_error = batch_error
+                    if not variants:
+                        log_to_console(f"[GOOGLE] Batch error and no variants, stopping pagination", "[WARNING]")
+                        break
+                
+                all_google_variants.extend(variants)
+                remaining -= len(variants)
+                current_start += len(variants)
+                
+                if len(variants) < batch_size:
+                    log_to_console(f"[GOOGLE] Received fewer variants than requested ({len(variants)} < {batch_size}), stopping", "[INFO]")
+                    break
+            
+            google_variants = all_google_variants[:images_per_item]
+            log_to_console(f"[GOOGLE] Total Google variants collected: {len(google_variants)}", "[INFO]")
+        
+        if not google_variants:
+            log_to_console(f"[GOOGLE] No Google Images found for {item_id} (search: '{short_description}')", "[WARNING]")
+        else:
+            log_to_console(f"[GOOGLE] ✓ Successfully fetched {len(google_variants)} Google Images for {item_id}", "[SUCCESS]")
+    else:
+        log_to_console(f"[GOOGLE] No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
+
+    # Build item payload
+    item_payload = {
+        "itemId": item_id,
+        "ShortDescription": pos_item.get("shortDescription", ""),  # Preserve ShortDescription from input
+        "url1Variants": [
+            {
+                "fileName": v["fileName"],
+                "previewUrl": v["previewUrl"],
+                "originalUrl": v["originalUrl"],
+                "source": v["source"],
+                "shortDescription": v["shortDescription"],
+                "description": v["description"],
+                "isPlaceholder": v.get("isPlaceholder", False)
+            }
+            for v in url1_variants
+        ],
+        "url2Variants": [
+            {
+                "fileName": v["fileName"],
+                "previewUrl": v["previewUrl"],
+                "originalUrl": v["originalUrl"],
+                "source": v["source"],
+                "shortDescription": v["shortDescription"],
+                "description": v["description"],
+                "isPlaceholder": v.get("isPlaceholder", False)
+            }
+            for v in url2_variants
+        ],
+        "googleVariants": [
+            {
+                "fileName": v["fileName"],
+                "previewUrl": v["previewUrl"],
+                "originalUrl": v["originalUrl"],
+                "source": v["source"],
+                "shortDescription": v["shortDescription"],
+                "description": v["description"],
+                "isPlaceholder": v.get("isPlaceholder", False)
+            }
+            for v in google_variants
+        ]
+    }
+    
+    return item_payload, None
+
 def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, start_index):
-    """Handle gallery generation for POS items format
+    """Handle gallery generation for POS items format with parallel processing
     
     For each POS item:
     1. Download ImageURL1 (or create placeholder if failed)
     2. Download ImageURL2 (or create placeholder if failed)
     3. Search Google Images using ShortDescription
     4. Build url1Variants and url2Variants arrays
+    
+    Uses parallel processing to handle multiple items simultaneously.
     """
     filters, filter_error = parse_image_filters(filter_str)
     if filter_error:
@@ -857,145 +1049,36 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
     missing_items = []
 
     try:
-        for pos_item in pos_items:
-            item_id = pos_item.get('itemId', '')
-            image_url1 = pos_item.get('imageURL1', '').strip()
-            image_url2 = pos_item.get('imageURL2', '').strip()
-            short_description = pos_item.get('shortDescription', item_id).strip()
-
-            if not item_id:
-                missing_items.append({
-                    "itemId": item_id or "Unknown",
-                    "productName": short_description,
-                    "reason": "Missing ItemID"
-                })
-                continue
-
-            # Download ImageURL1
-            url1_variants = []
-            if image_url1:
-                variant, error = download_image_from_url(image_url1, item_id, "URL1")
-                if variant:
-                    url1_variants.append(variant)
-                else:
-                    # Create placeholder for failed URL1
-                    url1_variants.append(create_placeholder_variant(item_id, "URL1"))
-                    log_to_console(f"URL1 failed for {item_id}: {error}", "[WARNING]")
-            else:
-                # Create placeholder for empty URL1
-                url1_variants.append(create_placeholder_variant(item_id, "URL1"))
-                log_to_console(f"URL1 empty for {item_id}", "[WARNING]")
-
-            # Download ImageURL2
-            url2_variants = []
-            if image_url2:
-                variant, error = download_image_from_url(image_url2, item_id, "URL2")
-                if variant:
-                    url2_variants.append(variant)
-                else:
-                    # Create placeholder for failed URL2
-                    url2_variants.append(create_placeholder_variant(item_id, "URL2"))
-                    log_to_console(f"URL2 failed for {item_id}: {error}", "[WARNING]")
-            else:
-                # Create placeholder for empty URL2
-                url2_variants.append(create_placeholder_variant(item_id, "URL2"))
-                log_to_console(f"URL2 empty for {item_id}", "[WARNING]")
-
-            # Search Google Images using ShortDescription
-            google_variants = []
-            log_to_console(f"[GOOGLE] Starting Google Images search for {item_id}", "[INFO]")
-            log_to_console(f"[GOOGLE] ShortDescription: '{short_description}'", "[INFO]")
-            log_to_console(f"[GOOGLE] Images per item: {images_per_item}, Start index: {start_index}", "[INFO]")
-            log_to_console(f"[GOOGLE] Sites: {sites}, Filters: {filters}", "[INFO]")
+        # Process items in parallel (max 5 concurrent items to avoid overwhelming APIs)
+        max_workers = min(5, len(pos_items))
+        log_to_console(f"[PARALLEL] Processing {len(pos_items)} items with {max_workers} workers", "[INFO]")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all items for processing
+            future_to_item = {
+                executor.submit(process_single_pos_item, pos_item, sites, images_per_item, filters, start_index): pos_item
+                for pos_item in pos_items
+            }
             
-            if short_description:
-                log_to_console(f"[GOOGLE] ShortDescription found, proceeding with Google Images search", "[INFO]")
-                # Fetch Google Images variants
-                if images_per_item <= 10:
-                    log_to_console(f"[GOOGLE] Single API call (images_per_item={images_per_item} <= 10)", "[INFO]")
-                    variants, last_error = fetch_image_variants(short_description, item_id, sites, images_per_item, filters, start=start_index)
-                    google_variants = variants
-                    log_to_console(f"[GOOGLE] Single call returned {len(variants)} variants, error: {last_error or 'None'}", "[INFO]" if not last_error else "[WARNING]")
-                else:
-                    log_to_console(f"[GOOGLE] Multiple API calls needed (images_per_item={images_per_item} > 10)", "[INFO]")
-                    # Multiple API calls with pagination
-                    remaining = images_per_item
-                    current_start = start_index
-                    last_error = None
-                    all_google_variants = []
-                    
-                    while remaining > 0 and len(all_google_variants) < images_per_item:
-                        batch_size = min(10, remaining)
-                        log_to_console(f"[GOOGLE] Batch call: batch_size={batch_size}, start={current_start}, remaining={remaining}", "[INFO]")
-                        variants, batch_error = fetch_image_variants(short_description, item_id, sites, batch_size, filters, start=current_start)
-                        log_to_console(f"[GOOGLE] Batch returned {len(variants)} variants, error: {batch_error or 'None'}", "[INFO]" if not batch_error else "[WARNING]")
-                        
-                        if batch_error:
-                            last_error = batch_error
-                            if not variants:
-                                log_to_console(f"[GOOGLE] Batch error and no variants, stopping pagination", "[WARNING]")
-                                break
-                        
-                        all_google_variants.extend(variants)
-                        remaining -= len(variants)
-                        current_start += len(variants)
-                        
-                        if len(variants) < batch_size:
-                            log_to_console(f"[GOOGLE] Received fewer variants than requested ({len(variants)} < {batch_size}), stopping", "[INFO]")
-                            break
-                    
-                    google_variants = all_google_variants[:images_per_item]
-                    log_to_console(f"[GOOGLE] Total Google variants collected: {len(google_variants)}", "[INFO]")
-                
-                if not google_variants:
-                    log_to_console(f"[GOOGLE] No Google Images found for {item_id} (search: '{short_description}')", "[WARNING]")
-                else:
-                    log_to_console(f"[GOOGLE] ✓ Successfully fetched {len(google_variants)} Google Images for {item_id}", "[SUCCESS]")
-            else:
-                log_to_console(f"[GOOGLE] No ShortDescription for {item_id}, skipping Google Images search", "[WARNING]")
+            # Collect results as they complete
+            for future in as_completed(future_to_item):
+                try:
+                    item_payload, missing_item = future.result()
+                    if item_payload:
+                        items_payload.append(item_payload)
+                    if missing_item:
+                        missing_items.append(missing_item)
+                except Exception as e:
+                    pos_item = future_to_item[future]
+                    item_id = pos_item.get('itemId', 'Unknown')
+                    log_to_console(f"[PARALLEL] Error processing {item_id}: {str(e)}", "[ERROR]")
+                    missing_items.append({
+                        "itemId": item_id,
+                        "productName": pos_item.get('shortDescription', ''),
+                        "reason": f"Processing error: {str(e)[:80]}"
+                    })
 
-            # Keep URL1 and URL2 separate, Google images separate
-            # Build item payload with separate arrays
-            items_payload.append({
-                "itemId": item_id,
-                "ShortDescription": pos_item.get("shortDescription", ""),  # Preserve ShortDescription from input
-                "url1Variants": [
-                    {
-                        "fileName": v["fileName"],
-                        "previewUrl": v["previewUrl"],
-                        "originalUrl": v["originalUrl"],
-                        "source": v["source"],
-                        "shortDescription": v["shortDescription"],
-                        "description": v["description"],
-                        "isPlaceholder": v.get("isPlaceholder", False)
-                    }
-                    for v in url1_variants
-                ],
-                "url2Variants": [
-                    {
-                        "fileName": v["fileName"],
-                        "previewUrl": v["previewUrl"],
-                        "originalUrl": v["originalUrl"],
-                        "source": v["source"],
-                        "shortDescription": v["shortDescription"],
-                        "description": v["description"],
-                        "isPlaceholder": v.get("isPlaceholder", False)
-                    }
-                    for v in url2_variants
-                ],
-                "googleVariants": [
-                    {
-                        "fileName": v["fileName"],
-                        "previewUrl": v["previewUrl"],
-                        "originalUrl": v["originalUrl"],
-                        "source": v["source"],
-                        "shortDescription": v["shortDescription"],
-                        "description": v["description"],
-                        "isPlaceholder": v.get("isPlaceholder", False)
-                    }
-                    for v in google_variants
-                ]
-            })
+        log_to_console(f"[PARALLEL] Completed processing: {len(items_payload)} successful, {len(missing_items)} failed", "[INFO]")
 
         return jsonify({
             "success": True,

@@ -5331,7 +5331,7 @@
           // Skip items that are marked as skipped
           if (isSkipped) return;
           
-          // Download position 1 (URL1) image
+          // Download position 1 (URL1) image via proxy to avoid CORS issues
           const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
           if (url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename1 = `${item.itemId}_1`;
@@ -5340,9 +5340,16 @@
             const ext = urlExt ? urlExt[1] : 'jpg';
             const fullFilename1 = `${filename1}.${ext}`;
             
+            // Use proxy endpoint to avoid CORS issues
+            const proxyUrl = `/api/proxy_image?url=${encodeURIComponent(url1Variant.originalUrl)}`;
             imagePromises.push(
-              fetch(url1Variant.originalUrl)
-                .then(response => response.blob())
+              fetch(proxyUrl)
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                  }
+                  return response.blob();
+                })
                 .then(blob => {
                   zip.file(fullFilename1, blob);
                   logToConsole(`[ZIP] Added ${item.itemId} position 1: ${fullFilename1}`, 'info');
@@ -5353,7 +5360,7 @@
             );
           }
           
-          // Download position 2 (URL2) image
+          // Download position 2 (URL2) image via proxy to avoid CORS issues
           const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
           if (url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename2 = `${item.itemId}_2`;
@@ -5362,9 +5369,16 @@
             const ext = urlExt ? urlExt[1] : 'jpg';
             const fullFilename2 = `${filename2}.${ext}`;
             
+            // Use proxy endpoint to avoid CORS issues
+            const proxyUrl = `/api/proxy_image?url=${encodeURIComponent(url2Variant.originalUrl)}`;
             imagePromises.push(
-              fetch(url2Variant.originalUrl)
-                .then(response => response.blob())
+              fetch(proxyUrl)
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                  }
+                  return response.blob();
+                })
                 .then(blob => {
                   zip.file(fullFilename2, blob);
                   logToConsole(`[ZIP] Added ${item.itemId} position 2: ${fullFilename2}`, 'info');
