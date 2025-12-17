@@ -431,33 +431,69 @@ def proxy_image():
     if not image_url:
         return jsonify({"success": False, "error": "Missing 'url' parameter"}), 400
     
-    try:
-        # Download the image with appropriate timeout
-        r = requests.get(image_url, timeout=20, stream=True, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        r.raise_for_status()
-        
-        # Check if it's actually an image
-        content_type = r.headers.get("content-type", "").lower()
-        if not content_type.startswith("image/"):
-            return jsonify({"success": False, "error": f"URL does not point to an image (content-type: {content_type})"}), 400
-        
-        # Return the image with appropriate headers
-        return Response(
-            r.content,
-            mimetype=content_type,
-            headers={
-                'Cache-Control': 'public, max-age=3600',
-                'Access-Control-Allow-Origin': '*'
-            }
-        )
-    except requests.exceptions.Timeout:
-        return jsonify({"success": False, "error": "Timeout downloading image"}), 504
-    except requests.exceptions.RequestException as e:
-        return jsonify({"success": False, "error": f"Failed to download: {str(e)[:80]}"}), 500
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Error: {str(e)[:80]}"}), 500
+    # Retry logic with exponential backoff
+    max_retries = 3
+    timeout = 30  # Increased timeout to 30 seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Download the image with increased timeout and streaming
+            r = requests.get(
+                image_url, 
+                timeout=timeout, 
+                stream=True, 
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': image_url.split('/')[0] + '//' + image_url.split('/')[2] if '/' in image_url else ''
+                },
+                allow_redirects=True
+            )
+            r.raise_for_status()
+            
+            # Check if it's actually an image
+            content_type = r.headers.get("content-type", "").lower()
+            if not content_type.startswith("image/"):
+                return jsonify({"success": False, "error": f"URL does not point to an image (content-type: {content_type})"}), 400
+            
+            # For streaming, we need to read the content first since Vercel serverless functions
+            # may not support true streaming. Read in chunks to avoid memory issues.
+            content = b''
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    content += chunk
+            
+            # Return the image with appropriate headers
+            return Response(
+                content,
+                mimetype=content_type,
+                headers={
+                    'Cache-Control': 'public, max-age=3600',
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Length': str(len(content))
+                }
+            )
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                log_to_console(f"[PROXY] Timeout on attempt {attempt + 1}/{max_retries} for {image_url[:80]}...", "[WARNING]")
+                continue
+            else:
+                log_to_console(f"[PROXY] Timeout after {max_retries} attempts for {image_url[:80]}...", "[ERROR]")
+                return jsonify({"success": False, "error": "Timeout downloading image after retries"}), 504
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries - 1:
+                log_to_console(f"[PROXY] Request error on attempt {attempt + 1}/{max_retries}: {str(e)[:80]}", "[WARNING]")
+                continue
+            else:
+                log_to_console(f"[PROXY] Request failed after {max_retries} attempts: {str(e)[:80]}", "[ERROR]")
+                return jsonify({"success": False, "error": f"Failed to download: {str(e)[:80]}"}), 500
+        except Exception as e:
+            log_to_console(f"[PROXY] Unexpected error: {str(e)[:80]}", "[ERROR]")
+            return jsonify({"success": False, "error": f"Error: {str(e)[:80]}"}), 500
+    
+    # Should not reach here, but just in case
+    return jsonify({"success": False, "error": "Failed after all retries"}), 500
 
 @app.route('/api/auth', methods=['POST'])
 def auth():
