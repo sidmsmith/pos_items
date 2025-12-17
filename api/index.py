@@ -4,7 +4,10 @@ import json
 import os
 import requests
 from requests.auth import HTTPBasicAuth
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import urllib3
+import time
 import csv
 import re
 import tempfile
@@ -1174,8 +1177,40 @@ def gallery_finalize():
     temp_dir = tempfile.mkdtemp(prefix="gallery_finalize_")
     # csv_rows = []  # Commented out - CSV generation disabled
     image_files = []
+    session = None  # Initialize session variable for cleanup
 
     try:
+        # Create a session with retry strategy and enhanced headers for connection reuse
+        session = requests.Session()
+        
+        # Configure retry strategy with exponential backoff
+        retry_strategy = Retry(
+            total=3,  # Total number of retries
+            backoff_factor=1,  # Wait 1s, 2s, 4s between retries (exponential)
+            status_forcelist=[429, 500, 502, 503, 504],  # Retry on these status codes
+            allowed_methods=["GET"],  # Only retry GET requests
+            raise_on_status=False  # Don't raise exception, let us handle it
+        )
+        
+        # Mount retry adapter for both HTTP and HTTPS
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        # Set default headers for all requests in this session
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Sec-Fetch-Dest': 'image',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site'
+        })
+        
         def download_image(original_url, file_name, item_id, preview_url=None):
             """Helper function to download a single image with fallback to preview URL
             
@@ -1191,15 +1226,30 @@ def gallery_finalize():
             if not original_url:
                 return None
             
-            # Try original URL first (higher quality)
+            # Try original URL first (higher quality) with retry logic
             try:
                 log_to_console(f"[GALLERY_FINALIZE] Attempting to download {file_name} from original URL...", "[INFO]")
-                img_r = requests.get(original_url, timeout=30, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Referer': original_url.split('/')[0] + '//' + original_url.split('/')[2] if '/' in original_url else ''
-                })
+                
+                # Build enhanced headers with proper Referer and Origin
+                url_parts = original_url.split('/')
+                if len(url_parts) >= 3:
+                    domain = url_parts[0] + '//' + url_parts[2]
+                    referer = domain + '/'
+                    origin = domain
+                else:
+                    referer = original_url
+                    origin = ''
+                
+                # Use session with enhanced headers (session already has default headers)
+                img_r = session.get(
+                    original_url, 
+                    timeout=30,
+                    headers={
+                        'Referer': referer,
+                        'Origin': origin
+                    },
+                    stream=True  # Use streaming for better memory efficiency
+                )
                 img_r.raise_for_status()
 
                 extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
@@ -1222,9 +1272,13 @@ def gallery_finalize():
                     try:
                         log_to_console(f"[GALLERY_FINALIZE] Falling back to preview URL for {file_name}...", "[INFO]")
                         log_to_console(f"[GALLERY_FINALIZE] Preview URL: {preview_url[:100]}...", "[INFO]")
-                        img_r = requests.get(preview_url, timeout=30, headers={
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                        })
+                        
+                        # Use session for preview URL as well (with retry logic)
+                        img_r = session.get(
+                            preview_url, 
+                            timeout=30,
+                            stream=True  # Use streaming
+                        )
                         img_r.raise_for_status()
 
                         extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
@@ -1234,8 +1288,12 @@ def gallery_finalize():
 
                         safe_name = file_name
                         file_path = os.path.join(temp_dir, safe_name)
+                        
+                        # Write in chunks for better memory efficiency (streaming)
                         with open(file_path, "wb") as f:
-                            f.write(img_r.content)
+                            for chunk in img_r.iter_content(chunk_size=8192):
+                                if chunk:
+                                    f.write(chunk)
 
                         log_to_console(f"[GALLERY_FINALIZE] ✓ Successfully downloaded {file_name} from preview URL (fallback)", "[SUCCESS]")
                         return file_path
@@ -1346,6 +1404,13 @@ def gallery_finalize():
         log_to_console(f"Gallery finalize failed: {str(e)}", "[ERROR]")
         return jsonify({"success": False, "error": str(e)}), 500
     finally:
+        # Close session to free up connections
+        if session:
+            try:
+                session.close()
+            except Exception:
+                pass
+        # Clean up temp directory
         try:
             shutil.rmtree(temp_dir, ignore_errors=True)
         except Exception:
