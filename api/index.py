@@ -1129,6 +1129,10 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
 def gallery_finalize():
     """Finalize gallery selections by re-downloading selected images and building ZIP
     
+    Supports both:
+    1. Legacy format: selections array with single image per item
+    2. POS items format: selections array with url1 and url2 per item
+    
     NOTE: CSV generation is currently commented out for testing purposes.
     The code is preserved but disabled to avoid requiring Reference Items CSV updates.
     """
@@ -1141,7 +1145,25 @@ def gallery_finalize():
     if not selections:
         return jsonify({"success": False, "error": "No selections were provided."}), 400
 
-    selection_map = {s.get('itemId'): s for s in selections if s.get('itemId')}
+    # Check if using POS items format (has url1/url2) or legacy format (single selection per item)
+    is_pos_format = any('url1' in s or 'url2' in s for s in selections)
+    
+    if is_pos_format:
+        # POS items format: selections grouped by itemId with url1 and url2
+        selection_map = {}
+        for s in selections:
+            item_id = s.get('itemId')
+            if not item_id:
+                continue
+            if item_id not in selection_map:
+                selection_map[item_id] = {}
+            if 'url1' in s:
+                selection_map[item_id]['url1'] = s['url1']
+            if 'url2' in s:
+                selection_map[item_id]['url2'] = s['url2']
+    else:
+        # Legacy format: single selection per item
+        selection_map = {s.get('itemId'): s for s in selections if s.get('itemId')}
 
     # Commented out - CSV validation not needed for testing
     # if required_items:
@@ -1154,41 +1176,60 @@ def gallery_finalize():
     image_files = []
 
     try:
-        for item_id, selection in selection_map.items():
-            original_url = selection.get('originalUrl')
-            file_name = selection.get('fileName') or item_id
-            # short_desc = selection.get('shortDescription') or item_id  # Commented out - CSV only
-            # description = selection.get('description') or short_desc  # Commented out - CSV only
-            # source = selection.get('source') or ""  # Commented out - CSV only
-            # product_name = selection.get('productName') or item_id  # Commented out - CSV only
-            # reference_id = selection.get('referenceId')  # Commented out - CSV only
-
+        def download_image(original_url, file_name, item_id):
+            """Helper function to download a single image"""
             if not original_url:
-                raise ValueError(f"No image URL provided for {item_id}")
+                return None
+            
+            try:
+                img_r = requests.get(original_url, timeout=30, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                })
+                img_r.raise_for_status()
 
-            img_r = requests.get(original_url, timeout=20)
-            img_r.raise_for_status()
+                extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
+                if not file_name.lower().endswith(extension):
+                    file_name = re.sub(r'\.[^.]+$', '', file_name)
+                    file_name = f"{file_name}{extension}"
 
-            extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
-            if not file_name.lower().endswith(extension):
-                file_name = re.sub(r'\.[^.]+$', '', file_name)
-                file_name = f"{file_name}{extension}"
+                safe_name = file_name
+                file_path = os.path.join(temp_dir, safe_name)
+                with open(file_path, "wb") as f:
+                    f.write(img_r.content)
 
-            # base_slug_source = product_name or short_desc or item_id  # Commented out - CSV only
-            # base_slug = re.sub(r'[^A-Za-z0-9]+', '_', base_slug_source).strip('_')  # Commented out - CSV only
-            # if not base_slug:  # Commented out - CSV only
-            #     base_slug = "image"  # Commented out - CSV only
-            # name_without_ext = os.path.splitext(file_name)[0]  # Commented out - CSV only
-            # match_suffix = re.search(r'(_v\d+)$', name_without_ext, re.IGNORECASE)  # Commented out - CSV only
-            # variant_suffix = match_suffix.group(1) if match_suffix else ''  # Commented out - CSV only
-            # safe_base = re.sub(r'[^A-Za-z0-9_-]', '_', base_slug) + variant_suffix  # Commented out - CSV only
-            # safe_name = f"{safe_base}{extension}"  # Commented out - CSV only
-            safe_name = file_name  # Use file_name directly for ZIP
-            file_path = os.path.join(temp_dir, safe_name)
-            with open(file_path, "wb") as f:
-                f.write(img_r.content)
+                return file_path
+            except Exception as e:
+                log_to_console(f"[GALLERY_FINALIZE] Error downloading {file_name} from {original_url[:80]}: {str(e)[:80]}", "[WARNING]")
+                return None
 
-            image_files.append(file_path)
+        if is_pos_format:
+            # POS items format: download URL1 and URL2 for each item
+            for item_id, selections_data in selection_map.items():
+                # Download URL1
+                url1_data = selections_data.get('url1')
+                if url1_data:
+                    original_url = url1_data.get('originalUrl')
+                    file_name = url1_data.get('fileName') or f"{item_id}_1"
+                    file_path = download_image(original_url, file_name, item_id)
+                    if file_path:
+                        image_files.append(file_path)
+                
+                # Download URL2
+                url2_data = selections_data.get('url2')
+                if url2_data:
+                    original_url = url2_data.get('originalUrl')
+                    file_name = url2_data.get('fileName') or f"{item_id}_2"
+                    file_path = download_image(original_url, file_name, item_id)
+                    if file_path:
+                        image_files.append(file_path)
+        else:
+            # Legacy format: single image per item
+            for item_id, selection in selection_map.items():
+                original_url = selection.get('originalUrl')
+                file_name = selection.get('fileName') or item_id
+                file_path = download_image(original_url, file_name, item_id)
+                if file_path:
+                    image_files.append(file_path)
 
             # CSV row generation commented out - not needed for testing
             # csv_row = [""] * 16

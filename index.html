@@ -5317,12 +5317,12 @@
 
       galleryLoading = true;
       updateGalleryToolbar();
-      setGalleryStatus('Creating zip file with images from positions 1 and 2...');
+      setGalleryStatus('Downloading images from server...');
 
       try {
-        // Create a zip file with images from positions 1 and 2 for each item
-        const zip = new JSZip();
-        const imagePromises = [];
+        // Build selections array for gallery_finalize API call
+        // Format: [{itemId, url1: {originalUrl, fileName}, url2: {originalUrl, fileName}}, ...]
+        const selections = [];
         
         galleryItems.forEach((item, itemIndex) => {
           const uniqueKey = getUniqueKey(itemIndex, item.itemId);
@@ -5331,7 +5331,9 @@
           // Skip items that are marked as skipped
           if (isSkipped) return;
           
-          // Download position 1 (URL1) image via proxy to avoid CORS issues
+          const selection = { itemId: item.itemId };
+          
+          // Add URL1 selection
           const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
           if (url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename1 = `${item.itemId}_1`;
@@ -5340,27 +5342,13 @@
             const ext = urlExt ? urlExt[1] : 'jpg';
             const fullFilename1 = `${filename1}.${ext}`;
             
-            // Use proxy endpoint to avoid CORS issues
-            const proxyUrl = `/api/proxy_image?url=${encodeURIComponent(url1Variant.originalUrl)}`;
-            imagePromises.push(
-              fetch(proxyUrl)
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                  }
-                  return response.blob();
-                })
-                .then(blob => {
-                  zip.file(fullFilename1, blob);
-                  logToConsole(`[ZIP] Added ${item.itemId} position 1: ${fullFilename1}`, 'info');
-                })
-                .catch(error => {
-                  logToConsole(`[ZIP] Error fetching ${item.itemId} position 1: ${error.message}`, 'error');
-                })
-            );
+            selection.url1 = {
+              originalUrl: url1Variant.originalUrl,
+              fileName: fullFilename1
+            };
           }
           
-          // Download position 2 (URL2) image via proxy to avoid CORS issues
+          // Add URL2 selection
           const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
           if (url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_') {
             const filename2 = `${item.itemId}_2`;
@@ -5369,29 +5357,35 @@
             const ext = urlExt ? urlExt[1] : 'jpg';
             const fullFilename2 = `${filename2}.${ext}`;
             
-            // Use proxy endpoint to avoid CORS issues
-            const proxyUrl = `/api/proxy_image?url=${encodeURIComponent(url2Variant.originalUrl)}`;
-            imagePromises.push(
-              fetch(proxyUrl)
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                  }
-                  return response.blob();
-                })
-                .then(blob => {
-                  zip.file(fullFilename2, blob);
-                  logToConsole(`[ZIP] Added ${item.itemId} position 2: ${fullFilename2}`, 'info');
-                })
-                .catch(error => {
-                  logToConsole(`[ZIP] Error fetching ${item.itemId} position 2: ${error.message}`, 'error');
-                })
-            );
+            selection.url2 = {
+              originalUrl: url2Variant.originalUrl,
+              fileName: fullFilename2
+            };
+          }
+          
+          if (selection.url1 || selection.url2) {
+            selections.push(selection);
           }
         });
         
-        // Wait for all images to be added to zip
-        await Promise.all(imagePromises);
+        // Get Cloudinary prefix
+        const prefixInput = document.getElementById('prefix');
+        const prefix = prefixInput ? prefixInput.value.trim() : '';
+        
+        // Call gallery_finalize API to download images server-side and create ZIP
+        logToConsole(`[GALLERY_FINALIZE] Calling API with ${selections.length} items...`, 'info');
+        const payload = {
+          selections: selections,
+          prefix: prefix
+        };
+        
+        const result = await apiCall('gallery_finalize', payload);
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to download images');
+        }
+        
+        logToConsole(`[GALLERY_FINALIZE] Successfully downloaded ${result.image_count || 0} images`, 'success');
         
         // Generate timestamp in YYMMDD-HHMM format for filename
         const now = new Date();
@@ -5401,6 +5395,11 @@
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const timestamp = `${year}${month}${day}-${hours}${minutes}`;
+        
+        // Download ZIP file from base64
+        const zipFilename = result.zip_filename || `downloaded_items_${timestamp}.zip`;
+        downloadBase64File(result.zip_content, zipFilename, 'application/zip');
+        logToConsole(`[ZIP] Successfully downloaded: ${zipFilename}`, 'success');
         
         // Create updated CSV with ImageURL1_Updated and ImageURL2_Updated columns
         if (originalCsvFile && originalCsvRows && originalCsvHeader) {
@@ -5547,26 +5546,11 @@
           }
         }
         
-        // Generate zip file
-        logToConsole(`[ZIP] Generating zip file with ${imagePromises.length} images...`, 'info');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        
-        const zipFilename = `downloaded_items_${timestamp}.zip`;
-        
-        // Download the zip file
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(zipBlob);
-        link.download = zipFilename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(link.href), 100);
-        
-        logToConsole(`[ZIP] Successfully created and downloaded: ${zipFilename}`, 'success');
+        // Handle CSV generation (still done client-side)
         const csvStatusText = (originalCsvFile && originalCsvRows && originalCsvHeader) 
           ? ` CSV updated and downloaded separately.`
           : '';
-        setGalleryStatus(`Downloaded ${zipFilename} with ${imagePromises.length} images.${csvStatusText}`);
+        setGalleryStatus(`Downloaded ${zipFilename} with ${result.image_count || 0} images.${csvStatusText}`);
         
         // Check if upload to Cloudinary is enabled
         const uploadAfterDownload = document.getElementById('uploadAfterDownloadGallery');
@@ -5574,6 +5558,8 @@
           try {
             logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
             setGalleryStatus('Extracting zip and uploading to Cloudinary...');
+            // Convert base64 to blob for uploadFromZipContent
+            const zipBlob = await (await fetch(`data:application/zip;base64,${result.zip_content}`)).blob();
             await uploadFromZipContent(zipBlob);
           } catch (uploadError) {
             logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
@@ -5581,7 +5567,7 @@
           }
         }
         
-        document.getElementById('dlStatus').textContent = `Downloaded ${zipFilename} with ${imagePromises.length} images.`;
+        document.getElementById('dlStatus').textContent = `Downloaded ${zipFilename} with ${result.image_count || 0} images.`;
         closeGalleryModal();
       } catch (error) {
         logToConsole(`Error in finalizeGallerySelections: ${error.message || 'Unknown error'}`, 'error');
