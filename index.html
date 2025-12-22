@@ -977,7 +977,7 @@
   </div>
 
   <script>
-    const APP_VERSION = 'v0.1.4';
+    const APP_VERSION = 'v0.1.8';
     const DEFAULTS = {
       company: "Nike",
       website: "nike.com",
@@ -5582,8 +5582,9 @@
               }).join('\n');
               
               // Extract base filename and add timestamp suffix
-              const fileExtension = originalCsvFile.name.split('.').pop().toLowerCase();
-              const baseName = originalCsvFile.name.replace(/\.(csv|xls|xlsx)$/i, '');
+              // Remove "Copy" (case-insensitive, with optional spaces/dashes) and replace spaces with underscores
+              let baseName = originalCsvFile.name.replace(/\.(csv|xls|xlsx)$/i, '');
+              baseName = baseName.replace(/\s*-\s*[Cc]opy\s*/gi, '').replace(/\s+/g, '_').trim();
               const csvFilename = `${baseName}_${timestamp}.csv`;
               
               // Generate Python script filename to match CSV
