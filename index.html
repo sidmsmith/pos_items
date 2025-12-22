@@ -5470,16 +5470,91 @@
               
               const itemIdIndex = getColumnIndex('ItemID') !== null && getColumnIndex('ItemID') !== -1 ? getColumnIndex('ItemID') : 0;
               
-              // Create updated header with preview URL columns
+              // Build map of itemId -> {filename1, filename2} for ImageURL1_Updated and ImageURL2_Updated
+              const itemFilenameMap = new Map();
+              galleryItems.forEach((item, itemIndex) => {
+                const uniqueKey = getUniqueKey(itemIndex, item.itemId);
+                const isSkipped = gallerySkippedItems.has(uniqueKey);
+                
+                if (isSkipped) return;
+                
+                const url1Variant = item.url1Variants && item.url1Variants.length > 0 ? item.url1Variants[0] : null;
+                const url2Variant = item.url2Variants && item.url2Variants.length > 0 ? item.url2Variants[0] : null;
+                
+                let filename1 = '';
+                let filename2 = '';
+                
+                if (url1Variant && !url1Variant.isPlaceholder && url1Variant.originalUrl !== '_PLACEHOLDER_') {
+                  const urlExt = url1Variant.originalUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+                  const ext = urlExt ? urlExt[1] : 'jpg';
+                  filename1 = `${item.itemId}_1.${ext}`;
+                }
+                
+                if (url2Variant && !url2Variant.isPlaceholder && url2Variant.originalUrl !== '_PLACEHOLDER_') {
+                  const urlExt = url2Variant.originalUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i);
+                  const ext = urlExt ? urlExt[1] : 'jpg';
+                  filename2 = `${item.itemId}_2.${ext}`;
+                }
+                
+                if (filename1 || filename2) {
+                  itemFilenameMap.set(item.itemId, { filename1, filename2 });
+                }
+              });
+              
+              // Get Cloudinary prefix and folder for ImageURL1_Updated and ImageURL2_Updated
+              const prefixInput = document.getElementById('prefix');
+              const prefix = prefixInput ? prefixInput.value.trim() : '';
+              const folderInput = document.getElementById('upload_folder');
+              const folder = folderInput ? folderInput.value.trim() : '';
+              
+              // Helper function to build clean URL path: prefix/folder/filename
+              function buildCleanUrlPath(prefix, folder, filename) {
+                if (!filename) return '';
+                
+                // Normalize prefix: remove trailing slashes
+                let cleanPrefix = (prefix || '').trim().replace(/\/+$/, '');
+                
+                // Normalize folder: remove leading and trailing slashes
+                let cleanFolder = (folder || '').trim().replace(/^\/+|\/+$/g, '');
+                
+                // Normalize filename: remove leading slashes
+                let cleanFilename = (filename || '').trim().replace(/^\/+/, '');
+                
+                // Build path parts array (only include non-empty parts)
+                const parts = [];
+                if (cleanPrefix) parts.push(cleanPrefix);
+                if (cleanFolder) parts.push(cleanFolder);
+                if (cleanFilename) parts.push(cleanFilename);
+                
+                // Join with single slashes and return
+                return parts.join('/');
+              }
+              
+              // Create updated header with ALL columns: preview URLs + ImageURL1_Updated + ImageURL2_Updated
               const updatedHeader = [...originalCsvHeader, 
                 'URL1_Original', 'URL1_Preview', 'URL1_FileName',
-                'URL2_Original', 'URL2_Preview', 'URL2_FileName'
+                'URL2_Original', 'URL2_Preview', 'URL2_FileName',
+                'ImageURL1_Updated', 'ImageURL2_Updated'
               ];
               
-              // Create updated rows
+              // Create updated rows with all columns
               const updatedRows = originalCsvRows.map(row => {
                 const itemId = row[itemIdIndex] ? String(row[itemIdIndex]).trim() : '';
                 const previewData = previewUrlData[itemId] || {};
+                const itemFilenames = itemFilenameMap.get(itemId);
+                
+                // Build ImageURL1_Updated and ImageURL2_Updated
+                let url1Updated = '';
+                let url2Updated = '';
+                
+                if (itemFilenames) {
+                  if (itemFilenames.filename1) {
+                    url1Updated = buildCleanUrlPath(prefix, folder, itemFilenames.filename1);
+                  }
+                  if (itemFilenames.filename2) {
+                    url2Updated = buildCleanUrlPath(prefix, folder, itemFilenames.filename2);
+                  }
+                }
                 
                 return [...row,
                   previewData.url1_original || '',
@@ -5487,7 +5562,9 @@
                   previewData.url1_filename || '',
                   previewData.url2_original || '',
                   previewData.url2_preview || '',
-                  previewData.url2_filename || ''
+                  previewData.url2_filename || '',
+                  url1Updated,
+                  url2Updated
                 ];
               });
               
