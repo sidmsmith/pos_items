@@ -1352,9 +1352,18 @@ def download_image(session, original_url, preview_url, file_name, output_dir, it
         
     Returns:
         file_path if successful, None if both URLs fail
+        
+    Raises:
+        Exception: Re-raises exceptions for caller to handle
     """
     if not original_url:
         return None
+    
+    # Validate inputs
+    if not file_name:
+        raise ValueError("File name is required")
+    if not output_dir:
+        raise ValueError("Output directory is required")
     
     # Build enhanced headers with proper Referer and Origin
     url_parts = original_url.split('/')
@@ -1542,91 +1551,125 @@ def main():
             
             processed_count = 0
             for idx, row in enumerate(rows, 1):
-                # Try multiple possible ItemId column names (case-insensitive)
-                item_id = None
-                for key in row.keys():
-                    if key.lower().replace('_', '').replace('-', '') in ['itemid', 'itemid', 'item']:
-                        item_id = row.get(key, '').strip()
-                        break
-                
-                # Fallback to first column if ItemId not found
-                if not item_id and row:
-                    item_id = list(row.values())[0] if row else ''
-                    item_id = str(item_id).strip() if item_id else ''
-                
-                if not item_id:
-                    print(f"[{idx}/{len(rows)}] Skipping row {idx}: No ItemId found")
-                    continue
-                
-                processed_count += 1
-                print(f"[{idx}/{len(rows)}] Processing {item_id}...")
-                
-                # Download URL1 if available (check both Original and Preview columns)
-                # Try multiple possible column name variations
-                url1_original = ''
-                url1_preview = ''
-                url1_filename = ''
-                
-                for key in row.keys():
-                    key_lower = key.lower().replace('_', '').replace('-', '')
-                    if 'url1original' in key_lower or 'url1_original' in key_lower:
-                        url1_original = row.get(key, '').strip()
-                    elif 'url1preview' in key_lower or 'url1_preview' in key_lower:
-                        url1_preview = row.get(key, '').strip()
-                    elif 'url1filename' in key_lower or 'url1_filename' in key_lower:
-                        url1_filename = row.get(key, '').strip()
-                
-                # Use Original if available, otherwise skip (Preview will be used as fallback during download)
-                if url1_original and url1_filename:
-                    file_path = download_image(session, url1_original, url1_preview, url1_filename, output_dir, item_id)
-                    if file_path:
-                        downloaded_files.append(file_path)
-                    else:
-                        failed_items.append(f"{item_id} URL1")
-                elif url1_preview and url1_filename:
-                    # Only preview URL available, use it directly
-                    file_path = download_image(session, url1_preview, None, url1_filename, output_dir, item_id)
-                    if file_path:
-                        downloaded_files.append(file_path)
-                    else:
-                        failed_items.append(f"{item_id} URL1")
-                elif url1_original or url1_preview:
-                    print(f"  [SKIP] URL1 found but missing filename for {item_id}")
-                
-                # Download URL2 if available
-                url2_original = ''
-                url2_preview = ''
-                url2_filename = ''
-                
-                for key in row.keys():
-                    key_lower = key.lower().replace('_', '').replace('-', '')
-                    if 'url2original' in key_lower or 'url2_original' in key_lower:
-                        url2_original = row.get(key, '').strip()
-                    elif 'url2preview' in key_lower or 'url2_preview' in key_lower:
-                        url2_preview = row.get(key, '').strip()
-                    elif 'url2filename' in key_lower or 'url2_filename' in key_lower:
-                        url2_filename = row.get(key, '').strip()
-                
-                # Use Original if available, otherwise skip (Preview will be used as fallback during download)
-                if url2_original and url2_filename:
-                    file_path = download_image(session, url2_original, url2_preview, url2_filename, output_dir, item_id)
-                    if file_path:
-                        downloaded_files.append(file_path)
-                    else:
-                        failed_items.append(f"{item_id} URL2")
-                elif url2_preview and url2_filename:
-                    # Only preview URL available, use it directly
-                    file_path = download_image(session, url2_preview, None, url2_filename, output_dir, item_id)
-                    if file_path:
-                        downloaded_files.append(file_path)
-                    else:
-                        failed_items.append(f"{item_id} URL2")
-                elif url2_original or url2_preview:
-                    print(f"  [SKIP] URL2 found but missing filename for {item_id}")
+                try:
+                    # Try multiple possible ItemId column names (case-insensitive)
+                    item_id = None
+                    for key in row.keys():
+                        if key.lower().replace('_', '').replace('-', '') in ['itemid', 'itemid', 'item']:
+                            item_id = row.get(key, '').strip()
+                            break
+                    
+                    # Fallback to first column if ItemId not found
+                    if not item_id and row:
+                        item_id = list(row.values())[0] if row else ''
+                        item_id = str(item_id).strip() if item_id else ''
+                    
+                    if not item_id:
+                        print(f"[{idx}/{len(rows)}] Skipping row {idx}: No ItemId found")
+                        continue
+                    
+                    processed_count += 1
+                    print(f"[{idx}/{len(rows)}] Processing {item_id}...")
+                    
+                    # Download URL1 if available (check both Original and Preview columns)
+                    # Try multiple possible column name variations
+                    url1_original = ''
+                    url1_preview = ''
+                    url1_filename = ''
+                    
+                    try:
+                        for key in row.keys():
+                            key_lower = key.lower().replace('_', '').replace('-', '')
+                            if 'url1original' in key_lower or 'url1_original' in key_lower:
+                                url1_original = row.get(key, '').strip()
+                            elif 'url1preview' in key_lower or 'url1_preview' in key_lower:
+                                url1_preview = row.get(key, '').strip()
+                            elif 'url1filename' in key_lower or 'url1_filename' in key_lower:
+                                url1_filename = row.get(key, '').strip()
+                        
+                        # Use Original if available, otherwise skip (Preview will be used as fallback during download)
+                        if url1_original and url1_filename:
+                            try:
+                                file_path = download_image(session, url1_original, url1_preview, url1_filename, output_dir, item_id)
+                                if file_path:
+                                    downloaded_files.append(file_path)
+                                else:
+                                    failed_items.append(f"{item_id} URL1")
+                            except Exception as e:
+                                print(f"  [ERROR] Failed to download URL1 for {item_id}: {str(e)[:100]}")
+                                failed_items.append(f"{item_id} URL1")
+                        elif url1_preview and url1_filename:
+                            # Only preview URL available, use it directly
+                            try:
+                                file_path = download_image(session, url1_preview, None, url1_filename, output_dir, item_id)
+                                if file_path:
+                                    downloaded_files.append(file_path)
+                                else:
+                                    failed_items.append(f"{item_id} URL1")
+                            except Exception as e:
+                                print(f"  [ERROR] Failed to download URL1 (preview) for {item_id}: {str(e)[:100]}")
+                                failed_items.append(f"{item_id} URL1")
+                        elif url1_original or url1_preview:
+                            print(f"  [SKIP] URL1 found but missing filename for {item_id}")
+                    except Exception as e:
+                        print(f"  [ERROR] Error processing URL1 for {item_id}: {str(e)[:100]}")
+                        # Continue to URL2
+                    
+                    # Download URL2 if available
+                    url2_original = ''
+                    url2_preview = ''
+                    url2_filename = ''
+                    
+                    try:
+                        for key in row.keys():
+                            key_lower = key.lower().replace('_', '').replace('-', '')
+                            if 'url2original' in key_lower or 'url2_original' in key_lower:
+                                url2_original = row.get(key, '').strip()
+                            elif 'url2preview' in key_lower or 'url2_preview' in key_lower:
+                                url2_preview = row.get(key, '').strip()
+                            elif 'url2filename' in key_lower or 'url2_filename' in key_lower:
+                                url2_filename = row.get(key, '').strip()
+                        
+                        # Use Original if available, otherwise skip (Preview will be used as fallback during download)
+                        if url2_original and url2_filename:
+                            try:
+                                file_path = download_image(session, url2_original, url2_preview, url2_filename, output_dir, item_id)
+                                if file_path:
+                                    downloaded_files.append(file_path)
+                                else:
+                                    failed_items.append(f"{item_id} URL2")
+                            except Exception as e:
+                                print(f"  [ERROR] Failed to download URL2 for {item_id}: {str(e)[:100]}")
+                                failed_items.append(f"{item_id} URL2")
+                        elif url2_preview and url2_filename:
+                            # Only preview URL available, use it directly
+                            try:
+                                file_path = download_image(session, url2_preview, None, url2_filename, output_dir, item_id)
+                                if file_path:
+                                    downloaded_files.append(file_path)
+                                else:
+                                    failed_items.append(f"{item_id} URL2")
+                            except Exception as e:
+                                print(f"  [ERROR] Failed to download URL2 (preview) for {item_id}: {str(e)[:100]}")
+                                failed_items.append(f"{item_id} URL2")
+                        elif url2_original or url2_preview:
+                            print(f"  [SKIP] URL2 found but missing filename for {item_id}")
+                    except Exception as e:
+                        print(f"  [ERROR] Error processing URL2 for {item_id}: {str(e)[:100]}")
+                        # Continue to next item
+                        
+                except Exception as e:
+                    # Catch any unexpected errors for this row and continue
+                    print(f"[{idx}/{len(rows)}] [ERROR] Unexpected error processing row {idx}: {str(e)[:100]}")
+                    print(f"  Row data keys: {', '.join(row.keys()) if row else 'empty'}")
+                    failed_items.append(f"Row {idx} (error: {str(e)[:50]})")
+                    continue  # Continue to next row
             
             if processed_count == 0:
                 print("[WARNING] No items were processed. Check CSV column names.")
                 print("[INFO] Expected columns: ItemId (or ItemID), URL1_Original, URL1_Preview, URL1_FileName, URL2_Original, URL2_Preview, URL2_FileName")
+            else:
+                print(f"[INFO] Processed {processed_count} items (some may have been skipped)")
         
         # Create ZIP file
         if downloaded_files:
