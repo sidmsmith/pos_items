@@ -1515,6 +1515,9 @@ def main():
 if __name__ == '__main__':
     main()
 '''
+
+@app.route('/api/gallery_finalize', methods=['POST'])
+def gallery_finalize():
     """Finalize gallery selections by re-downloading selected images and building ZIP
     
     Supports both:
