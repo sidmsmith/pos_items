@@ -5633,7 +5633,8 @@
         }
         
         // Create updated CSV with ImageURL1_Updated and ImageURL2_Updated columns
-        if (originalCsvFile && originalCsvRows && originalCsvHeader) {
+        // Skip this if we already created the CSV in script generation mode (it already has all columns)
+        if (!generateDownloadScript && originalCsvFile && originalCsvRows && originalCsvHeader) {
           try {
             logToConsole(`[CSV] Creating updated CSV with new columns...`, 'info');
             
