@@ -1201,35 +1201,60 @@ def generate_download_script_files(selections):
                     ''
                 ])
         
-        # Create CSV content
-        csv_buffer = io.StringIO()
-        csv_writer = csv_module.writer(csv_buffer)
-        csv_writer.writerows(csv_rows)
-        csv_content = csv_buffer.getvalue()
-        csv_buffer.close()
+        # Build preview URL data map for frontend to add to existing CSV
+        preview_url_data = {}
+        if is_pos_format:
+            selection_map = {}
+            for s in selections:
+                item_id = s.get('itemId')
+                if not item_id:
+                    continue
+                if item_id not in selection_map:
+                    selection_map[item_id] = {}
+                if 'url1' in s:
+                    selection_map[item_id]['url1'] = s['url1']
+                if 'url2' in s:
+                    selection_map[item_id]['url2'] = s['url2']
+            
+            for item_id, selections_data in selection_map.items():
+                url1_data = selections_data.get('url1', {})
+                url2_data = selections_data.get('url2', {})
+                preview_url_data[item_id] = {
+                    'url1_original': url1_data.get('originalUrl', ''),
+                    'url1_preview': url1_data.get('previewUrl', ''),
+                    'url1_filename': url1_data.get('fileName', ''),
+                    'url2_original': url2_data.get('originalUrl', ''),
+                    'url2_preview': url2_data.get('previewUrl', ''),
+                    'url2_filename': url2_data.get('fileName', '')
+                }
+        else:
+            # Legacy format
+            for selection in selections:
+                item_id = selection.get('itemId', '')
+                if item_id:
+                    preview_url_data[item_id] = {
+                        'url1_original': selection.get('originalUrl', ''),
+                        'url1_preview': selection.get('previewUrl', ''),
+                        'url1_filename': selection.get('fileName', ''),
+                        'url2_original': '',
+                        'url2_preview': '',
+                        'url2_filename': ''
+                    }
         
-        # Generate Python script
+        # Generate Python script (will be customized with CSV filename by frontend)
         python_script = generate_python_download_script()
         
-        # Encode both as base64
-        csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
+        # Encode script as base64
         script_base64 = base64.b64encode(python_script.encode('utf-8')).decode('utf-8')
         
-        # Generate filenames with timestamp
-        timestamp = datetime.now().strftime('%y%m%d-%H%M')
-        csv_filename = f"image_urls_{timestamp}.csv"
-        script_filename = f"download_images_{timestamp}.py"
-        
-        log_to_console(f"Generated download script files: {csv_filename}, {script_filename}", "[INFO]")
+        log_to_console(f"Generated preview URL data for {len(preview_url_data)} items and Python script", "[INFO]")
         
         return jsonify({
             "success": True,
             "script_mode": True,
-            "csv_content": csv_base64,
-            "csv_filename": csv_filename,
+            "preview_url_data": preview_url_data,  # Map of itemId -> preview URL data
             "script_content": script_base64,
-            "script_filename": script_filename,
-            "item_count": len(csv_rows) - 1  # Subtract header row
+            "item_count": len(preview_url_data)
         })
     except Exception as e:
         log_to_console(f"Failed to generate download script files: {str(e)}", "[ERROR]")
@@ -1247,7 +1272,10 @@ Usage:
 
 Arguments:
     --output-dir OUTPUT_DIR    Output directory for downloaded images (default: ./images)
-    --csv CSV_FILE             CSV file to read (default: image_urls_*.csv in current directory)
+    --csv CSV_FILE             CSV file to read (default: looks for CSV with matching name pattern)
+    
+The script will automatically look for a CSV file with the same base name as this script.
+For example, if this script is "items_251217-1430.py", it will look for "items_251217-1430.csv".
 """
 
 import csv
@@ -1419,13 +1447,42 @@ def main():
     csv_file = args.csv
     if not csv_file:
         # Look for CSV file in current directory
-        csv_files = [f for f in os.listdir('.') if f.startswith('image_urls_') and f.endswith('.csv')]
-        if not csv_files:
-            print("[ERROR] No CSV file found. Please specify with --csv or ensure image_urls_*.csv exists in current directory.")
-            sys.exit(1)
-        csv_file = csv_files[0]
-        if len(csv_files) > 1:
-            print(f"[WARNING] Multiple CSV files found, using: {csv_file}")
+        # First, try to find a CSV file that matches this script's name pattern
+        script_name = os.path.basename(__file__)
+        script_base = os.path.splitext(script_name)[0]  # Remove .py extension
+        
+        # Try to find CSV with matching base name (e.g., download_images_YYMMDD-HHMM.py -> download_images_YYMMDD-HHMM.csv)
+        matching_csv = None
+        if os.path.exists(f"{script_base}.csv"):
+            matching_csv = f"{script_base}.csv"
+        else:
+            # Try pattern: if script is "download_images_YYMMDD-HHMM.py", look for "*_YYMMDD-HHMM.csv"
+            # Extract timestamp pattern if present
+            import re
+            timestamp_match = re.search(r'(\d{6}-\d{4})', script_base)
+            if timestamp_match:
+                timestamp = timestamp_match.group(1)
+                # Look for CSV files with same timestamp
+                csv_files = [f for f in os.listdir('.') if f.endswith(f'_{timestamp}.csv')]
+                if csv_files:
+                    matching_csv = csv_files[0]
+                    if len(csv_files) > 1:
+                        print(f"[WARNING] Multiple CSV files with timestamp {timestamp} found, using: {matching_csv}")
+        
+        if matching_csv:
+            csv_file = matching_csv
+            print(f"[INFO] Found matching CSV file: {csv_file}")
+        else:
+            # Fallback: look for any CSV file starting with common patterns
+            csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
+            if not csv_files:
+                print("[ERROR] No CSV file found. Please specify with --csv or ensure a CSV file exists in current directory.")
+                print(f"[INFO] Script name: {script_name}, looking for CSV with matching pattern")
+                sys.exit(1)
+            csv_file = csv_files[0]
+            if len(csv_files) > 1:
+                print(f"[WARNING] Multiple CSV files found, using: {csv_file}")
+                print(f"[INFO] To use a specific file, run: python {script_name} --csv <filename>")
     
     if not os.path.exists(csv_file):
         print(f"[ERROR] CSV file not found: {csv_file}")
@@ -1458,13 +1515,21 @@ def main():
                 
                 print(f"[{idx}/{len(rows)}] Processing {item_id}...")
                 
-                # Download URL1 if available
+                # Download URL1 if available (check both Original and Preview columns)
                 url1_original = row.get('URL1_Original', '').strip()
                 url1_preview = row.get('URL1_Preview', '').strip()
                 url1_filename = row.get('URL1_FileName', '').strip()
                 
+                # Use Original if available, otherwise skip (Preview will be used as fallback during download)
                 if url1_original and url1_filename:
                     file_path = download_image(session, url1_original, url1_preview, url1_filename, output_dir, item_id)
+                    if file_path:
+                        downloaded_files.append(file_path)
+                    else:
+                        failed_items.append(f"{item_id} URL1")
+                elif url1_preview and url1_filename:
+                    # Only preview URL available, use it directly
+                    file_path = download_image(session, url1_preview, None, url1_filename, output_dir, item_id)
                     if file_path:
                         downloaded_files.append(file_path)
                     else:
@@ -1475,8 +1540,16 @@ def main():
                 url2_preview = row.get('URL2_Preview', '').strip()
                 url2_filename = row.get('URL2_FileName', '').strip()
                 
+                # Use Original if available, otherwise skip (Preview will be used as fallback during download)
                 if url2_original and url2_filename:
                     file_path = download_image(session, url2_original, url2_preview, url2_filename, output_dir, item_id)
+                    if file_path:
+                        downloaded_files.append(file_path)
+                    else:
+                        failed_items.append(f"{item_id} URL2")
+                elif url2_preview and url2_filename:
+                    # Only preview URL available, use it directly
+                    file_path = download_image(session, url2_preview, None, url2_filename, output_dir, item_id)
                     if file_path:
                         downloaded_files.append(file_path)
                     else:

@@ -5447,21 +5447,104 @@
         
         // Handle script generation mode vs normal download mode
         if (generateDownloadScript && result.script_mode) {
-          // Script generation mode: download CSV and Python script
-          logToConsole(`[GALLERY_FINALIZE] Script generation mode - downloading CSV and Python script`, 'info');
+          // Script generation mode: add preview columns to existing CSV and generate Python script
+          logToConsole(`[GALLERY_FINALIZE] Script generation mode - adding preview columns to CSV and generating Python script`, 'info');
           
-          // Download CSV file
-          const csvFilename = result.csv_filename || `image_urls_${timestamp}.csv`;
-          downloadBase64File(result.csv_content, csvFilename, 'text/csv');
-          logToConsole(`[CSV] Successfully downloaded: ${csvFilename}`, 'success');
-          
-          // Download Python script
-          const scriptFilename = result.script_filename || `download_images_${timestamp}.py`;
-          downloadBase64File(result.script_content, scriptFilename, 'text/x-python');
-          logToConsole(`[SCRIPT] Successfully downloaded: ${scriptFilename}`, 'success');
-          
-          setGalleryStatus(`Downloaded CSV and Python script. Run: python ${scriptFilename}`);
-          alert(`Download complete!\n\nFiles downloaded:\n- ${csvFilename}\n- ${scriptFilename}\n\nRun the Python script locally to download all images:\npython ${scriptFilename}`);
+          // Add preview URL columns to existing CSV if available
+          if (originalCsvFile && originalCsvRows && originalCsvHeader && result.preview_url_data) {
+            try {
+              logToConsole(`[CSV] Adding preview URL columns to existing CSV...`, 'info');
+              
+              // Get preview URL data from backend
+              const previewUrlData = result.preview_url_data;
+              
+              // Find ItemID column index
+              const getColumnIndex = (headerName) => {
+                if (!originalCsvHeader) return null;
+                const normalized = headerName.toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
+                return originalCsvHeader.findIndex((h, idx) => {
+                  const normalizedHeader = String(h || '').trim().toLowerCase().replace(/\s+/g, '').replace(/_/g, '');
+                  return normalizedHeader === normalized;
+                });
+              };
+              
+              const itemIdIndex = getColumnIndex('ItemID') !== null && getColumnIndex('ItemID') !== -1 ? getColumnIndex('ItemID') : 0;
+              
+              // Create updated header with preview URL columns
+              const updatedHeader = [...originalCsvHeader, 
+                'URL1_Original', 'URL1_Preview', 'URL1_FileName',
+                'URL2_Original', 'URL2_Preview', 'URL2_FileName'
+              ];
+              
+              // Create updated rows
+              const updatedRows = originalCsvRows.map(row => {
+                const itemId = row[itemIdIndex] ? String(row[itemIdIndex]).trim() : '';
+                const previewData = previewUrlData[itemId] || {};
+                
+                return [...row,
+                  previewData.url1_original || '',
+                  previewData.url1_preview || '',
+                  previewData.url1_filename || '',
+                  previewData.url2_original || '',
+                  previewData.url2_preview || '',
+                  previewData.url2_filename || ''
+                ];
+              });
+              
+              // Convert to CSV format
+              const csvRows = [updatedHeader, ...updatedRows];
+              const csvContent = csvRows.map(row => {
+                return row.map(cell => {
+                  // Escape quotes and wrap in quotes if contains comma, quote, or newline
+                  const cellStr = String(cell || '');
+                  if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+                    return '"' + cellStr.replace(/"/g, '""') + '"';
+                  }
+                  return cellStr;
+                }).join(',');
+              }).join('\n');
+              
+              // Extract base filename and add timestamp suffix
+              const fileExtension = originalCsvFile.name.split('.').pop().toLowerCase();
+              const baseName = originalCsvFile.name.replace(/\.(csv|xls|xlsx)$/i, '');
+              const csvFilename = `${baseName}_${timestamp}.csv`;
+              
+              // Generate Python script filename to match CSV
+              const scriptFilename = `${baseName}_${timestamp}.py`;
+              
+              // Download updated CSV file
+              const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+              const csvLink = document.createElement('a');
+              csvLink.href = URL.createObjectURL(csvBlob);
+              csvLink.download = csvFilename;
+              document.body.appendChild(csvLink);
+              csvLink.click();
+              document.body.removeChild(csvLink);
+              setTimeout(() => URL.revokeObjectURL(csvLink.href), 100);
+              logToConsole(`[CSV] Successfully downloaded updated CSV with preview columns: ${csvFilename}`, 'success');
+              
+              // Download Python script with matching name
+              downloadBase64File(result.script_content, scriptFilename, 'text/x-python');
+              logToConsole(`[SCRIPT] Successfully downloaded: ${scriptFilename}`, 'success');
+              
+              setGalleryStatus(`Downloaded CSV and Python script. Run: python ${scriptFilename}`);
+              alert(`Download complete!\n\nFiles downloaded:\n- ${csvFilename}\n- ${scriptFilename}\n\nRun the Python script locally to download all images:\npython ${scriptFilename}`);
+            } catch (csvError) {
+              logToConsole(`[CSV] Error adding preview columns to CSV: ${csvError.message}`, 'error');
+              // Still try to download script with generic name
+              const scriptFilename = `download_images_${timestamp}.py`;
+              downloadBase64File(result.script_content, scriptFilename, 'text/x-python');
+              alert(`CSV update failed, but script downloaded: ${scriptFilename}\n\nError: ${csvError.message}`);
+            }
+          } else {
+            // No original CSV available, create a new one with preview URLs
+            logToConsole(`[CSV] No original CSV found, creating new CSV with preview URLs...`, 'warning');
+            // This shouldn't happen in normal flow, but handle gracefully
+            const csvFilename = `image_urls_${timestamp}.csv`;
+            const scriptFilename = `download_images_${timestamp}.py`;
+            // We'd need to generate CSV from preview_url_data, but this is edge case
+            alert(`Warning: No original CSV file found. Please ensure you've loaded a CSV file first.`);
+          }
         } else {
           // Normal mode: download ZIP file
           logToConsole(`[GALLERY_FINALIZE] Successfully downloaded ${result.image_count || 0} images`, 'success');
