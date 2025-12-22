@@ -780,6 +780,10 @@
       <div class="gallery-footer-status" id="galleryFooterStatus"></div>
       <div class="gallery-footer-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="generateDownloadScriptGallery" style="margin: 0; cursor: pointer;">
+          <label for="generateDownloadScriptGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Generate download script (CSV + Python)</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
           <input type="checkbox" id="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer;">
           <label for="uploadAfterDownloadGallery" style="margin: 0; cursor: pointer; color: var(--text); font-size: 0.9em;">Upload to Cloudinary after download</label>
         </div>
@@ -5410,20 +5414,27 @@
         const prefixInput = document.getElementById('prefix');
         const prefix = prefixInput ? prefixInput.value.trim() : '';
         
+        // Check if generate download script is enabled
+        const generateScriptCheckbox = document.getElementById('generateDownloadScriptGallery');
+        const generateDownloadScript = generateScriptCheckbox && generateScriptCheckbox.checked;
+        
         // Call gallery_finalize API to download images server-side and create ZIP
+        // OR generate CSV + Python script if checkbox is checked
         logToConsole(`[GALLERY_FINALIZE] Calling API with ${selections.length} items...`, 'info');
+        if (generateDownloadScript) {
+          logToConsole(`[GALLERY_FINALIZE] Generate download script mode enabled`, 'info');
+        }
         const payload = {
           selections: selections,
-          prefix: prefix
+          prefix: prefix,
+          generateDownloadScript: generateDownloadScript
         };
         
         const result = await apiCall('gallery_finalize', payload);
         
         if (!result.success) {
-          throw new Error(result.error || 'Failed to download images');
+          throw new Error(result.error || 'Failed to process images');
         }
-        
-        logToConsole(`[GALLERY_FINALIZE] Successfully downloaded ${result.image_count || 0} images`, 'success');
         
         // Generate timestamp in YYMMDD-HHMM format for filename
         const now = new Date();
@@ -5434,10 +5445,32 @@
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const timestamp = `${year}${month}${day}-${hours}${minutes}`;
         
-        // Download ZIP file from base64
-        const zipFilename = result.zip_filename || `downloaded_items_${timestamp}.zip`;
-        downloadBase64File(result.zip_content, zipFilename, 'application/zip');
-        logToConsole(`[ZIP] Successfully downloaded: ${zipFilename}`, 'success');
+        // Handle script generation mode vs normal download mode
+        if (generateDownloadScript && result.script_mode) {
+          // Script generation mode: download CSV and Python script
+          logToConsole(`[GALLERY_FINALIZE] Script generation mode - downloading CSV and Python script`, 'info');
+          
+          // Download CSV file
+          const csvFilename = result.csv_filename || `image_urls_${timestamp}.csv`;
+          downloadBase64File(result.csv_content, csvFilename, 'text/csv');
+          logToConsole(`[CSV] Successfully downloaded: ${csvFilename}`, 'success');
+          
+          // Download Python script
+          const scriptFilename = result.script_filename || `download_images_${timestamp}.py`;
+          downloadBase64File(result.script_content, scriptFilename, 'text/x-python');
+          logToConsole(`[SCRIPT] Successfully downloaded: ${scriptFilename}`, 'success');
+          
+          setGalleryStatus(`Downloaded CSV and Python script. Run: python ${scriptFilename}`);
+          alert(`Download complete!\n\nFiles downloaded:\n- ${csvFilename}\n- ${scriptFilename}\n\nRun the Python script locally to download all images:\npython ${scriptFilename}`);
+        } else {
+          // Normal mode: download ZIP file
+          logToConsole(`[GALLERY_FINALIZE] Successfully downloaded ${result.image_count || 0} images`, 'success');
+          
+          // Download ZIP file from base64
+          const zipFilename = result.zip_filename || `downloaded_items_${timestamp}.zip`;
+          downloadBase64File(result.zip_content, zipFilename, 'application/zip');
+          logToConsole(`[ZIP] Successfully downloaded: ${zipFilename}`, 'success');
+        }
         
         // Create updated CSV with ImageURL1_Updated and ImageURL2_Updated columns
         if (originalCsvFile && originalCsvRows && originalCsvHeader) {

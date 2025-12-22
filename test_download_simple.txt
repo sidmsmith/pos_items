@@ -1,0 +1,24 @@
+# Quick Command-Line Tests for vonmaur.com Image Download
+# Copy and paste these commands into PowerShell or Command Prompt
+
+# ============================================
+# PowerShell (Invoke-WebRequest)
+# ============================================
+$url = "https://www.vonmaur.com/Images/Product/2144427/1621855/StillPhoto/1621855_Frt.jpg"
+$headers = @{
+    'User-Agent' = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'Accept' = 'image/*'
+    'Referer' = 'https://www.vonmaur.com/'
+    'Origin' = 'https://www.vonmaur.com'
+}
+Invoke-WebRequest -Uri $url -Headers $headers -OutFile "test.jpg"
+
+# ============================================
+# curl.exe (if installed)
+# ============================================
+curl.exe -L -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" -H "Referer: https://www.vonmaur.com/" -o test_curl.jpg "https://www.vonmaur.com/Images/Product/2144427/1621855/StillPhoto/1621855_Frt.jpg"
+
+# ============================================
+# Python one-liner (if Python installed)
+# ============================================
+python -c "import requests; r = requests.get('https://www.vonmaur.com/Images/Product/2144427/1621855/StillPhoto/1621855_Frt.jpg', headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.vonmaur.com/'}, timeout=30); open('test_python.jpg', 'wb').write(r.content); print('Success:', len(r.content), 'bytes')"

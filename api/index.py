@@ -1128,8 +1128,393 @@ def handle_pos_items_gallery(pos_items, sites_str, images_per_item, filter_str, 
         log_to_console(f"POS items gallery generate failed: {str(e)}", "[ERROR]")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/api/gallery_finalize', methods=['POST'])
-def gallery_finalize():
+def generate_download_script_files(selections):
+    """Generate CSV and Python script for local image downloads
+    
+    Args:
+        selections: List of selection objects with itemId, url1, url2
+        
+    Returns:
+        JSON response with CSV and Python script as base64
+    """
+    import csv as csv_module
+    from datetime import datetime
+    
+    try:
+        # Build CSV data with both original and preview URLs
+        csv_rows = []
+        csv_rows.append([
+            'ItemId',
+            'URL1_Original',
+            'URL1_Preview',
+            'URL1_FileName',
+            'URL2_Original',
+            'URL2_Preview',
+            'URL2_FileName'
+        ])
+        
+        # Check if using POS items format (has url1/url2) or legacy format
+        is_pos_format = any('url1' in s or 'url2' in s for s in selections)
+        
+        if is_pos_format:
+            # POS items format: selections grouped by itemId with url1 and url2
+            selection_map = {}
+            for s in selections:
+                item_id = s.get('itemId')
+                if not item_id:
+                    continue
+                if item_id not in selection_map:
+                    selection_map[item_id] = {}
+                if 'url1' in s:
+                    selection_map[item_id]['url1'] = s['url1']
+                if 'url2' in s:
+                    selection_map[item_id]['url2'] = s['url2']
+            
+            for item_id, selections_data in selection_map.items():
+                url1_data = selections_data.get('url1', {})
+                url2_data = selections_data.get('url2', {})
+                
+                csv_rows.append([
+                    item_id,
+                    url1_data.get('originalUrl', ''),
+                    url1_data.get('previewUrl', ''),
+                    url1_data.get('fileName', ''),
+                    url2_data.get('originalUrl', ''),
+                    url2_data.get('previewUrl', ''),
+                    url2_data.get('fileName', '')
+                ])
+        else:
+            # Legacy format: single selection per item
+            for selection in selections:
+                item_id = selection.get('itemId', '')
+                original_url = selection.get('originalUrl', '')
+                preview_url = selection.get('previewUrl', '')
+                file_name = selection.get('fileName', '')
+                
+                csv_rows.append([
+                    item_id,
+                    original_url,
+                    preview_url,
+                    file_name,
+                    '',  # URL2 fields empty for legacy format
+                    '',
+                    ''
+                ])
+        
+        # Create CSV content
+        csv_buffer = io.StringIO()
+        csv_writer = csv_module.writer(csv_buffer)
+        csv_writer.writerows(csv_rows)
+        csv_content = csv_buffer.getvalue()
+        csv_buffer.close()
+        
+        # Generate Python script
+        python_script = generate_python_download_script()
+        
+        # Encode both as base64
+        csv_base64 = base64.b64encode(csv_content.encode('utf-8')).decode('utf-8')
+        script_base64 = base64.b64encode(python_script.encode('utf-8')).decode('utf-8')
+        
+        # Generate filenames with timestamp
+        timestamp = datetime.now().strftime('%y%m%d-%H%M')
+        csv_filename = f"image_urls_{timestamp}.csv"
+        script_filename = f"download_images_{timestamp}.py"
+        
+        log_to_console(f"Generated download script files: {csv_filename}, {script_filename}", "[INFO]")
+        
+        return jsonify({
+            "success": True,
+            "script_mode": True,
+            "csv_content": csv_base64,
+            "csv_filename": csv_filename,
+            "script_content": script_base64,
+            "script_filename": script_filename,
+            "item_count": len(csv_rows) - 1  # Subtract header row
+        })
+    except Exception as e:
+        log_to_console(f"Failed to generate download script files: {str(e)}", "[ERROR]")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+def generate_python_download_script():
+    """Generate Python script for downloading images locally"""
+    return '''#!/usr/bin/env python3
+"""
+Download images from CSV file locally.
+This script reads image URLs from a CSV file and downloads them sequentially.
+
+Usage:
+    python download_images.py [--output-dir OUTPUT_DIR] [--csv CSV_FILE]
+
+Arguments:
+    --output-dir OUTPUT_DIR    Output directory for downloaded images (default: ./images)
+    --csv CSV_FILE             CSV file to read (default: image_urls_*.csv in current directory)
+"""
+
+import csv
+import os
+import sys
+import argparse
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import zipfile
+import tempfile
+import shutil
+from datetime import datetime
+
+def setup_session():
+    """Create requests session with retry logic and enhanced headers"""
+    session = requests.Session()
+    
+    # Configure retry strategy with exponential backoff
+    retry_strategy = Retry(
+        total=3,  # Total number of retries
+        backoff_factor=1,  # Wait 1s, 2s, 4s between retries (exponential)
+        status_forcelist=[429, 500, 502, 503, 504],  # Retry on these status codes
+        allowed_methods=["GET"],  # Only retry GET requests
+        raise_on_status=False  # Don't raise exception, let us handle it
+    )
+    
+    # Mount retry adapter for both HTTP and HTTPS
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    # Set default headers for all requests in this session
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'image',
+        'Sec-Fetch-Mode': 'no-cors',
+        'Sec-Fetch-Site': 'cross-site'
+    })
+    
+    return session
+
+def get_extension_from_headers(content_type, fallback=".jpg"):
+    """Extract file extension from Content-Type header"""
+    if not content_type:
+        return fallback
+    content_type = content_type.split(";")[0].strip().lower()
+    if "webp" in content_type:
+        return ".webp"
+    elif "png" in content_type:
+        return ".png"
+    elif "gif" in content_type:
+        return ".gif"
+    elif "jpeg" in content_type or "jpg" in content_type:
+        return ".jpg"
+    return fallback
+
+def download_image(session, original_url, preview_url, file_name, output_dir, item_id):
+    """Download a single image with fallback to preview URL
+    
+    Args:
+        session: requests.Session object
+        original_url: Primary URL to try (original source)
+        preview_url: Fallback URL (Google cached thumbnail) if original fails
+        file_name: Filename for the downloaded image
+        output_dir: Output directory for downloaded images
+        item_id: Item identifier for logging
+        
+    Returns:
+        file_path if successful, None if both URLs fail
+    """
+    if not original_url:
+        return None
+    
+    # Build enhanced headers with proper Referer and Origin
+    url_parts = original_url.split('/')
+    if len(url_parts) >= 3:
+        domain = url_parts[0] + '//' + url_parts[2]
+        referer = domain + '/'
+        origin = domain
+    else:
+        referer = original_url
+        origin = ''
+    
+    # Try original URL first (higher quality) with retry logic
+    try:
+        print(f"  Attempting to download {file_name} from original URL...")
+        
+        # Use session with enhanced headers (session already has default headers)
+        img_r = session.get(
+            original_url, 
+            timeout=30,
+            headers={
+                'Referer': referer,
+                'Origin': origin
+            },
+            stream=True  # Use streaming for better memory efficiency
+        )
+        img_r.raise_for_status()
+        
+        extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
+        if not file_name.lower().endswith(extension):
+            file_name = file_name.rsplit('.', 1)[0] + extension
+        
+        file_path = os.path.join(output_dir, file_name)
+        
+        # Write in chunks for better memory efficiency (streaming)
+        with open(file_path, "wb") as f:
+            for chunk in img_r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+        
+        print(f"  [SUCCESS] Downloaded {file_name} from original URL")
+        return file_path
+    except Exception as e:
+        print(f"  [WARNING] Original URL failed for {file_name}: {str(e)[:80]}")
+        
+        # Fallback to preview URL if available (Google cached thumbnail)
+        if preview_url and preview_url != original_url:
+            try:
+                print(f"  Falling back to preview URL for {file_name}...")
+                
+                # Use session for preview URL as well (with retry logic)
+                img_r = session.get(
+                    preview_url, 
+                    timeout=30,
+                    stream=True  # Use streaming
+                )
+                img_r.raise_for_status()
+                
+                extension = get_extension_from_headers(img_r.headers.get("content-type", ""), ".jpg")
+                if not file_name.lower().endswith(extension):
+                    file_name = file_name.rsplit('.', 1)[0] + extension
+                
+                file_path = os.path.join(output_dir, file_name)
+                
+                # Write in chunks for better memory efficiency (streaming)
+                with open(file_path, "wb") as f:
+                    for chunk in img_r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                
+                print(f"  [SUCCESS] Downloaded {file_name} from preview URL (fallback)")
+                return file_path
+            except Exception as e2:
+                print(f"  [ERROR] Preview URL also failed for {file_name}: {str(e2)[:80]}")
+                return None
+        else:
+            # Log why fallback didn't happen
+            if not preview_url:
+                print(f"  [WARNING] No preview URL available for {file_name}, cannot fallback")
+            elif preview_url == original_url:
+                print(f"  [WARNING] Preview URL same as original URL for {file_name}, cannot fallback")
+            return None
+
+def main():
+    parser = argparse.ArgumentParser(description='Download images from CSV file')
+    parser.add_argument('--output-dir', default='./images', help='Output directory for downloaded images (default: ./images)')
+    parser.add_argument('--csv', help='CSV file to read (default: find image_urls_*.csv in current directory)')
+    args = parser.parse_args()
+    
+    # Find CSV file if not specified
+    csv_file = args.csv
+    if not csv_file:
+        # Look for CSV file in current directory
+        csv_files = [f for f in os.listdir('.') if f.startswith('image_urls_') and f.endswith('.csv')]
+        if not csv_files:
+            print("[ERROR] No CSV file found. Please specify with --csv or ensure image_urls_*.csv exists in current directory.")
+            sys.exit(1)
+        csv_file = csv_files[0]
+        if len(csv_files) > 1:
+            print(f"[WARNING] Multiple CSV files found, using: {csv_file}")
+    
+    if not os.path.exists(csv_file):
+        print(f"[ERROR] CSV file not found: {csv_file}")
+        sys.exit(1)
+    
+    # Create output directory
+    output_dir = os.path.abspath(args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"[INFO] Output directory: {output_dir}")
+    
+    # Setup session
+    session = setup_session()
+    
+    # Read CSV file
+    print(f"[INFO] Reading CSV file: {csv_file}")
+    downloaded_files = []
+    failed_items = []
+    
+    try:
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            
+            print(f"[INFO] Found {len(rows)} items to download")
+            
+            for idx, row in enumerate(rows, 1):
+                item_id = row.get('ItemId', '').strip()
+                if not item_id:
+                    continue
+                
+                print(f"[{idx}/{len(rows)}] Processing {item_id}...")
+                
+                # Download URL1 if available
+                url1_original = row.get('URL1_Original', '').strip()
+                url1_preview = row.get('URL1_Preview', '').strip()
+                url1_filename = row.get('URL1_FileName', '').strip()
+                
+                if url1_original and url1_filename:
+                    file_path = download_image(session, url1_original, url1_preview, url1_filename, output_dir, item_id)
+                    if file_path:
+                        downloaded_files.append(file_path)
+                    else:
+                        failed_items.append(f"{item_id} URL1")
+                
+                # Download URL2 if available
+                url2_original = row.get('URL2_Original', '').strip()
+                url2_preview = row.get('URL2_Preview', '').strip()
+                url2_filename = row.get('URL2_FileName', '').strip()
+                
+                if url2_original and url2_filename:
+                    file_path = download_image(session, url2_original, url2_preview, url2_filename, output_dir, item_id)
+                    if file_path:
+                        downloaded_files.append(file_path)
+                    else:
+                        failed_items.append(f"{item_id} URL2")
+        
+        # Create ZIP file
+        if downloaded_files:
+            timestamp = datetime.now().strftime('%y%m%d-%H%M')
+            zip_filename = f"downloaded_images_{timestamp}.zip"
+            zip_path = os.path.join(output_dir, zip_filename)
+            
+            print(f"[INFO] Creating ZIP file: {zip_filename}")
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in downloaded_files:
+                    zipf.write(file_path, os.path.basename(file_path))
+            
+            print(f"[SUCCESS] ZIP file created: {zip_path}")
+        
+        # Summary
+        print()
+        print("=" * 60)
+        print("DOWNLOAD SUMMARY")
+        print("=" * 60)
+        print(f"Successfully downloaded: {len(downloaded_files)} images")
+        print(f"Failed: {len(failed_items)} images")
+        if failed_items:
+            print(f"Failed items: {', '.join(failed_items)}")
+        print(f"Output directory: {output_dir}")
+        if downloaded_files:
+            print(f"ZIP file: {zip_filename}")
+        print("=" * 60)
+        
+    finally:
+        session.close()
+
+if __name__ == '__main__':
+    main()
+'''
     """Finalize gallery selections by re-downloading selected images and building ZIP
     
     Supports both:
@@ -1142,11 +1527,16 @@ def gallery_finalize():
     data = request.json
     selections = data.get('selections', [])
     prefix = ensure_prefix_url(data.get('prefix', '').strip())
+    generate_download_script = data.get('generateDownloadScript', False)
     # reference_items = data.get('reference_items', [])  # Commented out - not needed for testing
     # required_items = data.get('required_items', [])  # Commented out - not needed for testing
 
     if not selections:
         return jsonify({"success": False, "error": "No selections were provided."}), 400
+    
+    # If script generation mode, generate CSV and Python script instead of downloading
+    if generate_download_script:
+        return generate_download_script_files(selections)
 
     # Check if using POS items format (has url1/url2) or legacy format (single selection per item)
     is_pos_format = any('url1' in s or 'url2' in s for s in selections)
