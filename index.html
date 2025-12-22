@@ -5758,8 +5758,9 @@
             }).join('\n');
             
             // Extract base filename and add timestamp suffix
-            const fileExtension = originalCsvFile.name.split('.').pop().toLowerCase();
-            const baseName = originalCsvFile.name.replace(/\.(csv|xls|xlsx)$/i, '');
+            // Remove "Copy" (case-insensitive, with optional spaces/dashes) and replace spaces with underscores
+            let baseName = originalCsvFile.name.replace(/\.(csv|xls|xlsx)$/i, '');
+            baseName = baseName.replace(/\s*-\s*[Cc]opy\s*/gi, '').replace(/\s+/g, '_').trim();
             const csvFilename = `${baseName}_${timestamp}.csv`;
             
             // Download CSV file separately (NOT in ZIP)
@@ -5778,29 +5779,35 @@
           }
         }
         
-        // Handle CSV generation (still done client-side)
-        const csvStatusText = (originalCsvFile && originalCsvRows && originalCsvHeader) 
-          ? ` CSV updated and downloaded separately.`
-          : '';
-        setGalleryStatus(`Downloaded ${zipFilename} with ${result.image_count || 0} images.${csvStatusText}`);
-        
-        // Check if upload to Cloudinary is enabled
-        const uploadAfterDownload = document.getElementById('uploadAfterDownloadGallery');
-        if (uploadAfterDownload && uploadAfterDownload.checked) {
-          try {
-            logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
-            setGalleryStatus('Extracting zip and uploading to Cloudinary...');
-            // Convert base64 to blob for uploadFromZipContent
-            const zipBlob = await (await fetch(`data:application/zip;base64,${result.zip_content}`)).blob();
-            await uploadFromZipContent(zipBlob);
-          } catch (uploadError) {
-            logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
-            setGalleryStatus(`Upload failed: ${uploadError.message || 'Unknown error'}`);
+        // Handle status messages and Cloudinary upload (only for normal mode, not script generation)
+        if (!generateDownloadScript) {
+          // Handle CSV generation (still done client-side)
+          const csvStatusText = (originalCsvFile && originalCsvRows && originalCsvHeader) 
+            ? ` CSV updated and downloaded separately.`
+            : '';
+          setGalleryStatus(`Downloaded ${zipFilename} with ${result.image_count || 0} images.${csvStatusText}`);
+          
+          // Check if upload to Cloudinary is enabled
+          const uploadAfterDownload = document.getElementById('uploadAfterDownloadGallery');
+          if (uploadAfterDownload && uploadAfterDownload.checked) {
+            try {
+              logToConsole('Upload to Cloudinary after download enabled. Extracting zip and uploading images...', 'info');
+              setGalleryStatus('Extracting zip and uploading to Cloudinary...');
+              // Convert base64 to blob for uploadFromZipContent
+              const zipBlob = await (await fetch(`data:application/zip;base64,${result.zip_content}`)).blob();
+              await uploadFromZipContent(zipBlob);
+            } catch (uploadError) {
+              logToConsole(`Upload error: ${uploadError.message || 'Unknown error'}`, 'error');
+              setGalleryStatus(`Upload failed: ${uploadError.message || 'Unknown error'}`);
+            }
           }
+          
+          document.getElementById('dlStatus').textContent = `Downloaded ${zipFilename} with ${result.image_count || 0} images.`;
+          closeGalleryModal();
+        } else {
+          // Script generation mode: status already set, just close modal
+          closeGalleryModal();
         }
-        
-        document.getElementById('dlStatus').textContent = `Downloaded ${zipFilename} with ${result.image_count || 0} images.`;
-        closeGalleryModal();
       } catch (error) {
         logToConsole(`Error in finalizeGallerySelections: ${error.message || 'Unknown error'}`, 'error');
         setGalleryStatus(`Error: ${error.message || 'Unknown error'}`);
