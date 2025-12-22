@@ -1443,18 +1443,24 @@ def main():
     parser.add_argument('--csv', help='CSV file to read (default: find image_urls_*.csv in current directory)')
     args = parser.parse_args()
     
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not script_dir:
+        script_dir = os.getcwd()
+    
     # Find CSV file if not specified
     csv_file = args.csv
     if not csv_file:
-        # Look for CSV file in current directory
+        # Look for CSV file in the same directory as this script
         # First, try to find a CSV file that matches this script's name pattern
         script_name = os.path.basename(__file__)
         script_base = os.path.splitext(script_name)[0]  # Remove .py extension
         
         # Try to find CSV with matching base name (e.g., download_images_YYMMDD-HHMM.py -> download_images_YYMMDD-HHMM.csv)
         matching_csv = None
-        if os.path.exists(f"{script_base}.csv"):
-            matching_csv = f"{script_base}.csv"
+        matching_csv_path = os.path.join(script_dir, f"{script_base}.csv")
+        if os.path.exists(matching_csv_path):
+            matching_csv = matching_csv_path
         else:
             # Try pattern: if script is "download_images_YYMMDD-HHMM.py", look for "*_YYMMDD-HHMM.csv"
             # Extract timestamp pattern if present
@@ -1462,27 +1468,49 @@ def main():
             timestamp_match = re.search(r'(\d{6}-\d{4})', script_base)
             if timestamp_match:
                 timestamp = timestamp_match.group(1)
-                # Look for CSV files with same timestamp
-                csv_files = [f for f in os.listdir('.') if f.endswith(f'_{timestamp}.csv')]
-                if csv_files:
-                    matching_csv = csv_files[0]
-                    if len(csv_files) > 1:
-                        print(f"[WARNING] Multiple CSV files with timestamp {timestamp} found, using: {matching_csv}")
+                # Look for CSV files with same timestamp in script directory
+                try:
+                    csv_files = [f for f in os.listdir(script_dir) if f.endswith(f'_{timestamp}.csv')]
+                    if csv_files:
+                        matching_csv = os.path.join(script_dir, csv_files[0])
+                        if len(csv_files) > 1:
+                            print(f"[WARNING] Multiple CSV files with timestamp {timestamp} found, using: {csv_files[0]}")
+                except Exception as e:
+                    print(f"[WARNING] Could not list directory {script_dir}: {e}")
         
         if matching_csv:
             csv_file = matching_csv
             print(f"[INFO] Found matching CSV file: {csv_file}")
         else:
-            # Fallback: look for any CSV file starting with common patterns
-            csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
-            if not csv_files:
-                print("[ERROR] No CSV file found. Please specify with --csv or ensure a CSV file exists in current directory.")
-                print(f"[INFO] Script name: {script_name}, looking for CSV with matching pattern")
+            # Fallback: look for any CSV file in script directory
+            try:
+                csv_files = [f for f in os.listdir(script_dir) if f.endswith('.csv')]
+                if not csv_files:
+                    print("[ERROR] No CSV file found. Please specify with --csv or ensure a CSV file exists in the same directory as this script.")
+                    print(f"[INFO] Script location: {script_dir}")
+                    print(f"[INFO] Script name: {script_name}, looking for CSV with matching pattern")
+                    sys.exit(1)
+                csv_file = os.path.join(script_dir, csv_files[0])
+                if len(csv_files) > 1:
+                    print(f"[WARNING] Multiple CSV files found, using: {csv_files[0]}")
+                    print(f"[INFO] To use a specific file, run: python {script_name} --csv <filename>")
+            except Exception as e:
+                print(f"[ERROR] Could not list directory {script_dir}: {e}")
                 sys.exit(1)
-            csv_file = csv_files[0]
-            if len(csv_files) > 1:
-                print(f"[WARNING] Multiple CSV files found, using: {csv_file}")
-                print(f"[INFO] To use a specific file, run: python {script_name} --csv <filename>")
+    else:
+        # If CSV file specified, make it absolute if relative
+        if not os.path.isabs(csv_file):
+            # Try script directory first, then current directory
+            script_csv_path = os.path.join(script_dir, csv_file)
+            if os.path.exists(script_csv_path):
+                csv_file = script_csv_path
+            elif os.path.exists(csv_file):
+                csv_file = os.path.abspath(csv_file)
+            else:
+                print(f"[ERROR] CSV file not found: {csv_file}")
+                print(f"[INFO] Tried: {script_csv_path}")
+                print(f"[INFO] Tried: {os.path.abspath(csv_file)}")
+                sys.exit(1)
     
     if not os.path.exists(csv_file):
         print(f"[ERROR] CSV file not found: {csv_file}")
