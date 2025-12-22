@@ -1508,17 +1508,45 @@ def main():
             
             print(f"[INFO] Found {len(rows)} items to download")
             
+            # Debug: Print available column names
+            if rows:
+                print(f"[DEBUG] Available CSV columns: {', '.join(rows[0].keys())}")
+            
+            processed_count = 0
             for idx, row in enumerate(rows, 1):
-                item_id = row.get('ItemId', '').strip()
+                # Try multiple possible ItemId column names (case-insensitive)
+                item_id = None
+                for key in row.keys():
+                    if key.lower().replace('_', '').replace('-', '') in ['itemid', 'itemid', 'item']:
+                        item_id = row.get(key, '').strip()
+                        break
+                
+                # Fallback to first column if ItemId not found
+                if not item_id and row:
+                    item_id = list(row.values())[0] if row else ''
+                    item_id = str(item_id).strip() if item_id else ''
+                
                 if not item_id:
+                    print(f"[{idx}/{len(rows)}] Skipping row {idx}: No ItemId found")
                     continue
                 
+                processed_count += 1
                 print(f"[{idx}/{len(rows)}] Processing {item_id}...")
                 
                 # Download URL1 if available (check both Original and Preview columns)
-                url1_original = row.get('URL1_Original', '').strip()
-                url1_preview = row.get('URL1_Preview', '').strip()
-                url1_filename = row.get('URL1_FileName', '').strip()
+                # Try multiple possible column name variations
+                url1_original = ''
+                url1_preview = ''
+                url1_filename = ''
+                
+                for key in row.keys():
+                    key_lower = key.lower().replace('_', '').replace('-', '')
+                    if 'url1original' in key_lower or 'url1_original' in key_lower:
+                        url1_original = row.get(key, '').strip()
+                    elif 'url1preview' in key_lower or 'url1_preview' in key_lower:
+                        url1_preview = row.get(key, '').strip()
+                    elif 'url1filename' in key_lower or 'url1_filename' in key_lower:
+                        url1_filename = row.get(key, '').strip()
                 
                 # Use Original if available, otherwise skip (Preview will be used as fallback during download)
                 if url1_original and url1_filename:
@@ -1534,11 +1562,22 @@ def main():
                         downloaded_files.append(file_path)
                     else:
                         failed_items.append(f"{item_id} URL1")
+                elif url1_original or url1_preview:
+                    print(f"  [SKIP] URL1 found but missing filename for {item_id}")
                 
                 # Download URL2 if available
-                url2_original = row.get('URL2_Original', '').strip()
-                url2_preview = row.get('URL2_Preview', '').strip()
-                url2_filename = row.get('URL2_FileName', '').strip()
+                url2_original = ''
+                url2_preview = ''
+                url2_filename = ''
+                
+                for key in row.keys():
+                    key_lower = key.lower().replace('_', '').replace('-', '')
+                    if 'url2original' in key_lower or 'url2_original' in key_lower:
+                        url2_original = row.get(key, '').strip()
+                    elif 'url2preview' in key_lower or 'url2_preview' in key_lower:
+                        url2_preview = row.get(key, '').strip()
+                    elif 'url2filename' in key_lower or 'url2_filename' in key_lower:
+                        url2_filename = row.get(key, '').strip()
                 
                 # Use Original if available, otherwise skip (Preview will be used as fallback during download)
                 if url2_original and url2_filename:
@@ -1554,6 +1593,12 @@ def main():
                         downloaded_files.append(file_path)
                     else:
                         failed_items.append(f"{item_id} URL2")
+                elif url2_original or url2_preview:
+                    print(f"  [SKIP] URL2 found but missing filename for {item_id}")
+            
+            if processed_count == 0:
+                print("[WARNING] No items were processed. Check CSV column names.")
+                print("[INFO] Expected columns: ItemId (or ItemID), URL1_Original, URL1_Preview, URL1_FileName, URL2_Original, URL2_Preview, URL2_FileName")
         
         # Create ZIP file
         if downloaded_files:
